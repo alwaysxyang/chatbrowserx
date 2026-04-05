@@ -12,6 +12,7 @@ export function SettingsPanel(_props: SettingsPanelProps) {
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const hasUserInteractedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'model' | 'general'>('model');
+  const [saveToast, setSaveToast] = useState<string | null>(null);
 
   useEffect(() => {
     loadSettings().then((storedSettings) => {
@@ -34,10 +35,15 @@ export function SettingsPanel(_props: SettingsPanelProps) {
 
     setIsSaving(true);
     setFeedbackMessage(null);
+    setSaveToast(null);
 
     try {
+      // 先等待一小段时间，再真实保存，给用户一个“保存中”的感受
+      await new Promise((resolve) => setTimeout(resolve, 1000));
       await saveSettings(settings);
-      setFeedbackMessage('设置已保存。');
+
+      // 保存成功使用模态提示框，不再占用顶部 banner
+      setSaveToast('设置已保存。');
     } catch (error) {
       setFeedbackMessage(error instanceof Error ? error.message : '设置保存失败。');
     } finally {
@@ -50,6 +56,17 @@ export function SettingsPanel(_props: SettingsPanelProps) {
     setFeedbackMessage(null);
     setSettings(defaultSettings);
   };
+
+  // 保存成功提示 1.5s 后自动消失
+  useEffect(() => {
+    if (!saveToast) return;
+
+    const timer = window.setTimeout(() => {
+      setSaveToast(null);
+    }, 1500);
+
+    return () => window.clearTimeout(timer);
+  }, [saveToast]);
 
   return (
     <section className="settings-page">
@@ -70,6 +87,12 @@ export function SettingsPanel(_props: SettingsPanelProps) {
         </button>
       </nav>
 
+      {saveToast ? (
+        <div className="settings-toast" role="status" aria-live="polite">
+          {saveToast}
+        </div>
+      ) : null}
+
       {feedbackMessage ? <div className="info-banner">{feedbackMessage}</div> : null}
 
       {activeTab === 'model' ? (
@@ -86,7 +109,7 @@ export function SettingsPanel(_props: SettingsPanelProps) {
           type="button"
           onClick={handleSave}
         >
-          保存设置
+          {isSaving ? '保存中…' : '保存设置'}
         </button>
         <button
           className="secondary-button"

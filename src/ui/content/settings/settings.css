@@ -4,6 +4,7 @@
   height: 100%;
   flex: 1;
   gap: 16px;
+  position: relative;
 }
 
 .settings-tabs {
@@ -140,6 +141,23 @@
   margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.settings-toast {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #166534;
+  background: rgba(22, 163, 101, 0.16);
+  box-shadow: 0 8px 22px rgba(22, 163, 101, 0.35);
+  max-width: 260px;
+  text-align: center;
+  pointer-events: none;
 }
 
 .settings-footer .primary-button,

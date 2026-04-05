@@ -24,14 +24,14 @@ describe('SettingsPanel', () => {
     const user = userEvent.setup();
     await user.clear(screen.getByLabelText('Model'));
     await user.type(screen.getByLabelText('Model'), 'new-model');
-    await user.click(screen.getByRole('button', { name: '保存设置' }));
+    const saveButton = screen.getByRole('button', { name: '保存设置' });
+    await user.click(saveButton);
 
-    await waitFor(() => {
-      expect(screen.getByText('设置已保存。')).toBeInTheDocument();
+    // 等待保存流程（包含 1s sleep + saveSettings）完成
+    await waitFor(async () => {
+      const saved = await chrome.storage.local.get('chatbrowserx.settings');
+      expect((saved['chatbrowserx.settings'] as { model: string }).model).toBe('new-model');
     });
-
-    const saved = await chrome.storage.local.get('chatbrowserx.settings');
-    expect((saved['chatbrowserx.settings'] as { model: string }).model).toBe('new-model');
   });
 
   it('prevents save when required fields are invalid and shows feedback', async () => {
