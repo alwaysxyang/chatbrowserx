@@ -1,0 +1,95 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { useChatController } from '../../../../src/ui/content/chat/use-chat-controller';
+
+describe('useChatController', () => {
+  it('sends only previous history to background and appends the reply', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+
+    sendMessageMock.mockResolvedValue({
+      ok: true,
+      data: { reply: 'assistant reply' },
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await act(async () => {
+      await result.current.sendMessage('hello');
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      type: 'chatbrowserx.chat.request',
+      payload: {
+        input: 'hello',
+        history: [],
+      },
+    });
+
+    await waitFor(() => {
+      expect(result.current.messages.map((message) => message.content)).toEqual(['hello', 'assistant reply']);
+    });
+  });
+
+  it('hydrates stored history without overwriting it on mount', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [
+        { id: 'm1', role: 'assistant', content: 'stored reply' },
+      ],
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    const persisted = await chrome.storage.local.get('chatbrowserx.history.example.com');
+    expect(persisted['chatbrowserx.history.example.com']).toEqual([
+      { id: 'm1', role: 'assistant', content: 'stored reply' },
+    ]);
+  });
+
+  it('clears chat history from state and storage', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [
+        { id: 'm1', role: 'assistant', content: 'stored reply' },
+      ],
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.clearHistory();
+    });
+
+    expect(result.current.messages).toEqual([]);
+
+    const persisted = await chrome.storage.local.get('chatbrowserx.history.example.com');
+    expect(persisted['chatbrowserx.history.example.com']).toBeUndefined();
+  });
+
+  it('appends a new assistant error message for each failed send', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockRejectedValue(new Error('请先在设置中填写 API Base URL、API Key 和 Model。'));
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await act(async () => {
+      await expect(result.current.sendMessage('first')).rejects.toThrow();
+    });
+
+    await act(async () => {
+      await expect(result.current.sendMessage('second')).rejects.toThrow();
+    });
+
+    const assistantErrors = result.current.messages.filter(
+      (message) => message.role === 'assistant' && message.content.includes('请先在设置中填写'),
+    );
+
+    expect(assistantErrors).toHaveLength(2);
+  });
+});

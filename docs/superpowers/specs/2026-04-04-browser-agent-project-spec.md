@@ -1,0 +1,315 @@
+# ChatBrowserX 浏览器增强 Agent 项目规范
+
+## 1. 背景
+
+ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
+
+项目长期目标不是单纯提供一个聊天框，而是围绕“理解页面、与页面交互、逐步接入工具能力”构建可持续演进的浏览器 Agent。
+
+当前阶段并不追求一次性实现完整能力，而是先建立一个**维护性优先**的最小可用骨架，从基础聊天能力起步，再逐步扩展成完整的浏览器增强 Agent。
+
+当前需要重点避免的问题：
+
+- UI、Background、LLM 调用、工具逻辑混在一起。
+- 单文件职责失控，后续继续演进会越来越难维护。
+- 目录边界不稳定，导致人类开发者与其他 AI 工具都很难快速判断代码应该放在哪里。
+- 过早接入复杂能力，会让结构再次回到“大文件 + 混合职责”的状态。
+
+## 2. 项目目标
+
+当前阶段的核心目标按优先级排序如下：
+
+1. **维护性优先**：结构清晰、职责单一、边界稳定。
+2. **最小可用**：先落地基础聊天能力与最小设置能力。
+3. **可扩展**：后续可以逐步扩展 `providers`、`tools` 与更多浏览器增强能力。
+4. **易协作**：让后续 AI 工具与新开发者能快速理解目录和命名规则。
+5. **渐进演进**：未来增加能力时，不破坏已建立的结构边界。
+
+## 3. 本轮范围
+
+### 3.1 保留范围
+
+- 网页内侧边栏聊天 UI。
+- 最小聊天设置：`API Base URL`、`API Key`、`Model`、`System Prompt`、`Max History`。
+- `ui` 与 `background` 之间的消息通信。
+- `llm/providers` 的抽象与接入边界。
+- `llm/tools` 的接口与注册边界，但**暂不实现任何具体工具能力**。
+
+### 3.2 当前阶段不做
+
+以下能力不属于当前阶段的首批实现：
+
+- 语音识别 / 同声传译。
+- 图片分析 / 截图分析。
+- PDF / 滚动捕获。
+- 网络录制 / 页面流量分析。
+- 任何具体工具实现。
+
+## 4. 目标目录结构
+
+本项目采用“运行边界 + 能力边界”优先的目录拆分方式：
+
+```text
+src/
+  ui/
+    content/
+      chat/
+      settings/
+    popup/
+  background/
+    chat/
+    messaging/
+    index.ts
+  llm/
+    model/
+    providers/
+    services/
+    tools/
+  shared/
+    browser/
+    storage/
+    types/
+    utils/
+```
+
+## 5. 目录职责说明
+
+### 5.1 `src/ui`
+
+`ui` 是展示层，只负责用户可见界面与交互壳，不负责 LLM 编排与后台长流程。
+
+#### `src/ui/content`
+
+- 内容脚本场景下的 UI 入口。
+- 负责创建 Shadow Root、挂载 React 应用、组织聊天与设置界面。
+- 不直接实现 provider 请求逻辑。
+- 不直接承担流式解析、tool loop、Chrome 后台任务。
+
+#### `src/ui/content/chat`
+
+- 负责网页内聊天界面。
+- 包含聊天面板、消息列表、输入框、加载态、错误态、侧边栏壳等 UI 组件。
+- 只维护展示态与轻量交互状态。
+
+#### `src/ui/content/settings`
+
+- 负责网页内设置面板。
+- 包含配置表单、基础校验、保存交互反馈。
+- 不直接触达 provider 实现。
+
+#### `src/ui/popup`
+
+- 负责浏览器插件 popup 页面。
+- 允许放置轻量状态展示或快捷入口。
+- 不承载后台编排逻辑。
+
+### 5.2 `src/background`
+
+`background` 是插件后台任务层，负责 Chrome 生命周期、消息分发、会话协调与长流程任务调度。
+
+#### `src/background/index.ts`
+
+- Background 入口。
+- 只做初始化、监听注册与模块装配。
+
+#### `src/background/chat`
+
+- 聊天后台任务协调。
+- 负责 UI 请求到 LLM service 的衔接。
+- 不直接写 provider 细节。
+
+#### `src/background/messaging`
+
+- UI 与 Background 之间的消息协议与消息桥接。
+- 放消息类型、路由器、协议转换。
+
+### 5.3 `src/llm`
+
+`llm` 是模型能力层，负责抽象模型调用、流式处理、tool 接口协议。
+
+#### `src/llm/model`
+
+- 放 LLM 领域类型，例如消息、tool call、stream chunk、request payload、response shape。
+
+#### `src/llm/providers`
+
+- 放不同 provider 的实现。
+- 命名统一为 `*-provider.ts`。
+- provider 只关心请求与响应，不关心 Chrome API 与 UI。
+
+#### `src/llm/services`
+
+- 放 LLM 相关服务，如 chat completion、stream parser、tool loop 编排。
+- 是 provider 与 background 之间的能力层。
+
+#### `src/llm/tools`
+
+- 放工具接口定义、注册表、协议层。
+- 本轮仅保留接口与注册机制，不实现具体工具。
+
+### 5.4 `src/shared`
+
+`shared` 是跨层可复用基础设施，只放与某个具体业务无强绑定的模块。
+
+#### `src/shared/browser`
+
+- 浏览器 API 的轻量封装。
+- 优先把通用 Chrome 调用收口到这里。
+
+#### `src/shared/storage`
+
+- 配置、聊天历史等持久化访问层。
+
+#### `src/shared/types`
+
+- 跨模块共享类型。
+
+#### `src/shared/utils`
+
+- 与领域无关的小工具函数。
+
+## 6. 依赖边界规则
+
+必须遵守以下依赖方向：
+
+- `ui` 可以依赖 `shared`。
+- `background` 可以依赖 `llm` 与 `shared`。
+- `llm` 只能依赖 `shared`。
+- `shared` 不能依赖 `ui`、`background`、`llm`。
+
+禁止的依赖示例：
+
+- `ui` 直接 import provider 实现。
+- `llm` 直接调用 Chrome API。
+- `background` 中直接书写 JSX 组件。
+- `shared` 中放业务特定的聊天逻辑。
+
+## 7. 命名规范
+
+### 7.1 目录名
+
+- 一律使用 `kebab-case`。
+- 目录名优先表达职责或边界，而非技术噪音。
+
+示例：
+
+- `content`
+- `chat`
+- `settings`
+- `messaging`
+- `providers`
+
+### 7.2 文件名
+
+- React 组件文件：`PascalCase.tsx`
+- 非组件文件：`kebab-case.ts`
+
+示例：
+
+- `ChatPanel.tsx`
+- `SettingsPanel.tsx`
+- `session-orchestrator.ts`
+- `chat-completion.ts`
+- `ark-provider.ts`
+
+### 7.3 标识符命名
+
+- React 组件：`PascalCase`
+- Hook：`useXxx`
+- 普通函数：`camelCase`
+- Type / Interface / Enum：`PascalCase`
+- 模块内普通常量：`camelCase`
+- 跨模块共享常量：`SCREAMING_SNAKE_CASE`
+
+### 7.4 职责型后缀
+
+为增强可读性，职责明确的模块应带后缀：
+
+- provider：`*-provider.ts`
+- orchestrator：`*-orchestrator.ts`
+- repository：`*-repository.ts`
+- registry：`*-registry.ts`
+- parser：`*-parser.ts`
+- bridge / bus：`*-bridge.ts` / `*-bus.ts`
+
+### 7.5 `index.ts` 规则
+
+- `index.ts` 只做导出聚合或入口装配。
+- 不在 `index.ts` 中编写主要业务逻辑。
+
+## 8. 代码组织原则
+
+### 8.1 单文件单职责
+
+- 一个文件只负责一类事情。
+- 超过单一职责边界时应优先拆分，而不是继续追加分支逻辑。
+
+### 8.2 先边界、后复用
+
+- 不要为了“看起来复用”把不同层的逻辑提前揉在一起。
+- 只有在职责一致时才抽共享模块。
+
+### 8.3 UI 不承担后台与模型细节
+
+- UI 组件不直接写 provider 请求。
+- UI 组件不直接承担 tool loop。
+- UI 组件不直接依赖后台实现细节。
+
+### 8.4 LLM 模块独立性
+
+- `llm` 是模型能力层，不应感知 Chrome 生命周期。
+- 若需要运行环境能力，必须由 `background` 或 `shared/browser` 注入。
+
+### 8.5 维护性优先于短期便利
+
+- 若一个实现“更快写完”但会破坏结构边界，应拒绝该实现。
+- 新功能进入代码库时，必须先判断归属目录，再写实现。
+
+## 9. 重构落地原则
+
+### 9.1 第一阶段策略
+
+- 先落地最小可用聊天能力，作为浏览器增强 Agent 的起点。
+- 先删调用链，再删实现，再删配置字段。
+- 对 `tools` 只保留接口和注册边界。
+
+### 9.2 恢复功能的顺序
+
+后续扩展能力时，推荐顺序：
+
+1. provider 扩展。
+2. tool 协议完善。
+3. 单个工具能力恢复。
+4. 更复杂的浏览器增强 UI 能力。
+
+### 9.3 不允许的演进方式
+
+- 为了快速接入新能力，把逻辑塞回 `background/index.ts`。
+- 为了快速展示结果，把请求逻辑写回 React 组件。
+- 在 `shared` 放入“暂时先放这里”的业务代码。
+
+## 10. AI 协作说明
+
+本规范不仅服务于人类开发者，也服务于后续参与本项目的其他 AI 工具。
+
+因此，所有后续变更应遵守以下约定：
+
+- 先读取本 spec，再开始结构性修改。
+- 若任务涉及目录调整、边界变化、命名规则变化，应先更新 spec，再执行代码修改。
+- 若实现与 spec 冲突，以“维护性优先、边界稳定优先”为默认决策原则。
+- 若某项需求会明显破坏边界，应拆成更小的子任务，而不是直接绕过规范。
+
+## 11. 本 spec 的角色
+
+此文件是当前阶段的结构性约束文档，不是产品 PRD，也不是实施 checklist。
+
+它负责回答以下问题：
+
+- 项目的长期定位是什么。
+- 当前阶段的目标是什么。
+- 每个一级目录负责什么。
+- 新代码应该放到哪里。
+- 命名应该怎么统一。
+- 后续 AI 与开发者应如何继续协作。
+
+若未来项目目标发生显著变化，应基于新目标更新此 spec，而不是默默偏离。
