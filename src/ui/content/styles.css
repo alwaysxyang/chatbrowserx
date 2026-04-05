@@ -477,6 +477,53 @@
   background: transparent;
 }
 
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.chat-suggestion-pill {
+  border: 1px solid rgba(209, 213, 219, 0.9);
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  background: #ffffff;
+  color: #111827;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+}
+
+.chat-suggestion-pill:hover {
+  border-color: rgba(37, 99, 235, 0.6);
+  background: rgba(239, 246, 255, 0.98);
+  color: #1d4ed8;
+}
+
+.chat-empty-state {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 4px;
+  flex: 1;
+  justify-content: center;
+}
+
+.chat-empty-title {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.chat-empty-subtitle {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+  color: #6b7280;
+  font-weight: 600;
+}
+
 .chat-input:focus,
 .chat-input:focus-visible {
   outline: none;

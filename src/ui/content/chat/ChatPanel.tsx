@@ -21,25 +21,48 @@ interface ChatPanelProps {
 
 export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, onClearHistory }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
-  const displayMessages = messages.length ? messages : [welcomeMessage];
+  const hasHistory = messages.length > 0;
 
-  const handleSubmit = async () => {
-    if (!draft.trim() || isSending) {
+  const submitMessage = async (input: string) => {
+    const trimmed = input.trim();
+    if (!trimmed || isSending) {
       return;
     }
 
-    const currentDraft = draft.trim();
-
     try {
       setDraft('');
-      await onSendMessage(currentDraft);
+      await onSendMessage(trimmed);
     } catch {}
+  };
+
+  const handleSubmit = async () => {
+    await submitMessage(draft);
   };
 
   return (
     <section className="chat-page">
       <div className="chat-surface">
-        <MessageList errorMessage={errorMessage} isSending={isSending} messages={displayMessages} />
+        {hasHistory || isSending ? (
+          <MessageList errorMessage={errorMessage} isSending={isSending} messages={hasHistory ? messages : []} />
+        ) : (
+          <div className="chat-empty-state">
+            <div className="chat-empty-title">你好！我是你的 AI 助手。</div>
+            <p className="chat-empty-subtitle">
+              我可以帮你总结网页内容、解答问题、优化文本等。有什么可以帮助你的吗？
+            </p>
+            <div className="chat-suggestions">
+              <button
+                className="chat-suggestion-pill"
+                type="button"
+                onClick={() => {
+                  void submitMessage('请帮我分析当前网页内容');
+                }}
+              >
+                网站内容分析
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="composer-shell">
