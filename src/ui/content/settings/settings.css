@@ -51,6 +51,10 @@
   padding-bottom: 10px;
   border-bottom: 1px dashed rgba(209, 213, 219, 0.7);
 }
+
+.settings-select {
+  position: relative;
+}
 .settings-input-with-icon {
   position: relative;
 }
@@ -169,6 +173,7 @@
 }
 
 .settings-form input,
+.settings-form select,
 .settings-form textarea {
   width: 100%;
   border: 1px solid rgba(215, 219, 229, 0.92);
@@ -178,6 +183,27 @@
   box-sizing: border-box;
   background: rgba(255, 255, 255, 0.82);
   resize: none;
+}
+
+.settings-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 40px;
+}
+
+.settings-select::after {
+  content: '';
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid #9ca3af;
+  pointer-events: none;
 }
 
 .info-banner {

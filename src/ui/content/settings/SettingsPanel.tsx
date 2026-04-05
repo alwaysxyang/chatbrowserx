@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultSettings, loadSettings, saveSettings } from '../../../shared/storage/settings-repository';
-import type { ChatSettings } from '../../../shared/types/settings';
+import type { ModelSettings, Settings } from '../../../shared/types/settings';
 import { ChatSettingsForm } from './ChatSettingsForm';
+import { GeneralSettingsForm } from './GeneralSettingsForm';
 
 interface SettingsPanelProps {
 }
 
 export function SettingsPanel(_props: SettingsPanelProps) {
-  const [settings, setSettings] = useState<ChatSettings>(defaultSettings);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
-  const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const hasUserInteractedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'model' | 'general'>('model');
   const [saveToast, setSaveToast] = useState<string | null>(null);
@@ -21,20 +21,8 @@ export function SettingsPanel(_props: SettingsPanelProps) {
       }
     });
   }, []);
-
-  const handleSettingsChange = (nextSettings: ChatSettings) => {
-    hasUserInteractedRef.current = true;
-    setSettings(nextSettings);
-  };
-
   const handleSave = async () => {
-    if (!settings.baseUrl.trim() || !settings.model.trim()) {
-      setFeedbackMessage('请先填写 API Base URL 与 Model。');
-      return;
-    }
-
     setIsSaving(true);
-    setFeedbackMessage(null);
     setSaveToast(null);
 
     try {
@@ -42,10 +30,10 @@ export function SettingsPanel(_props: SettingsPanelProps) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await saveSettings(settings);
 
-      // 保存成功使用模态提示框，不再占用顶部 banner
       setSaveToast('设置已保存。');
     } catch (error) {
-      setFeedbackMessage(error instanceof Error ? error.message : '设置保存失败。');
+      const message = error instanceof Error ? error.message : '设置保存失败。';
+      setSaveToast(message);
     } finally {
       setIsSaving(false);
     }
@@ -53,7 +41,6 @@ export function SettingsPanel(_props: SettingsPanelProps) {
 
   const handleResetToDefault = () => {
     hasUserInteractedRef.current = true;
-    setFeedbackMessage(null);
     setSettings(defaultSettings);
   };
 
@@ -93,12 +80,24 @@ export function SettingsPanel(_props: SettingsPanelProps) {
         </div>
       ) : null}
 
-      {feedbackMessage ? <div className="info-banner">{feedbackMessage}</div> : null}
-
       {activeTab === 'model' ? (
-        <ChatSettingsForm disabled={isSaving} value={settings} onChange={handleSettingsChange} />
+        <ChatSettingsForm
+          disabled={isSaving}
+          value={settings.model}
+          onChange={(nextModelSettings: ModelSettings) => {
+            hasUserInteractedRef.current = true;
+            setSettings((prev) => ({ ...prev, model: nextModelSettings }));
+          }}
+        />
       ) : (
-        <div className="settings-general-placeholder">通用设置开发中</div>
+        <GeneralSettingsForm
+          disabled={isSaving}
+          value={settings.general}
+          onChange={(nextGeneralSettings) => {
+            hasUserInteractedRef.current = true;
+            setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
+          }}
+        />
       )}
 
       <footer className="settings-footer">

@@ -4,7 +4,7 @@ import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types
 
 export async function handleChatRequest(payload: ChatRequestPayload): Promise<ChatResponsePayload> {
   const settings = await loadSettings();
-  const reply = await completeChat(settings, payload.history, payload.input);
+  const reply = await completeChat(settings.model, payload.history, payload.input);
 
   return { reply };
 }

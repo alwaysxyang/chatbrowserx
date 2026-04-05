@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import type { ChatProviderId, ChatSettings } from '../../../shared/types/settings';
+import type { ChatProviderId, ModelSettings } from '../../../shared/types/settings';
 
 interface ChatSettingsFormProps {
-  value: ChatSettings;
+  value: ModelSettings;
   disabled: boolean;
-  onChange: (nextValue: ChatSettings) => void;
+  onChange: (nextValue: ModelSettings) => void;
 }
 
 export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsFormProps) {
   const [showApiKey, setShowApiKey] = useState(false);
-  const updateField = <K extends keyof ChatSettings>(field: K, nextValue: ChatSettings[K]) => {
+  const updateField = <K extends keyof ModelSettings>(field: K, nextValue: ModelSettings[K]) => {
     onChange({
       ...value,
       [field]: nextValue,

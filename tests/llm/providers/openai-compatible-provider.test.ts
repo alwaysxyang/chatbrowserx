@@ -13,7 +13,7 @@ describe('OpenAiCompatibleProvider', () => {
     );
 
     const provider = new OpenAiCompatibleProvider({
-      ...defaultSettings,
+      ...defaultSettings.model,
       apiKey: 'k',
       model: 'm',
     });

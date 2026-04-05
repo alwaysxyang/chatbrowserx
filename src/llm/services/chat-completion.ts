@@ -1,9 +1,9 @@
 import type { ChatMessage } from '../../shared/types/chat';
-import type { ChatSettings } from '../../shared/types/settings';
+import type { ModelSettings } from '../../shared/types/settings';
 import type { ChatCompletionInput, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai-compatible-provider';
 
-function toLlmMessages(settings: ChatSettings, history: ChatMessage[], input: string): LlmChatMessage[] {
+function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: string): LlmChatMessage[] {
   const trimmedHistory = history.slice(-settings.maxHistory);
   const messages: LlmChatMessage[] = [];
 
@@ -20,7 +20,7 @@ function toLlmMessages(settings: ChatSettings, history: ChatMessage[], input: st
   return messages;
 }
 
-export async function completeChat(settings: ChatSettings, history: ChatMessage[], input: string): Promise<string> {
+export async function completeChat(settings: ModelSettings, history: ChatMessage[], input: string): Promise<string> {
   const provider = new OpenAiCompatibleProvider(settings);
   const request: ChatCompletionInput = {
     model: settings.model,

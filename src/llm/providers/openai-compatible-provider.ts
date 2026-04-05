@@ -1,6 +1,6 @@
 import type { ChatCompletionInput } from '../model/chat';
 import { getToolDefinitions } from '../tools/tool-registry';
-import type { ChatSettings } from '../../shared/types/settings';
+import type { ModelSettings } from '../../shared/types/settings';
 
 interface OpenAiCompatibleResponse {
   choices?: Array<{
@@ -14,7 +14,7 @@ interface OpenAiCompatibleResponse {
 }
 
 export class OpenAiCompatibleProvider {
-  constructor(private readonly settings: ChatSettings) {}
+  constructor(private readonly settings: ModelSettings) {}
 
   async completeChat(input: ChatCompletionInput): Promise<string> {
     if (!this.settings.baseUrl || !this.settings.model || !this.settings.apiKey) {
