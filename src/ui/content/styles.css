@@ -107,19 +107,46 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(244, 244, 245, 0.9);
+  border: 1px solid rgba(212, 216, 223, 0.9);
 }
 
 .icon-button {
   border: none;
-  background: rgba(255, 255, 255, 0.72);
-  width: 24px;
-  height: 24px;
+  background: transparent;
+  width: 28px;
+  height: 28px;
   padding: 0;
-  font-size: 16px;
+  font-size: 18px;
   line-height: 1;
   color: #4b5563;
   cursor: pointer;
   border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+
+.icon-button:hover {
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.header-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  background: rgba(212, 216, 223, 0.95);
+}
+
+.icon-button-active {
+  color: #2563eb;
+}
+
+.pin-icon-rotated {
+  transform: rotate(-45deg);
 }
 
 .shell-main {

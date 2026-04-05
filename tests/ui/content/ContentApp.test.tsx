@@ -4,7 +4,39 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ContentApp } from '../../../src/ui/content/ContentApp';
 
+const panelStateKey = `chatbrowserx.panel.${window.location.hostname || 'default'}`;
+
 describe('ContentApp', () => {
+  it('opens by default only when current site was pinned and open', async () => {
+    await chrome.storage.local.set({
+      [panelStateKey]: {
+        pinned: true,
+        open: true,
+      },
+    });
+
+    render(<ContentApp />);
+
+    await waitFor(() => {
+      expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: '取消固定面板' })).toBeInTheDocument();
+  });
+
+  it('does not auto open after refresh when pinned but previously closed', async () => {
+    await chrome.storage.local.set({
+      [panelStateKey]: {
+        pinned: true,
+        open: false,
+      },
+    });
+
+    render(<ContentApp />);
+
+    expect(screen.queryByText('ChatBrowserX')).not.toBeInTheDocument();
+  });
+
   it('opens and closes the dialog from background panel commands', async () => {
     render(<ContentApp />);
 
@@ -78,5 +110,78 @@ describe('ContentApp', () => {
     });
 
     expect(screen.getByTestId('sidebar-shell')).toHaveStyle({ width: '460px' });
+  });
+
+  it('closes when clicking outside while unpinned', async () => {
+    render(<ContentApp />);
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.panel.command',
+        payload: { command: 'toggle-chat' },
+      });
+    });
+
+    expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
+
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(screen.queryByText('ChatBrowserX')).not.toBeInTheDocument();
+  });
+
+  it('stays open when pinned and clicking outside', async () => {
+    render(<ContentApp />);
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.panel.command',
+        payload: { command: 'toggle-chat' },
+      });
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '固定面板' }));
+
+    expect(screen.getByRole('button', { name: '取消固定面板' })).toBeInTheDocument();
+
+    const persisted = await chrome.storage.local.get(panelStateKey);
+    expect(persisted[panelStateKey]).toEqual({ pinned: true, open: true });
+
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+
+    expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
+  });
+
+  it('keeps pinned state after closing and reopening', async () => {
+    render(<ContentApp />);
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.panel.command',
+        payload: { command: 'toggle-chat' },
+      });
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '固定面板' }));
+    await user.click(screen.getByRole('button', { name: '关闭对话框' }));
+
+    expect(screen.queryByText('ChatBrowserX')).not.toBeInTheDocument();
+
+    const persistedClosed = await chrome.storage.local.get(panelStateKey);
+    expect(persistedClosed[panelStateKey]).toEqual({ pinned: true, open: false });
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.panel.command',
+        payload: { command: 'toggle-chat' },
+      });
+    });
+
+    expect(screen.getByRole('button', { name: '取消固定面板' })).toBeInTheDocument();
   });
 });
