@@ -32,9 +32,16 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await saveSettings(settings);
 
-      setSaveToast('设置已保存。');
+      // Toast 使用本次保存后的语言设置，避免总是滞后一轮
+      const toastLanguage = settings.general.uiLanguage;
+      setSaveToast(translateMessage('settings.toast.saved', toastLanguage));
+
+      // 仅在保存成功后，才将语言变更同步给上层（ContentApp），从而更新全局 UI 语言
+      onUiLanguageChange?.(settings.general.uiLanguage);
     } catch (error) {
-      const message = error instanceof Error ? error.message : '设置保存失败。';
+      const toastLanguage = settings.general.uiLanguage;
+      const fallback = translateMessage('settings.toast.saveFailed', toastLanguage);
+      const message = error instanceof Error ? error.message || fallback : fallback;
       setSaveToast(message);
     } finally {
       setIsSaving(false);
@@ -64,7 +71,7 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
 
         return (
           <>
-            <nav aria-label="设置分类" className="settings-tabs">
+            <nav aria-label={label('settings.tabs.navLabel')} className="settings-tabs">
               <button
                 className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
                 type="button"
@@ -103,7 +110,6 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
                 onChange={(nextGeneralSettings) => {
                   hasUserInteractedRef.current = true;
                   setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
-                  onUiLanguageChange?.(nextGeneralSettings.uiLanguage);
                 }}
               />
             )}

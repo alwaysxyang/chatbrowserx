@@ -23,11 +23,11 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
   return (
     <div className="settings-form">
       <span className="settings-provider-title">{label('settings.fields.provider')}</span>
-      <div className="settings-provider-switch" aria-label="模型 Provider">
+      <div className="settings-provider-switch" aria-label={label('settings.provider.switchLabel')}>
         <button
           type="button"
           className={`settings-provider-button ${value.provider === 'openai' ? 'settings-provider-button-active' : ''}`}
-          data-tooltip="使用 OpenAI 兼容接口"
+          data-tooltip={label('settings.provider.openaiTooltip')}
           onClick={() => updateField('provider', 'openai' satisfies ChatProviderId)}
         >
           OpenAI
@@ -35,7 +35,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <button
           type="button"
           className="settings-provider-button"
-          data-tooltip="Codex（开发中）"
+          data-tooltip={label('settings.provider.codexTooltip')}
           disabled
         >
           Codex
@@ -63,7 +63,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           <button
             type="button"
             className="settings-input-icon-button"
-            aria-label={showApiKey ? '隐藏 API Key' : '显示 API Key'}
+            aria-label={showApiKey ? label('settings.apiKey.hide') : label('settings.apiKey.show')}
             onClick={() => setShowApiKey((current) => !current)}
             disabled={disabled}
           >

@@ -5,6 +5,7 @@ import {
   chatRequestType,
   type ChatRuntimeResponse,
 } from '../../../shared/types/runtime-messages';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 const createMessage = (
   role: ChatMessage['role'],
@@ -71,14 +72,24 @@ export function useChatController(hostname: string) {
           })) as ChatRuntimeResponse;
 
           if (!response?.ok) {
-            throw new Error(response?.error || '发送失败');
+            throw new Error(response?.error || translateMessage('error.message.sendFailed'));
           }
 
           const reply = response.data.reply;
           setMessages((currentMessages) => [...currentMessages, createMessage('assistant', reply)]);
           return reply;
         } catch (error) {
-          const message = error instanceof Error ? error.message : '发送失败';
+          const fallbackSend = translateMessage('error.message.sendFailed');
+          const misconfigured = translateMessage('error.model.misconfigured');
+
+          let message: string;
+          if (error instanceof Error && error.message === 'MODEL_MISCONFIGURED') {
+            // 模型配置缺失：使用当前 UI 语言下的「请先在设置中填写…」文案
+            message = misconfigured;
+          } else {
+            message = error instanceof Error ? error.message || fallbackSend : fallbackSend;
+          }
+
           setMessages((currentMessages) => [...currentMessages, createMessage('assistant', message, 'error')]);
           setErrorMessage(null);
           throw error;

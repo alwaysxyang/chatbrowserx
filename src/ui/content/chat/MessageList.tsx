@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Bot, CircleAlert, LoaderCircle, UserRound } from 'lucide-react';
 import type { ChatMessage } from '../../../shared/types/chat';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -64,7 +65,7 @@ export function MessageList({ messages, errorMessage, isSending }: MessageListPr
             <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={2.2} />
           </div>
           <div className="message-stack message-stack-assistant">
-            <div className="message-card message-card-assistant">正在生成回复...</div>
+            <div className="message-card message-card-assistant">{translateMessage('chat.loading')}</div>
           </div>
         </div>
       ) : null}

@@ -40,12 +40,16 @@ type MessageKey =
   | 'settings.fields.systemPrompt'
   | 'settings.fields.maxHistory'
   | 'settings.fields.language'
+  | 'settings.tabs.navLabel'
   | 'settings.language.system'
   | 'settings.language.zh'
   | 'settings.language.en'
   | 'settings.language.ja'
   | 'shell.rail.chat'
   | 'shell.rail.settings'
+  | 'shell.header.pin'
+  | 'shell.header.unpin'
+  | 'shell.header.close'
   | 'chat.empty.title'
   | 'chat.empty.subtitle'
   | 'chat.suggestion.analyze'
@@ -60,7 +64,18 @@ type MessageKey =
   | 'chat.toolbar.sendLabel'
   | 'chat.toolbar.sendTooltipDisabled'
   | 'chat.toolbar.sendTooltipEnabled'
-  | 'chat.composer.placeholder';
+  | 'chat.composer.placeholder'
+  | 'chat.loading'
+  | 'settings.provider.switchLabel'
+  | 'settings.provider.openaiTooltip'
+  | 'settings.provider.codexTooltip'
+  | 'settings.apiKey.show'
+  | 'settings.apiKey.hide'
+  | 'error.model.misconfigured'
+  | 'error.request.failed'
+  | 'error.response.empty'
+  | 'error.message.sendFailed'
+  | 'popup.description';
 
 const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.tabs.model': {
@@ -128,6 +143,11 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     en: 'Max History',
     ja: '履歴上限',
   },
+  'settings.tabs.navLabel': {
+    zh: '设置分类',
+    en: 'Settings sections',
+    ja: '設定のカテゴリ',
+  },
   'settings.fields.language': {
     zh: '语言',
     en: 'Language',
@@ -183,6 +203,81 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   'chat.toolbar.sendTooltipEnabled': { zh: '发送消息', en: 'Send message', ja: 'メッセージを送信' },
   // Composer
   'chat.composer.placeholder': { zh: '问任何问题，@ 模型，/ 提示', en: 'Ask anything, @ model, / prompt', ja: '何でも質問、@ モデル、/ プロンプト' },
+  // Shell header
+  'shell.header.pin': {
+    zh: '固定面板',
+    en: 'Pin panel',
+    ja: 'パネルを固定',
+  },
+  'shell.header.unpin': {
+    zh: '取消固定面板',
+    en: 'Unpin panel',
+    ja: '固定を解除',
+  },
+  'shell.header.close': {
+    zh: '关闭对话框',
+    en: 'Close dialog',
+    ja: 'ダイアログを閉じる',
+  },
+  // Chat loading
+  'chat.loading': {
+    zh: '正在生成回复...',
+    en: 'Generating reply…',
+    ja: '返信を生成しています…',
+  },
+  // Settings provider switch
+  'settings.provider.switchLabel': {
+    zh: '模型 Provider',
+    en: 'Model provider',
+    ja: 'モデルプロバイダ',
+  },
+  'settings.provider.openaiTooltip': {
+    zh: '使用 OpenAI 兼容接口',
+    en: 'Use OpenAI-compatible API',
+    ja: 'OpenAI 互換 API を使用',
+  },
+  'settings.provider.codexTooltip': {
+    zh: 'Codex（开发中）',
+    en: 'Codex (in development)',
+    ja: 'Codex（開発中）',
+  },
+  'settings.apiKey.show': {
+    zh: '显示 API Key',
+    en: 'Show API Key',
+    ja: 'API Key を表示',
+  },
+  'settings.apiKey.hide': {
+    zh: '隐藏 API Key',
+    en: 'Hide API Key',
+    ja: 'API Key を隠す',
+  },
+  // Error messages
+  'error.model.misconfigured': {
+    zh: '请先在设置中填写 API Base URL、API Key 和 Model。',
+    en: 'Please fill API Base URL, API Key and Model in settings first.',
+    ja: 'まず設定で API Base URL・API Key・Model を入力してください。',
+  },
+  'error.request.failed': {
+    zh: '请求失败',
+    en: 'Request failed',
+    ja: 'リクエストに失敗しました',
+  },
+  'error.response.empty': {
+    zh: '模型返回了空响应。',
+    en: 'The model returned an empty response.',
+    ja: 'モデルから空のレスポンスが返されました。',
+  },
+  'error.message.sendFailed': {
+    zh: '发送失败',
+    en: 'Send failed',
+    ja: '送信に失敗しました',
+  },
+  // Popup description
+  'popup.description': {
+    zh: 'ChatBrowserX 当前以基础聊天能力为起点。打开任意网页后，点击页面右下角按钮即可打开侧边栏。',
+    en: 'ChatBrowserX currently focuses on basic chat capabilities. Open any page and click the bottom-right button to open the sidebar.',
+    ja: 'ChatBrowserX は現在、基本的なチャット機能にフォーカスしています。任意のページを開き、右下のボタンをクリックするとサイドバーが開きます。',
+  },
 };
 
 export function translateMessage(key: MessageKey, uiLanguage?: UiLanguage): string {

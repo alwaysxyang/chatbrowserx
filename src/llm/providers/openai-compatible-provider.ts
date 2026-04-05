@@ -18,7 +18,8 @@ export class OpenAiCompatibleProvider {
 
   async completeChat(input: ChatCompletionInput): Promise<string> {
     if (!this.settings.baseUrl || !this.settings.model || !this.settings.apiKey) {
-      throw new Error('请先在设置中填写 API Base URL、API Key 和 Model。');
+      // 使用稳定的错误代码，具体文案在 UI 层结合当前语言决定
+      throw new Error('MODEL_MISCONFIGURED');
     }
 
     const response = await fetch(`${this.settings.baseUrl.replace(/\/$/, '')}/chat/completions`, {
@@ -38,10 +39,11 @@ export class OpenAiCompatibleProvider {
     const data = rawBody ? this.parseResponse(rawBody) : undefined;
 
     if (!response.ok) {
-      throw new Error(data?.error?.message || `请求失败: ${response.status}`);
+      // 保留后端返回的错误信息，否则用通用的英文前缀，UI 层可以按需要再二次翻译
+      throw new Error(data?.error?.message || `REQUEST_FAILED: ${response.status}`);
     }
 
-    return data?.choices?.[0]?.message?.content?.trim() || '模型返回了空响应。';
+    return data?.choices?.[0]?.message?.content?.trim() || 'EMPTY_RESPONSE';
   }
 
   private parseResponse(rawBody: string): OpenAiCompatibleResponse | undefined {

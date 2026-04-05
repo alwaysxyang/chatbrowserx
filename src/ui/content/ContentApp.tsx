@@ -9,6 +9,7 @@ import { ShellRail } from './ShellRail';
 import type { UiLanguage } from '../../shared/types/settings';
 import { defaultSettings, loadSettings } from '../../shared/storage/settings-repository';
 import { setCurrentUiLanguage } from '../../shared/i18n/current-language';
+import { translateMessage } from '../../shared/i18n/i18n';
 
 const getPanelStateStorageKey = (hostname: string) => `chatbrowserx.panel.${hostname || 'default'}`;
 
@@ -167,10 +168,10 @@ export function ContentApp() {
           </div>
           <div className="header-actions">
             <button
-              aria-label={isPinned ? '取消固定面板' : '固定面板'}
+              aria-label={isPinned ? translateMessage('shell.header.unpin') : translateMessage('shell.header.pin')}
               aria-pressed={isPinned}
               className={`icon-button ${isPinned ? 'icon-button-active' : ''}`}
-              data-tooltip={isPinned ? '取消固定面板' : '固定面板'}
+              data-tooltip={isPinned ? translateMessage('shell.header.unpin') : translateMessage('shell.header.pin')}
               type="button"
               onClick={() => setIsPinned((current) => !current)}
             >
@@ -178,9 +179,9 @@ export function ContentApp() {
             </button>
             <span aria-hidden="true" className="header-divider" />
             <button
-              aria-label="关闭对话框"
+              aria-label={translateMessage('shell.header.close')}
               className="icon-button"
-              data-tooltip="关闭对话框"
+              data-tooltip={translateMessage('shell.header.close')}
               type="button"
               onClick={() => setIsOpen(false)}
             >
@@ -205,6 +206,8 @@ export function ContentApp() {
               <SettingsPanel
                 onUiLanguageChange={(next) => {
                   setUiLanguage(next);
+                  // 语言在设置页变更时同步更新当前语言缓存，以便 ShellRail 等使用默认语言的模块立即生效
+                  setCurrentUiLanguage(next);
                 }}
               />
             )}

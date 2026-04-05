@@ -20,7 +20,7 @@ describe('OpenAiCompatibleProvider', () => {
 
     await expect(
       provider.completeChat({ model: 'm', messages: [{ role: 'user', content: 'hello' }] }),
-    ).rejects.toThrow('请求失败: 502');
+    ).rejects.toThrow('REQUEST_FAILED: 502');
 
     globalThis.fetch = originalFetch;
   });
