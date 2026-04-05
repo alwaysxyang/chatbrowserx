@@ -54,6 +54,7 @@ export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, on
               <button
                 className="chat-suggestion-pill"
                 type="button"
+                data-tooltip="一键分析当前网页内容"
                 onClick={() => {
                   void submitMessage('请帮我分析当前网页内容');
                 }}

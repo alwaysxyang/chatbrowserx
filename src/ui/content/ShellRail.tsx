@@ -12,6 +12,7 @@ export function ShellRail({ activeView, onSelectView }: ShellRailProps) {
         aria-label="聊天"
         aria-pressed={activeView === 'chat'}
         className={`rail-button ${activeView === 'chat' ? 'rail-button-active' : ''}`}
+        data-tooltip="聊天"
         type="button"
         onClick={() => onSelectView('chat')}
       >
@@ -27,6 +28,7 @@ export function ShellRail({ activeView, onSelectView }: ShellRailProps) {
         aria-label="设置"
         aria-pressed={activeView === 'settings'}
         className={`rail-button ${activeView === 'settings' ? 'rail-button-active' : ''}`}
+        data-tooltip="设置"
         type="button"
         onClick={() => onSelectView('settings')}
       >
@@ -38,4 +40,3 @@ export function ShellRail({ activeView, onSelectView }: ShellRailProps) {
     </nav>
   );
 }
-

@@ -151,13 +151,20 @@ export function ContentApp() {
               aria-label={isPinned ? '取消固定面板' : '固定面板'}
               aria-pressed={isPinned}
               className={`icon-button ${isPinned ? 'icon-button-active' : ''}`}
+              data-tooltip={isPinned ? '取消固定面板' : '固定面板'}
               type="button"
               onClick={() => setIsPinned((current) => !current)}
             >
               <Pin className={`h-3.5 w-3.5 ${isPinned ? 'pin-icon-rotated' : ''}`} strokeWidth={2.2} />
             </button>
             <span aria-hidden="true" className="header-divider" />
-            <button aria-label="关闭对话框" className="icon-button" type="button" onClick={() => setIsOpen(false)}>
+            <button
+              aria-label="关闭对话框"
+              className="icon-button"
+              data-tooltip="关闭对话框"
+              type="button"
+              onClick={() => setIsOpen(false)}
+            >
               ×
             </button>
           </div>

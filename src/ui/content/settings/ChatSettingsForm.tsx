@@ -48,7 +48,13 @@ export function ChatSettingsForm({ value, disabled, onChange, onSubmit }: ChatSe
         />
       </label>
 
-      <button className="primary-button" disabled={disabled} type="button" onClick={onSubmit}>
+      <button
+        className="primary-button"
+        data-tooltip={disabled ? '填写完整后可保存' : '保存聊天设置'}
+        disabled={disabled}
+        type="button"
+        onClick={onSubmit}
+      >
         保存设置
       </button>
     </div>

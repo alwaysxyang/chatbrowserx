@@ -642,3 +642,52 @@
   color: #1d4ed8;
   padding: 10px 12px;
 }
+
+/*
+ * 通用圆角提示气泡，适用于所有带 data-tooltip 的按钮
+ */
+
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease-out, transform 0.12s ease-out;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translate(-50%, 0);
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  color: #0f172a;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.25);
+  z-index: 40;
+}
+
+[data-tooltip]:hover::after,
+[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, -2px);
+}
+
+/* 顶部 header 内的按钮：提示框改为出现在元素下方，避免溢出视口 */
+
+.shell-header .header-actions [data-tooltip]::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+.shell-header .header-actions [data-tooltip]:hover::after,
+.shell-header .header-actions [data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 2px);
+}
