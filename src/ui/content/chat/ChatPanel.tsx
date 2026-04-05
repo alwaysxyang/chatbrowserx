@@ -16,9 +16,10 @@ interface ChatPanelProps {
   isSending: boolean;
   errorMessage: string | null;
   onSendMessage: (input: string) => Promise<string>;
+  onClearHistory: () => void;
 }
 
-export function ChatPanel({ messages, isSending, errorMessage, onSendMessage }: ChatPanelProps) {
+export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, onClearHistory }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const displayMessages = messages.length ? messages : [welcomeMessage];
 
@@ -47,6 +48,10 @@ export function ChatPanel({ messages, isSending, errorMessage, onSendMessage }: 
           value={draft}
           onChange={setDraft}
           onSubmit={handleSubmit}
+          onClear={() => {
+            setDraft('');
+            onClearHistory();
+          }}
         />
       </div>
     </section>

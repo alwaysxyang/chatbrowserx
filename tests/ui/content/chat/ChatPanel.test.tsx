@@ -13,6 +13,7 @@ describe('ChatPanel', () => {
         isSending={false}
         errorMessage={null}
         onSendMessage={vi.fn(async () => 'unused')}
+        onClearHistory={vi.fn()}
       />,
     );
 
@@ -32,6 +33,7 @@ describe('ChatPanel', () => {
         isSending={false}
         errorMessage={null}
         onSendMessage={vi.fn(async () => 'unused')}
+        onClearHistory={vi.fn()}
       />,
     );
 
@@ -57,6 +59,7 @@ describe('ChatPanel', () => {
         isSending={false}
         errorMessage={null}
         onSendMessage={vi.fn(async () => 'unused')}
+        onClearHistory={vi.fn()}
       />,
     );
 
@@ -71,6 +74,7 @@ describe('ChatPanel', () => {
         isSending
         errorMessage={null}
         onSendMessage={vi.fn(async () => 'unused')}
+        onClearHistory={vi.fn()}
       />,
     );
 
@@ -90,10 +94,13 @@ describe('ChatPanel', () => {
         isSending={false}
         errorMessage={null}
         onSendMessage={onSendMessage}
+        onClearHistory={vi.fn()}
       />,
     );
 
-    await user.type(screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示'), '你好');
+    const input = screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示');
+
+    await user.type(input, '你好');
     await user.click(screen.getByRole('button', { name: '发送' }));
 
     await waitFor(() => {
@@ -103,8 +110,38 @@ describe('ChatPanel', () => {
     expect(screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示')).toHaveValue('');
 
     expect(screen.queryByRole('button', { name: '打开设置' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '截图' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '清空聊天记录' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Agent Chat')).not.toBeInTheDocument();
+    expect(screen.queryByText('浏览器增强 Agent')).not.toBeInTheDocument();
+  });
+
+  it('sends a message with Command+Enter', async () => {
+    const user = userEvent.setup();
+    const messages: ChatMessage[] = [];
+
+    const onSendMessage = vi.fn(async () => '你好，我是助手');
+
+    render(
+      <ChatPanel
+        messages={messages}
+        isSending={false}
+        errorMessage={null}
+        onSendMessage={onSendMessage}
+        onClearHistory={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示');
+
+    await user.type(input, '快捷键');
+    await user.keyboard('{Meta>}{Enter}{/Meta}');
+
+    await waitFor(() => {
+      expect(onSendMessage).toHaveBeenCalledWith('快捷键');
+    });
+
+    expect(screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示')).toHaveValue('');
+
+    expect(screen.queryByRole('button', { name: '打开设置' })).not.toBeInTheDocument();
     expect(screen.queryByText('Agent Chat')).not.toBeInTheDocument();
     expect(screen.queryByText('浏览器增强 Agent')).not.toBeInTheDocument();
   });
@@ -121,6 +158,7 @@ describe('ChatPanel', () => {
         isSending={false}
         errorMessage={null}
         onSendMessage={onSendMessage}
+        onClearHistory={vi.fn()}
       />,
     );
 

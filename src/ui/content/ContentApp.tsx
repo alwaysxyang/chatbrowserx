@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { MessageCircleMore, Pin, Settings2, Sparkles } from 'lucide-react';
+import { Pin, Sparkles } from 'lucide-react';
 import { isPanelCommandMessage } from '../../shared/types/runtime-messages';
 import { ChatPanel } from './chat/ChatPanel';
 import { useChatController } from './chat/use-chat-controller';
 import { SettingsPanel } from './settings/SettingsPanel';
+import { ShellRail } from './ShellRail';
 
 const getPanelStateStorageKey = (hostname: string) => `chatbrowserx.panel.${hostname || 'default'}`;
 
@@ -17,7 +18,7 @@ export function ContentApp() {
   const [isPinned, setIsPinned] = useState(false);
   const [hasHydratedPinned, setHasHydratedPinned] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(460);
-  const { messages, isSending, errorMessage, sendMessage } = useChatController(hostname);
+  const { messages, isSending, errorMessage, sendMessage, clearHistory } = useChatController(hostname);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
 
@@ -165,41 +166,21 @@ export function ContentApp() {
         <div className="shell-content">
           <div className="shell-main">
             {activeView === 'chat' ? (
-              <ChatPanel errorMessage={errorMessage} isSending={isSending} messages={messages} onSendMessage={sendMessage} />
+              <ChatPanel
+                errorMessage={errorMessage}
+                isSending={isSending}
+                messages={messages}
+                onSendMessage={sendMessage}
+                onClearHistory={() => {
+                  void clearHistory();
+                }}
+              />
             ) : (
               <SettingsPanel />
             )}
           </div>
 
-          <nav aria-label="功能导航" className="shell-rail">
-            <button
-              aria-label="聊天"
-              aria-pressed={activeView === 'chat'}
-              className={`rail-button ${activeView === 'chat' ? 'rail-button-active' : ''}`}
-              type="button"
-              onClick={() => setActiveView('chat')}
-            >
-              <span className="rail-icon">
-                <MessageCircleMore className="h-3 w-3" strokeWidth={2.2} />
-              </span>
-              <span>聊天</span>
-            </button>
-
-            <div className="rail-spacer" />
-
-            <button
-              aria-label="设置"
-              aria-pressed={activeView === 'settings'}
-              className={`rail-button ${activeView === 'settings' ? 'rail-button-active' : ''}`}
-              type="button"
-              onClick={() => setActiveView('settings')}
-            >
-              <span className="rail-icon">
-                <Settings2 className="h-3 w-3" strokeWidth={2.2} />
-              </span>
-              <span>设置</span>
-            </button>
-          </nav>
+          <ShellRail activeView={activeView} onSelectView={setActiveView} />
         </div>
       </div>
     </aside>

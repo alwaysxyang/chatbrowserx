@@ -57,7 +57,7 @@ describe('ContentApp', () => {
     expect(screen.queryByText('Chat')).not.toBeInTheDocument();
     expect(screen.queryByText('配置模型连接')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: '设置' })).toBeInTheDocument();
-    expect(screen.queryByText('清空聊天记录')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '清空聊天记录' })).toBeInTheDocument();
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '设置' }));
