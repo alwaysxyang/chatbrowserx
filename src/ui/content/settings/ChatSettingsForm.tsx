@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
 import type { ChatProviderId, ModelSettings } from '../../../shared/types/settings';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatSettingsFormProps {
   value: ModelSettings;
@@ -17,9 +18,11 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
     });
   };
 
+  const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
+
   return (
     <div className="settings-form">
-      <span className="settings-provider-title">Provider</span>
+      <span className="settings-provider-title">{label('settings.fields.provider')}</span>
       <div className="settings-provider-switch" aria-label="模型 Provider">
         <button
           type="button"
@@ -40,15 +43,19 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
       </div>
 
       <label>
-        <span>API Base URL</span>
-        <input aria-label="API Base URL" value={value.baseUrl} onChange={(event) => updateField('baseUrl', event.target.value)} />
+        <span>{label('settings.fields.apiBaseUrl')}</span>
+        <input
+          aria-label={label('settings.fields.apiBaseUrl')}
+          value={value.baseUrl}
+          onChange={(event) => updateField('baseUrl', event.target.value)}
+        />
       </label>
 
       <label>
-        <span>API Key</span>
+        <span>{label('settings.fields.apiKey')}</span>
         <div className="settings-input-with-icon">
           <input
-            aria-label="API Key"
+            aria-label={label('settings.fields.apiKey')}
             type={showApiKey ? 'text' : 'password'}
             value={value.apiKey}
             onChange={(event) => updateField('apiKey', event.target.value)}
@@ -66,19 +73,28 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
       </label>
 
       <label>
-        <span>Model</span>
-        <input aria-label="Model" value={value.model} onChange={(event) => updateField('model', event.target.value)} />
-      </label>
-
-      <label>
-        <span>System Prompt</span>
-        <textarea aria-label="System Prompt" rows={4} value={value.systemPrompt} onChange={(event) => updateField('systemPrompt', event.target.value)} />
-      </label>
-
-      <label>
-        <span>Max History</span>
+        <span>{label('settings.fields.model')}</span>
         <input
-          aria-label="Max History"
+          aria-label={label('settings.fields.model')}
+          value={value.model}
+          onChange={(event) => updateField('model', event.target.value)}
+        />
+      </label>
+
+      <label>
+        <span>{label('settings.fields.systemPrompt')}</span>
+        <textarea
+          aria-label={label('settings.fields.systemPrompt')}
+          rows={4}
+          value={value.systemPrompt}
+          onChange={(event) => updateField('systemPrompt', event.target.value)}
+        />
+      </label>
+
+      <label>
+        <span>{label('settings.fields.maxHistory')}</span>
+        <input
+          aria-label={label('settings.fields.maxHistory')}
           min={1}
           type="number"
           value={value.maxHistory}

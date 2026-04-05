@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef } from 'react';
 import { ChatToolbar } from './ChatToolbar';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatComposerProps {
   value: string;
@@ -37,6 +38,7 @@ export function ChatComposer({ value, disabled, onChange, onSubmit, onClear }: C
     onSubmit();
   };
 
+
   useEffect(() => {
     autoResize();
   }, [value]);
@@ -44,10 +46,10 @@ export function ChatComposer({ value, disabled, onChange, onSubmit, onClear }: C
   return (
     <form className="chat-composer" onSubmit={handleSubmit}>
       <textarea
-        aria-label="消息输入框"
+        aria-label={translateMessage('chat.composer.placeholder')}
         className="chat-input"
         disabled={disabled}
-        placeholder="问任何问题，@ 模型，/ 提示"
+        placeholder={translateMessage('chat.composer.placeholder')}
         rows={1}
         ref={textareaRef}
         value={value}

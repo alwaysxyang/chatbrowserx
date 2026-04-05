@@ -1,4 +1,5 @@
 import type { GeneralSettings } from '../../../shared/types/settings';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface GeneralSettingsFormProps {
   value: GeneralSettings;
@@ -10,10 +11,10 @@ export function GeneralSettingsForm({ value, disabled, onChange }: GeneralSettin
   return (
     <div className="settings-form">
       <label>
-        <span>语言</span>
+        <span>{translateMessage('settings.fields.language')}</span>
         <div className="settings-select">
           <select
-            aria-label="语言"
+            aria-label={translateMessage('settings.fields.language')}
             disabled={disabled}
             value={value.uiLanguage}
             onChange={(event) =>
@@ -22,10 +23,10 @@ export function GeneralSettingsForm({ value, disabled, onChange }: GeneralSettin
               })
             }
           >
-            <option value="system">跟随系统</option>
-            <option value="zh">中文</option>
-            <option value="en">英文</option>
-            <option value="ja">日文</option>
+            <option value="system">{translateMessage('settings.language.system')}</option>
+            <option value="zh">{translateMessage('settings.language.zh')}</option>
+            <option value="en">{translateMessage('settings.language.en')}</option>
+            <option value="ja">{translateMessage('settings.language.ja')}</option>
           </select>
         </div>
       </label>

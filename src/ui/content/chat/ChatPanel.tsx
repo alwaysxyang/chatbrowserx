@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ChatMessage } from '../../../shared/types/chat';
 import { ChatComposer } from './ChatComposer';
 import { MessageList } from './MessageList';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatPanelProps {
   messages: ChatMessage[];
@@ -38,20 +39,18 @@ export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, on
           <MessageList errorMessage={errorMessage} isSending={isSending} messages={hasHistory ? messages : []} />
         ) : (
           <div className="chat-empty-state">
-            <div className="chat-empty-title">你好！我是你的 AI 助手。</div>
-            <p className="chat-empty-subtitle">
-              我可以帮你总结网页内容、解答问题、优化文本等。有什么可以帮助你的吗？
-            </p>
+            <div className="chat-empty-title">{translateMessage('chat.empty.title')}</div>
+            <p className="chat-empty-subtitle">{translateMessage('chat.empty.subtitle')}</p>
             <div className="chat-suggestions">
               <button
                 className="chat-suggestion-pill"
                 type="button"
-                data-tooltip="一键分析当前网页内容"
+                data-tooltip={translateMessage('chat.suggestion.analyzeTooltip')}
                 onClick={() => {
-                  void submitMessage('请帮我分析当前网页内容');
+                  void submitMessage(translateMessage('chat.suggestion.analyzeCommand'));
                 }}
               >
-                网站内容分析
+                {translateMessage('chat.suggestion.analyze')}
               </button>
             </div>
           </div>

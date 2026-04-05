@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultSettings, loadSettings, saveSettings } from '../../../shared/storage/settings-repository';
-import type { ModelSettings, Settings } from '../../../shared/types/settings';
+import type { ModelSettings, Settings, UiLanguage } from '../../../shared/types/settings';
+import { translateMessage } from '../../../shared/i18n/i18n';
 import { ChatSettingsForm } from './ChatSettingsForm';
 import { GeneralSettingsForm } from './GeneralSettingsForm';
 
 interface SettingsPanelProps {
+  onUiLanguageChange?: (next: UiLanguage) => void;
 }
 
-export function SettingsPanel(_props: SettingsPanelProps) {
+export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
   const hasUserInteractedRef = useRef(false);
@@ -57,68 +59,77 @@ export function SettingsPanel(_props: SettingsPanelProps) {
 
   return (
     <section className="settings-page">
-      <nav aria-label="设置分类" className="settings-tabs">
-        <button
-          className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
-          type="button"
-          onClick={() => setActiveTab('model')}
-        >
-          模型
-        </button>
-        <button
-          className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
-          type="button"
-          onClick={() => setActiveTab('general')}
-        >
-          通用
-        </button>
-      </nav>
+      {(() => {
+        const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
 
-      {saveToast ? (
-        <div className="settings-toast" role="status" aria-live="polite">
-          {saveToast}
-        </div>
-      ) : null}
+        return (
+          <>
+            <nav aria-label="设置分类" className="settings-tabs">
+              <button
+                className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
+                type="button"
+                onClick={() => setActiveTab('model')}
+              >
+                {label('settings.tabs.model')}
+              </button>
+              <button
+                className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
+                type="button"
+                onClick={() => setActiveTab('general')}
+              >
+                {label('settings.tabs.general')}
+              </button>
+            </nav>
 
-      {activeTab === 'model' ? (
-        <ChatSettingsForm
-          disabled={isSaving}
-          value={settings.model}
-          onChange={(nextModelSettings: ModelSettings) => {
-            hasUserInteractedRef.current = true;
-            setSettings((prev) => ({ ...prev, model: nextModelSettings }));
-          }}
-        />
-      ) : (
-        <GeneralSettingsForm
-          disabled={isSaving}
-          value={settings.general}
-          onChange={(nextGeneralSettings) => {
-            hasUserInteractedRef.current = true;
-            setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
-          }}
-        />
-      )}
+            {saveToast ? (
+              <div className="settings-toast" role="status" aria-live="polite">
+                {saveToast}
+              </div>
+            ) : null}
 
-      <footer className="settings-footer">
-        <button
-          className="primary-button"
-          data-tooltip={isSaving ? '正在保存…' : '保存当前设置'}
-          disabled={isSaving}
-          type="button"
-          onClick={handleSave}
-        >
-          {isSaving ? '保存中…' : '保存设置'}
-        </button>
-        <button
-          className="secondary-button"
-          data-tooltip="恢复为默认配置（不会立即保存）"
-          type="button"
-          onClick={handleResetToDefault}
-        >
-          恢复默认
-        </button>
-      </footer>
+            {activeTab === 'model' ? (
+              <ChatSettingsForm
+                disabled={isSaving}
+                value={settings.model}
+                onChange={(nextModelSettings: ModelSettings) => {
+                  hasUserInteractedRef.current = true;
+                  setSettings((prev) => ({ ...prev, model: nextModelSettings }));
+                }}
+              />
+            ) : (
+              <GeneralSettingsForm
+                disabled={isSaving}
+                value={settings.general}
+                onChange={(nextGeneralSettings) => {
+                  hasUserInteractedRef.current = true;
+                  setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
+                  onUiLanguageChange?.(nextGeneralSettings.uiLanguage);
+                }}
+              />
+            )}
+
+            <footer className="settings-footer">
+              <button
+                className="primary-button"
+                data-tooltip={isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
+                disabled={isSaving}
+                type="button"
+                onClick={handleSave}
+              >
+                {isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
+              </button>
+              <button
+                className="secondary-button"
+                data-tooltip={label('settings.actions.reset')}
+                type="button"
+                onClick={handleResetToDefault}
+              >
+                {label('settings.actions.reset')}
+              </button>
+            </footer>
+          </>
+        );
+      })()}
     </section>
   );
 }

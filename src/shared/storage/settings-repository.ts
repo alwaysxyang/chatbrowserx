@@ -12,7 +12,8 @@ export const defaultSettings: Settings = {
     maxHistory: 50,
   },
   general: {
-    uiLanguage: 'system',
+    // 默认中文界面；用户可以在通用设置里改为跟随系统 / 英文 / 日文
+    uiLanguage: 'zh',
   },
 };
 

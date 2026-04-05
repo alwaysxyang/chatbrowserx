@@ -12,6 +12,7 @@ describe('ChatPanel', () => {
         messages={[]}
         isSending={false}
         errorMessage={null}
+        uiLanguage="zh"
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}
       />,
@@ -32,6 +33,7 @@ describe('ChatPanel', () => {
         messages={messages}
         isSending={false}
         errorMessage={null}
+        uiLanguage="zh"
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}
       />,
@@ -58,6 +60,7 @@ describe('ChatPanel', () => {
         ]}
         isSending={false}
         errorMessage={null}
+        uiLanguage="zh"
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}
       />,
@@ -93,6 +96,7 @@ describe('ChatPanel', () => {
         messages={messages}
         isSending={false}
         errorMessage={null}
+        uiLanguage="zh"
         onSendMessage={onSendMessage}
         onClearHistory={vi.fn()}
       />,

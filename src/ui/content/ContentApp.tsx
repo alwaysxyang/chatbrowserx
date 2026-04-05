@@ -6,6 +6,9 @@ import { ChatPanel } from './chat/ChatPanel';
 import { useChatController } from './chat/use-chat-controller';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { ShellRail } from './ShellRail';
+import type { UiLanguage } from '../../shared/types/settings';
+import { defaultSettings, loadSettings } from '../../shared/storage/settings-repository';
+import { setCurrentUiLanguage } from '../../shared/i18n/current-language';
 
 const getPanelStateStorageKey = (hostname: string) => `chatbrowserx.panel.${hostname || 'default'}`;
 
@@ -18,6 +21,7 @@ export function ContentApp() {
   const [isPinned, setIsPinned] = useState(false);
   const [hasHydratedPinned, setHasHydratedPinned] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(460);
+  const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
   const { messages, isSending, errorMessage, sendMessage, clearHistory } = useChatController(hostname);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
@@ -35,6 +39,21 @@ export function ContentApp() {
       setHasHydratedPinned(true);
     });
   }, [panelStateStorageKey]);
+
+  // 加载用户保存的 UI 语言设置
+  useEffect(() => {
+    loadSettings()
+      .then((settings) => {
+        setUiLanguage(settings.general.uiLanguage);
+      })
+      .catch(() => {
+        // 读取失败时保持默认语言，不打断主流程
+      });
+  }, []);
+
+  useEffect(() => {
+    setCurrentUiLanguage(uiLanguage);
+  }, [uiLanguage]);
 
   useEffect(() => {
     if (!hasHydratedPinned) {
@@ -183,7 +202,11 @@ export function ContentApp() {
                 }}
               />
             ) : (
-              <SettingsPanel />
+              <SettingsPanel
+                onUiLanguageChange={(next) => {
+                  setUiLanguage(next);
+                }}
+              />
             )}
           </div>
 
