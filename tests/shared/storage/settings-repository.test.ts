@@ -9,7 +9,7 @@ describe('settings repository', () => {
   });
 
   it('persists merged settings', async () => {
-    await saveSettings({ apiKey: 'test-key', model: 'gpt-4o-mini' });
+    await saveSettings({ apiKey: 'test-key', model: 'gpt-4o-mini', provider: 'openai' });
 
     const settings = await loadSettings();
 

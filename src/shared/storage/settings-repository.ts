@@ -1,17 +1,22 @@
-import type { ChatSettings } from '../types/settings';
+import type { ChatProviderId, ChatSettings } from '../types/settings';
 
 const settingsStorageKey = 'chatbrowserx.settings';
 
 export const defaultSettings: ChatSettings = {
+  provider: 'openai',
   apiKey: '',
   baseUrl: 'https://api.openai.com/v1',
   model: '',
   systemPrompt: 'You are ChatBrowserX, a helpful browser agent assistant.',
-  maxHistory: 12,
+  maxHistory: 50,
 };
 
 function normalizeSettings(settings: Partial<ChatSettings> | undefined): ChatSettings {
   return {
+    provider:
+      settings?.provider === 'openai' || settings?.provider === 'codex'
+        ? (settings.provider as ChatProviderId)
+        : defaultSettings.provider,
     apiKey: typeof settings?.apiKey === 'string' ? settings.apiKey : defaultSettings.apiKey,
     baseUrl: typeof settings?.baseUrl === 'string' && settings.baseUrl.trim() ? settings.baseUrl : defaultSettings.baseUrl,
     model: typeof settings?.model === 'string' ? settings.model : defaultSettings.model,

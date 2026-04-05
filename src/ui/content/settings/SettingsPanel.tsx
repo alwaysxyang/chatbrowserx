@@ -11,6 +11,7 @@ export function SettingsPanel(_props: SettingsPanelProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [feedbackMessage, setFeedbackMessage] = useState<string | null>(null);
   const hasUserInteractedRef = useRef(false);
+  const [activeTab, setActiveTab] = useState<'model' | 'general'>('model');
 
   useEffect(() => {
     loadSettings().then((storedSettings) => {
@@ -44,18 +45,58 @@ export function SettingsPanel(_props: SettingsPanelProps) {
     }
   };
 
+  const handleResetToDefault = () => {
+    hasUserInteractedRef.current = true;
+    setFeedbackMessage(null);
+    setSettings(defaultSettings);
+  };
+
   return (
     <section className="settings-page">
-      <header className="section-heading-settings">
-        <div>
-          <h2 className="settings-title">配置模型连接</h2>
-          <p className="settings-subtitle">先配置模型参数，再回到聊天区直接发问。</p>
-        </div>
-      </header>
+      <nav aria-label="设置分类" className="settings-tabs">
+        <button
+          className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('model')}
+        >
+          模型
+        </button>
+        <button
+          className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('general')}
+        >
+          通用
+        </button>
+      </nav>
 
       {feedbackMessage ? <div className="info-banner">{feedbackMessage}</div> : null}
 
-      <ChatSettingsForm disabled={isSaving} value={settings} onChange={handleSettingsChange} onSubmit={handleSave} />
+      {activeTab === 'model' ? (
+        <ChatSettingsForm disabled={isSaving} value={settings} onChange={handleSettingsChange} />
+      ) : (
+        <div className="settings-general-placeholder">通用设置开发中</div>
+      )}
+
+      <footer className="settings-footer">
+        <button
+          className="primary-button"
+          data-tooltip={isSaving ? '正在保存…' : '保存当前设置'}
+          disabled={isSaving}
+          type="button"
+          onClick={handleSave}
+        >
+          保存设置
+        </button>
+        <button
+          className="secondary-button"
+          data-tooltip="恢复为默认配置（不会立即保存）"
+          type="button"
+          onClick={handleResetToDefault}
+        >
+          恢复默认
+        </button>
+      </footer>
     </section>
   );
 }

@@ -62,7 +62,7 @@ describe('ContentApp', () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: '设置' }));
 
-    expect(screen.getByText('配置模型连接')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '模型' })).toBeInTheDocument();
     expect(screen.queryByText('Settings')).not.toBeInTheDocument();
 
     await act(async () => {

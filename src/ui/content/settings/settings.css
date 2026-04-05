@@ -1,0 +1,172 @@
+/* Settings 页面及表单相关样式 */
+
+.settings-page {
+  height: 100%;
+  flex: 1;
+  gap: 16px;
+}
+
+.settings-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 0 4px;
+  margin-bottom: 12px;
+}
+
+.settings-tab {
+  border: none;
+  background: transparent;
+  flex: 1 1 0;
+  padding: 12px 0;
+  margin: 0;
+  font-size: 16px;
+  color: #6b7280;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  text-align: center;
+}
+
+.settings-tab-active {
+  color: #2563eb;
+  font-weight: 600;
+  border-bottom-color: #2563eb;
+}
+
+.settings-form {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.settings-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 14px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(209, 213, 219, 0.7);
+}
+
+.settings-form > label:last-of-type {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.settings-form label span,
+.settings-provider-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.settings-provider-title {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.settings-provider-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(209, 213, 219, 0.7);
+}
+
+.settings-input-with-icon {
+  position: relative;
+}
+
+.settings-input-with-icon input {
+  padding-right: 64px;
+}
+
+.settings-input-icon-button {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  background: rgba(241, 245, 249, 0.95);
+  box-shadow: 0 0 0 1px rgba(226, 232, 240, 0.9);
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.settings-input-icon-button:hover {
+  color: #374151;
+  background: rgba(229, 231, 235, 0.95);
+}
+
+.settings-input-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-provider-button {
+  flex: 1 1 0;
+  border-radius: 999px;
+  border: 1px solid rgba(209, 213, 219, 0.9);
+  padding: 8px 0;
+  font-size: 14px;
+  cursor: pointer;
+  background: #ffffff;
+  color: #111827;
+  text-align: center;
+}
+
+.settings-provider-button-active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+}
+
+.settings-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.settings-footer .primary-button,
+.settings-footer .secondary-button {
+  flex: 1 1 0;
+  border-radius: 999px;
+  padding: 11px 0;
+  font-size: 15px;
+}
+
+.settings-form input,
+.settings-form textarea {
+  width: 100%;
+  border: 1px solid rgba(215, 219, 229, 0.92);
+  border-radius: 12px;
+  padding: 13px 14px;
+  font: inherit;
+  box-sizing: border-box;
+  background: rgba(255, 255, 255, 0.82);
+  resize: none;
+}
+
+.info-banner {
+  border-radius: 10px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  padding: 10px 12px;
+}

@@ -1,13 +1,15 @@
-import type { ChatSettings } from '../../../shared/types/settings';
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import type { ChatProviderId, ChatSettings } from '../../../shared/types/settings';
 
 interface ChatSettingsFormProps {
   value: ChatSettings;
   disabled: boolean;
   onChange: (nextValue: ChatSettings) => void;
-  onSubmit: () => void;
 }
 
-export function ChatSettingsForm({ value, disabled, onChange, onSubmit }: ChatSettingsFormProps) {
+export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsFormProps) {
+  const [showApiKey, setShowApiKey] = useState(false);
   const updateField = <K extends keyof ChatSettings>(field: K, nextValue: ChatSettings[K]) => {
     onChange({
       ...value,
@@ -17,6 +19,26 @@ export function ChatSettingsForm({ value, disabled, onChange, onSubmit }: ChatSe
 
   return (
     <div className="settings-form">
+      <span className="settings-provider-title">Provider</span>
+      <div className="settings-provider-switch" aria-label="模型 Provider">
+        <button
+          type="button"
+          className={`settings-provider-button ${value.provider === 'openai' ? 'settings-provider-button-active' : ''}`}
+          data-tooltip="使用 OpenAI 兼容接口"
+          onClick={() => updateField('provider', 'openai' satisfies ChatProviderId)}
+        >
+          OpenAI
+        </button>
+        <button
+          type="button"
+          className="settings-provider-button"
+          data-tooltip="Codex（开发中）"
+          disabled
+        >
+          Codex
+        </button>
+      </div>
+
       <label>
         <span>API Base URL</span>
         <input aria-label="API Base URL" value={value.baseUrl} onChange={(event) => updateField('baseUrl', event.target.value)} />
@@ -24,7 +46,22 @@ export function ChatSettingsForm({ value, disabled, onChange, onSubmit }: ChatSe
 
       <label>
         <span>API Key</span>
-        <input aria-label="API Key" type="password" value={value.apiKey} onChange={(event) => updateField('apiKey', event.target.value)} />
+        <div className="settings-input-with-icon">
+          <input
+            aria-label="API Key"
+            type={showApiKey ? 'text' : 'password'}
+            value={value.apiKey}
+            onChange={(event) => updateField('apiKey', event.target.value)}
+          />
+          <button
+            type="button"
+            className="settings-input-icon-button"
+            data-tooltip={showApiKey ? '隐藏 API Key' : '显示 API Key'}
+            onClick={() => setShowApiKey((current) => !current)}
+          >
+            {showApiKey ? <EyeOff className="settings-input-icon" strokeWidth={2.1} /> : <Eye className="settings-input-icon" strokeWidth={2.1} />}
+          </button>
+        </div>
       </label>
 
       <label>
@@ -48,15 +85,7 @@ export function ChatSettingsForm({ value, disabled, onChange, onSubmit }: ChatSe
         />
       </label>
 
-      <button
-        className="primary-button"
-        data-tooltip={disabled ? '填写完整后可保存' : '保存聊天设置'}
-        disabled={disabled}
-        type="button"
-        onClick={onSubmit}
-      >
-        保存设置
-      </button>
+      {/* 底部操作统一放在 SettingsPanel 的 footer，不在 tab 内 */}
     </div>
   );
 }
