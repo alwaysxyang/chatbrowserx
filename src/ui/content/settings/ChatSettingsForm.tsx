@@ -56,8 +56,9 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           <button
             type="button"
             className="settings-input-icon-button"
-            data-tooltip={showApiKey ? '隐藏 API Key' : '显示 API Key'}
+            aria-label={showApiKey ? '隐藏 API Key' : '显示 API Key'}
             onClick={() => setShowApiKey((current) => !current)}
+            disabled={disabled}
           >
             {showApiKey ? <EyeOff className="settings-input-icon" strokeWidth={2.1} /> : <Eye className="settings-input-icon" strokeWidth={2.1} />}
           </button>
