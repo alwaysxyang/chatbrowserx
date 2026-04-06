@@ -1,17 +1,17 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Bot, CircleAlert, LoaderCircle, UserRound } from 'lucide-react';
 import type { ChatMessage } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface MessageListProps {
   messages: ChatMessage[];
-  errorMessage: string | null;
   isSending: boolean;
   streamingContent?: string;
 }
 
-export function MessageList({ messages, errorMessage, isSending, streamingContent }: MessageListProps) {
+export function MessageList({ messages, isSending, streamingContent }: MessageListProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
+  const [activeErrorId, setActiveErrorId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!listRef.current) {
@@ -19,9 +19,9 @@ export function MessageList({ messages, errorMessage, isSending, streamingConten
     }
 
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [errorMessage, isSending, messages, streamingContent]);
+  }, [isSending, messages, streamingContent]);
 
-  if (!messages.length && !isSending && !errorMessage) {
+  if (!messages.length && !isSending) {
     return null;
   }
 
@@ -78,14 +78,30 @@ export function MessageList({ messages, errorMessage, isSending, streamingConten
             ) : null}
 
             {showRightIndicator ? (
-              <div className="message-interrupted-indicator" data-tooltip={message.errorMessage || ''}>
-                <CircleAlert className="h-3 w-3 text-red-500" strokeWidth={2.2} />
+              <div
+                className="message-interrupted-indicator-wrapper"
+                onMouseEnter={() => {
+                  setActiveErrorId(message.id);
+                }}
+              >
+                <div className="message-interrupted-indicator">
+                  <CircleAlert className="h-3 w-3 text-red-500" strokeWidth={2.2} />
+                </div>
+                {activeErrorId === message.id ? (
+                  <div
+                    className="message-error-tooltip"
+                    onMouseLeave={() => {
+                      setActiveErrorId((current) => (current === message.id ? null : current));
+                    }}
+                  >
+                    {message.errorMessage}
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
         );
       })}
-      {errorMessage ? null : null}
       {isSending ? (
         <div className="message-row message-row-assistant">
           <div className="message-avatar message-avatar-loading" aria-hidden="true" data-testid="assistant-avatar-loading">

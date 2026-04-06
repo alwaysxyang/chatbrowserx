@@ -3,7 +3,6 @@ import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../sha
 import type { ChatMessage, ChatRequestPayload } from '../../../shared/types/chat';
 import {
   chatRequestType,
-  chatStreamChunkType,
   chatCancelType,
   type ChatRuntimeResponse,
   isChatStreamChunkMessage,
@@ -26,15 +25,54 @@ const createMessage = (
   }).format(new Date()),
 });
 
+/**
+ * 从完整的 messages 列表中构造「用于上下文与持久化」的历史：
+ * - 保留所有正常的 user / assistant 消息；
+ * - 对于 status === 'error' 的 assistant 消息：
+ *   - 丢弃这条 assistant；
+ *   - 同时丢弃它对应的 user 消息（最近且尚未被其他 assistant 消费的那条）。
+ *
+ * 这样可以保证：
+ * - UI 仍然可以展示错误气泡；
+ * - 但失败轮次不会进入 history（既不会持久化，也不会参与后续请求的 history）。
+ */
+const buildHistoryFromMessages = (source: ChatMessage[]): ChatMessage[] => {
+  const result: ChatMessage[] = [];
+
+  for (const message of source) {
+    const isAssistantError = message.role === 'assistant' && message.status === 'error';
+
+    if (!isAssistantError) {
+      result.push(message);
+      continue;
+    }
+
+    // 当前 assistant 是错误气泡：
+    // 1. 丢弃自己；
+    // 2. 尝试移除最近一条尚未被 assistant 消费的 user 消息。
+    for (let i = result.length - 1; i >= 0; i -= 1) {
+      const candidate = result[i];
+      if (candidate.role === 'assistant') {
+        // 遇到上一轮助手回复，说明对应 user 已经被消费，停止回溯。
+        break;
+      }
+      if (candidate.role === 'user') {
+        result.splice(i, 1);
+        break;
+      }
+    }
+  }
+
+  return result;
+};
+
 export function useChatController(hostname: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const hasUserInteractedRef = useRef(false);
   const [streamingContent, setStreamingContent] = useState('');
   const streamingRef = useRef('');
-  const isSendingRef = useRef(false);
 
   useEffect(() => {
     loadChatHistory(hostname).then((history) => {
@@ -44,10 +82,6 @@ export function useChatController(hostname: string) {
       setIsHydrated(true);
     });
   }, [hostname]);
-
-  useEffect(() => {
-    isSendingRef.current = isSending;
-  }, [isSending]);
 
   // 监听来自后台的流式增量响应，实时更新最后一条 assistant 消息内容
   useEffect(() => {
@@ -59,7 +93,6 @@ export function useChatController(hostname: string) {
 
       // 将流式内容累积到单独的 streamingContent 中，
       // 由 MessageList 的 loading 气泡负责展示
-      if (!isSendingRef.current) return;
       setStreamingContent((prev) => {
         const next = prev + chunk;
         streamingRef.current = next;
@@ -83,6 +116,8 @@ export function useChatController(hostname: string) {
       return;
     }
 
+    // 本地持久化保留原始对话（包括错误轮次），
+    // 仅发送给大模型时使用过滤后的 history。
     void saveChatHistory(hostname, messages);
   }, [hostname, isHydrated, messages]);
 
@@ -90,7 +125,6 @@ export function useChatController(hostname: string) {
     () => ({
       async sendMessage(input: string) {
         setIsSending(true);
-        setErrorMessage(null);
         hasUserInteractedRef.current = true;
         // 每次发送前重置流式内容
         setStreamingContent('');
@@ -104,7 +138,8 @@ export function useChatController(hostname: string) {
             type: chatRequestType,
             payload: {
               input,
-              history: messages,
+              // 发送给后台的历史同样排除错误轮次，保证失败的 user/assistant pair 不进入后续上下文。
+              history: buildHistoryFromMessages(messages),
             } satisfies ChatRequestPayload,
           })) as ChatRuntimeResponse;
 
@@ -121,7 +156,6 @@ export function useChatController(hostname: string) {
         } catch (error) {
           const fallbackSend = translateMessage('error.message.sendFailed');
           const misconfigured = translateMessage('error.model.misconfigured');
-
           let errorText: string;
           if (error instanceof Error && error.message === 'MODEL_MISCONFIGURED') {
             // 模型配置缺失：使用当前 UI 语言下的「请先在设置中填写…」文案
@@ -130,10 +164,8 @@ export function useChatController(hostname: string) {
             // 底层报什么，错误原因就是什么（包括 AbortError / BodyStreamBuffer 等）
             errorText = error instanceof Error ? error.message || fallbackSend : fallbackSend;
           }
-
+          const contentSoFar = streamingRef.current.trim();
           setMessages((currentMessages) => {
-            const contentSoFar = streamingRef.current.trim();
-
             // 没有任何 SSE 文本：气泡内容直接显示错误原因
             if (!contentSoFar) {
               return [...currentMessages, createMessage('assistant', errorText, 'error')];
@@ -148,11 +180,8 @@ export function useChatController(hostname: string) {
               ...base,
               errorMessage: errorText,
             };
-
             return [...currentMessages, messageWithError];
           });
-
-          setErrorMessage(null);
           setStreamingContent('');
           streamingRef.current = '';
           throw error;
@@ -162,7 +191,6 @@ export function useChatController(hostname: string) {
       },
       async clearHistory() {
         hasUserInteractedRef.current = true;
-        setErrorMessage(null);
         setMessages([]);
         await clearChatHistory(hostname);
       },
@@ -171,7 +199,7 @@ export function useChatController(hostname: string) {
   );
 
   const stop = async () => {
-    if (!isSendingRef.current) return;
+    if (!isSending) return;
     // 不对打断做 UI 上的特殊处理：只中断后台请求，错误由 sendMessage 的 catch 统一处理。
     await chrome.runtime.sendMessage({ type: chatCancelType });
   };
@@ -179,7 +207,6 @@ export function useChatController(hostname: string) {
   return {
     messages,
     isSending,
-    errorMessage,
     streamingContent,
     clearHistory: api.clearHistory,
     sendMessage: api.sendMessage,
