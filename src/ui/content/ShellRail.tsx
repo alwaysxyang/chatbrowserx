@@ -8,7 +8,7 @@ interface ShellRailProps {
 
 export function ShellRail({ activeView, onSelectView }: ShellRailProps) {
   return (
-    <nav aria-label="功能导航" className="shell-rail">
+    <nav aria-label={translateMessage('shell.rail.navLabel')} className="shell-rail">
       <button
         aria-label={translateMessage('shell.rail.chat')}
         aria-pressed={activeView === 'chat'}

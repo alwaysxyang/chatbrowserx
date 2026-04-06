@@ -47,6 +47,7 @@ type MessageKey =
   | 'settings.language.ja'
   | 'shell.rail.chat'
   | 'shell.rail.settings'
+  | 'shell.rail.navLabel'
   | 'shell.header.pin'
   | 'shell.header.unpin'
   | 'shell.header.close'
@@ -178,6 +179,7 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   // Rail
   'shell.rail.chat': { zh: '聊天', en: 'Chat', ja: 'チャット' },
   'shell.rail.settings': { zh: '设置', en: 'Settings', ja: '設定' },
+  'shell.rail.navLabel': { zh: '功能导航', en: 'Navigation', ja: 'ナビゲーション' },
   // Chat empty state
   'chat.empty.title': { zh: '你好！我是你的 AI 助手。', en: 'Hi! I am your AI assistant.', ja: 'こんにちは！AI アシスタントです。' },
   'chat.empty.subtitle': {

@@ -35,13 +35,13 @@ function normalizeHostnameForStorage(hostname: string): string {
 export function ContentApp() {
   const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
   const panelStateStorageKey = useMemo(() => getPanelStateStorageKey(hostname), [hostname]);
+  const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
   const buildLabel = useMemo(() => `Build ${__CHATBROWSERX_BUILD_TIME__}`, []);
   const [isOpen, setIsOpen] = useState(false);
   const [activeView, setActiveView] = useState<'chat' | 'settings'>('chat');
   const [isPinned, setIsPinned] = useState(false);
   const [hasHydratedPinned, setHasHydratedPinned] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(460);
-  const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
   const [hasHydratedLanguage, setHasHydratedLanguage] = useState(false);
   const { messages, isSending, streamingContent, sendMessage, clearHistory, stop } =
     useChatController(hostname);
