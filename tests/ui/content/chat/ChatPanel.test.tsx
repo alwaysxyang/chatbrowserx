@@ -3,16 +3,19 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ChatPanel } from '../../../../src/ui/content/chat/ChatPanel';
 import { MessageList } from '../../../../src/ui/content/chat/MessageList';
+import { setCurrentUiLanguage } from '../../../../src/shared/i18n/current-language';
 import type { ChatMessage } from '../../../../src/shared/types/chat';
 
 describe('ChatPanel', () => {
+  afterEach(() => {
+    setCurrentUiLanguage('zh');
+  });
+
   it('shows a default assistant conversation bubble in empty state', () => {
     render(
       <ChatPanel
         messages={[]}
         isSending={false}
-        errorMessage={null}
-        uiLanguage="zh"
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}
       />,
@@ -32,8 +35,6 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={messages}
         isSending={false}
-        errorMessage={null}
-        uiLanguage="zh"
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}
       />,
@@ -45,6 +46,55 @@ describe('ChatPanel', () => {
     expect(screen.getByText('22:00')).toBeInTheDocument();
     expect(screen.getByTestId('assistant-avatar-completed')).toBeInTheDocument();
     expect(screen.getByTestId('user-avatar')).toBeInTheDocument();
+  });
+
+  it('renders user message with images first and text below', () => {
+    const { container } = render(
+      <MessageList
+        isSending={false}
+        messages={[
+          {
+            id: 'u-with-image',
+            role: 'user',
+            content: [
+              { type: 'text', text: '帮我看下这些图片' },
+              { type: 'image_url', image_url: { url: 'https://example.com/a.png' } },
+              { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+            ],
+            createdAt: '10:35',
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('帮我看下这些图片')).toBeInTheDocument();
+    const images = screen.getAllByRole('img', { name: '用户上传图片' });
+    expect(images).toHaveLength(2);
+    expect(images[0]).toHaveAttribute('src', 'https://example.com/a.png');
+    expect(images[1]).toHaveAttribute('src', 'data:image/png;base64,abc123');
+
+    const content = container.querySelector('.message-content');
+    expect(content?.firstElementChild?.tagName).toBe('IMG');
+    expect(content?.lastElementChild?.textContent).toContain('帮我看下这些图片');
+  });
+
+  it('translates uploaded image alt text', () => {
+    setCurrentUiLanguage('en');
+
+    render(
+      <MessageList
+        isSending={false}
+        messages={[
+          {
+            id: 'u-with-image-en',
+            role: 'user',
+            content: [{ type: 'image_url', image_url: { url: 'https://example.com/a.png' } }],
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByRole('img', { name: 'Uploaded image' })).toBeInTheDocument();
   });
 
   it('renders error messages as assistant bubbles with error status icon', () => {
@@ -59,7 +109,6 @@ describe('ChatPanel', () => {
           },
         ]}
         isSending={false}
-        uiLanguage="zh"
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}
       />,
@@ -93,7 +142,6 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={messages}
         isSending={false}
-        uiLanguage="zh"
         onSendMessage={onSendMessage}
         onClearHistory={vi.fn()}
       />,
@@ -125,7 +173,6 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={messages}
         isSending={false}
-        errorMessage={null}
         onSendMessage={onSendMessage}
         onClearHistory={vi.fn()}
       />,
@@ -157,7 +204,6 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={[]}
         isSending={false}
-        errorMessage={null}
         onSendMessage={onSendMessage}
         onClearHistory={vi.fn()}
       />,
@@ -176,7 +222,7 @@ describe('ChatPanel', () => {
       { id: 'a1', role: 'assistant', content: 'first', createdAt: '10:30' },
     ];
 
-    const { rerender } = render(<MessageList errorMessage={null} isSending={false} messages={messages} />);
+    const { rerender } = render(<MessageList isSending={false} messages={messages} />);
 
     const list = screen.getByTestId('message-list');
     Object.defineProperty(list, 'scrollHeight', { value: 480, configurable: true });
@@ -184,7 +230,6 @@ describe('ChatPanel', () => {
 
     rerender(
       <MessageList
-        errorMessage={null}
         isSending={false}
         messages={[...messages, { id: 'u1', role: 'user', content: 'second', createdAt: '10:31' }]}
       />,

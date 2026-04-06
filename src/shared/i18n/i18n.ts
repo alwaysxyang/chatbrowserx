@@ -68,6 +68,7 @@ type MessageKey =
   | 'chat.toolbar.stopLabel'
   | 'chat.toolbar.stopTooltip'
   | 'chat.composer.placeholder'
+  | 'chat.message.imageAlt'
   | 'chat.loading'
   | 'settings.provider.switchLabel'
   | 'settings.provider.openaiTooltip'
@@ -209,6 +210,11 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   'chat.toolbar.stopTooltip': { zh: '中断当前回复', en: 'Stop current reply', ja: '現在の返信を中断' },
   // Composer
   'chat.composer.placeholder': { zh: '问任何问题，@ 模型，/ 提示', en: 'Ask anything, @ model, / prompt', ja: '何でも質問、@ モデル、/ プロンプト' },
+  'chat.message.imageAlt': {
+    zh: '用户上传图片',
+    en: 'Uploaded image',
+    ja: 'アップロードされた画像',
+  },
   // Shell header
   'shell.header.pin': {
     zh: '固定面板',

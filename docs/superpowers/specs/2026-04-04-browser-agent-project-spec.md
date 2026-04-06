@@ -34,6 +34,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - 最小聊天设置：`API Base URL`、`API Key`、`Model`、`System Prompt`、`Max History`。
 - `ui` 与 `background` 之间的消息通信。
 - `llm/providers` 的抽象与接入边界。
+- 用户消息协议支持文本与图片混排输入（`text` / `image_url`），图片来源可为远程 URL 或 Data URL。
 - `llm/tools` 的接口与注册边界，但**暂不实现任何具体工具能力**。
 
 ### 3.2 当前阶段不做
@@ -44,6 +45,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - 图片分析 / 截图分析。
 - PDF / 滚动捕获。
 - 网络录制 / 页面流量分析。
+- 图片上传、图片预览与图片选择等 UI 交互。
 - 任何具体工具实现。
 
 ## 4. 目标目录结构
@@ -56,6 +58,7 @@ src/
     content/
       chat/
       settings/
+    tools/
     popup/
   background/
     chat/
@@ -112,6 +115,14 @@ src/
 - 允许放置轻量状态展示或快捷入口。
 - 不承载后台编排逻辑。
 
+#### `src/ui/tools`
+
+- 仅放“工具所需的 UI 壳层”与可视化交互。
+- 只有当某个工具确实需要用户可见界面时，才在这里按工具拆分子目录。
+- 不同工具使用不同文件，避免多个工具共用一个含混的 UI 文件。
+- 不负责工具主逻辑、tool loop、provider 协议或后台调度。
+- 与工具对应的执行逻辑仍应保留在 `llm/tools` 或由 `background` 提供运行环境支持。
+
 ### 5.2 `src/background`
 
 `background` 是插件后台任务层，负责 Chrome 生命周期、消息分发、会话协调与长流程任务调度。
@@ -143,6 +154,7 @@ src/
 #### `src/llm/model`
 
 - 放 LLM 领域类型，例如消息、tool call、stream chunk、request payload、response shape。
+- 用户消息内容需支持标准多模态 content 结构：既可为纯字符串，也可为 `text` / `image_url` 的有序列表。
 
 #### `src/llm/providers`
 
@@ -157,11 +169,15 @@ src/
 - 负责将 UI 的“历史 + 当前输入”转换为通用 `ChatCompletionInput`，并在内部处理：
   - 非流式 vs 流式调用的统一接口；
   - 将 provider 的流式增量回调转换为可供 `background` 转发的 chunk 文本；
+  - 当模型返回 tool call 时，负责执行工具调用循环：查找工具、执行工具、回填 tool result、再次请求模型；
   - 同时返回最终完整回复文本。
 
 #### `src/llm/tools`
 
 - 放工具接口定义、注册表、协议层。
+- 每个工具模块应暴露清晰的最小契约：`name`、`definition`、`invoke`。
+- 工具模块应尽量保持独立，除确有 UI 交互需要外，不把展示逻辑放入工具实现中。
+- 工具注册表负责聚合工具定义与按名称查找工具实现，不承载 provider 或 UI 逻辑。
 - 本轮仅保留接口与注册机制，不实现具体工具。
 
 ### 5.4 `src/shared`
@@ -182,6 +198,7 @@ src/
 #### `src/shared/types`
 
 - 跨模块共享类型（包括聊天消息结构、runtime 消息协议、设置类型、语言枚举等）。
+- 聊天消息类型需要承载图文混排输入协议，供 UI / background / llm 在不引入 provider 细节的前提下共享。
 
 #### `src/shared/utils`
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../shared/storage/chat-history-repository';
-import type { ChatMessage, ChatRequestPayload } from '../../../shared/types/chat';
+import { getChatMessageTextContent, type ChatMessage, type ChatRequestPayload } from '../../../shared/types/chat';
 import {
   chatRequestType,
   chatCancelType,
@@ -26,15 +26,16 @@ const createMessage = (
 });
 
 /**
- * 从完整的 messages 列表中构造「用于上下文与持久化」的历史：
+ * 从完整的 messages 列表中构造「用于发送给大模型」的历史：
  * - 保留所有正常的 user / assistant 消息；
+ * - 对保留下来的消息，统一只保留文本内容，不携带图片；
  * - 对于 status === 'error' 的 assistant 消息：
  *   - 丢弃这条 assistant；
  *   - 同时丢弃它对应的 user 消息（最近且尚未被其他 assistant 消费的那条）。
  *
  * 这样可以保证：
- * - UI 仍然可以展示错误气泡；
- * - 但失败轮次不会进入 history（既不会持久化，也不会参与后续请求的 history）。
+ * - UI 与本地持久化仍然保留原始消息（包括图片）；
+ * - 但发给大模型的 history 不带图片，失败轮次也不会进入后续上下文。
  */
 const buildHistoryFromMessages = (source: ChatMessage[]): ChatMessage[] => {
   const result: ChatMessage[] = [];
@@ -43,7 +44,10 @@ const buildHistoryFromMessages = (source: ChatMessage[]): ChatMessage[] => {
     const isAssistantError = message.role === 'assistant' && message.status === 'error';
 
     if (!isAssistantError) {
-      result.push(message);
+      result.push({
+        ...message,
+        content: getChatMessageTextContent(message.content),
+      });
       continue;
     }
 

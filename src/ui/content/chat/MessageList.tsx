@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, CircleAlert, LoaderCircle, UserRound } from 'lucide-react';
-import type { ChatMessage } from '../../../shared/types/chat';
+import { getChatMessageContentParts, getChatMessageTextContent, type ChatMessage } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface MessageListProps {
@@ -31,6 +31,9 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
         const isUser = message.role === 'user';
         const isAssistant = message.role === 'assistant';
         const isError = isAssistant && message.status === 'error';
+        const textContent = getChatMessageTextContent(message.content);
+        const contentParts = getChatMessageContentParts(message.content);
+        const imageParts = contentParts.filter((part) => part.type === 'image_url');
 
         const avatarClassName = isUser
           ? 'message-avatar message-avatar-user'
@@ -49,7 +52,7 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
           : `message-card message-card-${message.role}`;
 
         // 右侧小红叹号：仅在“错误且已有 SSE 文本”时展示，tooltip 使用 errorMessage
-        const hasErrorDetail = isError && !!message.errorMessage && !!message.content.trim();
+        const hasErrorDetail = isError && !!message.errorMessage && !!textContent.trim();
         const showRightIndicator = isAssistant && hasErrorDetail;
 
         return (
@@ -66,7 +69,17 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
 
             <div className={`message-stack message-stack-${message.role}`}>
               <article className={cardClassName}>
-                <div>{message.content}</div>
+                <div className="message-content">
+                  {imageParts.map((part, index) => (
+                    <img
+                      key={`${message.id}-image-${index}`}
+                      className="message-content-image"
+                      src={part.image_url.url}
+                      alt={translateMessage('chat.message.imageAlt')}
+                    />
+                  ))}
+                  {textContent ? <div>{textContent}</div> : null}
+                </div>
               </article>
               {message.createdAt ? <div className={`message-time message-time-${message.role}`}>{message.createdAt}</div> : null}
             </div>

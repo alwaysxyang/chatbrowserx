@@ -1,9 +1,11 @@
-import type { ChatMessage } from '../../shared/types/chat';
+import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } from '../../shared/types/chat';
 import type { ModelSettings } from '../../shared/types/settings';
-import type { ChatCompletionInput, LlmChatMessage } from '../model/chat';
+import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai-compatible-provider';
+import { createToolRegistry, type ToolRegistry } from '../tools/tool-registry';
+import { runToolCallOrchestrator } from './tool-call-orchestrator';
 
-function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: string): LlmChatMessage[] {
+function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: ChatMessageContent): LlmChatMessage[] {
   const trimmedHistory = history.slice(-settings.maxHistory);
   const messages: LlmChatMessage[] = [];
 
@@ -12,7 +14,12 @@ function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: s
   }
 
   trimmedHistory.forEach((message) => {
-    messages.push({ role: message.role, content: message.content });
+    if (message.role === 'user') {
+      messages.push({ role: 'user', content: getChatMessageTextContent(message.content) });
+      return;
+    }
+
+    messages.push({ role: 'assistant', content: getChatMessageTextContent(message.content) });
   });
 
   messages.push({ role: 'user', content: input });
@@ -23,15 +30,27 @@ function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: s
 export async function completeChat(
   settings: ModelSettings,
   history: ChatMessage[],
-  input: string,
+  input: ChatMessageContent,
   onChunk?: (chunk: string) => void,
   signal?: AbortSignal,
+  options?: {
+    provider?: ChatCompletionProvider;
+    toolRegistry?: ToolRegistry;
+  },
 ): Promise<string> {
-  const provider = new OpenAiCompatibleProvider(settings);
+  const provider = options?.provider ?? new OpenAiCompatibleProvider(settings);
   const request: ChatCompletionInput = {
     model: settings.model,
     messages: toLlmMessages(settings, history, input),
   };
 
-  return provider.completeChat(request, onChunk, signal);
+  return runToolCallOrchestrator(
+    request,
+    {
+      provider,
+      toolRegistry: options?.toolRegistry ?? createToolRegistry(),
+    },
+    onChunk,
+    signal,
+  );
 }

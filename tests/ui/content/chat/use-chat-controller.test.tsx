@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
+import { getChatMessageTextContent } from '../../../../src/shared/types/chat';
 import { useChatController } from '../../../../src/ui/content/chat/use-chat-controller';
 
 describe('useChatController', () => {
@@ -87,9 +88,52 @@ describe('useChatController', () => {
     });
 
     const assistantErrors = result.current.messages.filter(
-      (message) => message.role === 'assistant' && message.content.includes('请先在设置中填写'),
+      (message) => message.role === 'assistant' && getChatMessageTextContent(message.content).includes('请先在设置中填写'),
     );
 
     expect(assistantErrors).toHaveLength(2);
+  });
+
+  it('strips images from history before sending the next request', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockResolvedValue({
+      ok: true,
+      data: { reply: 'assistant reply' },
+    });
+
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [
+        {
+          id: 'u1',
+          role: 'user',
+          content: [
+            { type: 'text', text: '历史图片说明' },
+            { type: 'image_url', image_url: { url: 'https://example.com/history.png' } },
+          ],
+        },
+        { id: 'a1', role: 'assistant', content: '上一轮回复' },
+      ],
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    await act(async () => {
+      await result.current.sendMessage('新问题');
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      type: 'chatbrowserx.chat.request',
+      payload: {
+        input: '新问题',
+        history: [
+          { id: 'u1', role: 'user', content: '历史图片说明' },
+          { id: 'a1', role: 'assistant', content: '上一轮回复' },
+        ],
+      },
+    });
   });
 });

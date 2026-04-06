@@ -92,6 +92,20 @@
   word-break: break-word;
 }
 
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.message-content-image {
+  display: block;
+  max-width: min(240px, 100%);
+  border-radius: 12px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .message-card-user {
   border-top-right-radius: 10px;
   background: #3b82f6;
