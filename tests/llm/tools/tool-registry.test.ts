@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createToolRegistry, type LlmToolModule } from '../../../src/llm/tools/tool-registry';
+import {
+  createDefaultToolRegistry,
+  createToolRegistry,
+  registerTool,
+  type LlmToolModule,
+} from '../../../src/llm/tools/tool-registry';
 
 describe('tool registry', () => {
   it('returns definitions and resolves tools by name', () => {
@@ -22,7 +27,8 @@ describe('tool registry', () => {
       invoke: async ({ text }) => JSON.stringify({ echoed: text }),
     };
 
-    const registry = createToolRegistry([echoTool]);
+    const registry = createToolRegistry();
+    registry.addTool(echoTool);
 
     expect(registry.getDefinitions()).toEqual([echoTool.definition()]);
     expect(registry.getTool('echo')).toBe(echoTool);
@@ -34,5 +40,35 @@ describe('tool registry', () => {
 
     expect(registry.getDefinitions()).toEqual([]);
     expect(registry.getTool('anything')).toBeUndefined();
+  });
+
+  it('registers default tool modules', () => {
+    const registry = createDefaultToolRegistry();
+
+    expect(registry.getTool('get_current_page_content')).toBeDefined();
+    expect(registry.getDefinitions().map((definition) => definition.function.name)).toContain('get_current_page_content');
+  });
+
+  it('allows tool modules to register themselves into the global registry', async () => {
+    registerTool({
+      name: () => 'echo_registered',
+      definition: () => ({
+        type: 'function',
+        function: {
+          name: 'echo_registered',
+          description: 'Echoes registered text',
+          parameters: {
+            type: 'object',
+            properties: {},
+          },
+        },
+      }),
+      invoke: async () => 'ok',
+    });
+
+    const registry = createDefaultToolRegistry();
+
+    expect(registry.getTool('echo_registered')).toBeDefined();
+    await expect(registry.getTool('echo_registered')?.invoke({})).resolves.toBe('ok');
   });
 });

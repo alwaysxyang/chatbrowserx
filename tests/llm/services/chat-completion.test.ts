@@ -69,7 +69,11 @@ describe('completeChat', () => {
       undefined,
       {
         provider,
-        toolRegistry: createToolRegistry([tool]),
+        toolRegistry: (() => {
+          const registry = createToolRegistry();
+          registry.addTool(tool);
+          return registry;
+        })(),
       },
     );
 

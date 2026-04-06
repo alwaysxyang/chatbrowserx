@@ -1,6 +1,7 @@
 import { createRoot } from 'react-dom/client';
 import { ContentApp } from './ContentApp';
 import styles from './styles.css?inline';
+import { registerTools } from '../tools';
 
 const hostId = 'chatbrowserx-root';
 
@@ -33,3 +34,4 @@ function mountContentApp() {
 }
 
 mountContentApp();
+registerTools();

@@ -4,6 +4,7 @@ export const chatRequestType = 'chatbrowserx.chat.request';
 export const chatStreamChunkType = 'chatbrowserx.chat.stream.chunk';
 export const chatCancelType = 'chatbrowserx.chat.cancel';
 export const panelCommandType = 'chatbrowserx.panel.command';
+export const getPageContentToolRequestType = 'chatbrowserx.tool.get-page-content.request';
 
 export interface ChatRequestMessage {
   type: typeof chatRequestType;
@@ -40,6 +41,17 @@ export interface PanelCommandMessage {
   };
 }
 
+export interface GetPageContentToolRequestMessage {
+  type: typeof getPageContentToolRequestType;
+}
+
+export interface GetPageContentToolPayload {
+  title: string;
+  url: string;
+  content: string;
+}
+
+
 export function isChatRequestMessage(message: unknown): message is ChatRequestMessage {
   return Boolean(
     message &&
@@ -73,5 +85,14 @@ export function isPanelCommandMessage(message: unknown): message is PanelCommand
       typeof message === 'object' &&
       'type' in message &&
       (message as PanelCommandMessage).type === panelCommandType,
+  );
+}
+
+export function isGetPageContentToolRequestMessage(message: unknown): message is GetPageContentToolRequestMessage {
+  return Boolean(
+    message &&
+      typeof message === 'object' &&
+      'type' in message &&
+      (message as GetPageContentToolRequestMessage).type === getPageContentToolRequestType,
   );
 }

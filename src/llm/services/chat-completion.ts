@@ -2,7 +2,7 @@ import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } 
 import type { ModelSettings } from '../../shared/types/settings';
 import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai-compatible-provider';
-import { createToolRegistry, type ToolRegistry } from '../tools/tool-registry';
+import {getDefaultToolRegistry, type ToolRegistry} from '../tools/tool-registry';
 import { runToolCallOrchestrator } from './tool-call-orchestrator';
 
 function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: ChatMessageContent): LlmChatMessage[] {
@@ -48,7 +48,7 @@ export async function completeChat(
     request,
     {
       provider,
-      toolRegistry: options?.toolRegistry ?? createToolRegistry(),
+      toolRegistry: options?.toolRegistry ?? getDefaultToolRegistry(),
     },
     onChunk,
     signal,

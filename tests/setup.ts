@@ -81,6 +81,7 @@ const chromeMock = {
     },
   },
   tabs: {
+    query: vi.fn(),
     sendMessage: vi.fn(),
     reload: vi.fn(),
   },
@@ -111,6 +112,7 @@ beforeEach(() => {
   runtimeMessageListeners.clear();
   actionClickListeners.clear();
   chromeMock.runtime.sendMessage.mockReset();
+  chromeMock.tabs.query.mockReset();
   chromeMock.tabs.sendMessage.mockReset();
   chromeMock.tabs.reload.mockReset();
   chromeMock.scripting.executeScript.mockReset();

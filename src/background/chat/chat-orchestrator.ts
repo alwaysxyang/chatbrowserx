@@ -1,4 +1,5 @@
 import { completeChat } from '../../llm/services/chat-completion';
+import { getDefaultToolRegistry } from '../../llm/tools/tool-registry';
 import { loadSettings } from '../../shared/storage/settings-repository';
 import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types/chat';
 import { chatStreamChunkType } from '../../shared/types/runtime-messages';
@@ -32,6 +33,9 @@ export async function handleChatRequest(
           .catch(() => undefined);
       },
       controller.signal,
+      {
+        toolRegistry: getDefaultToolRegistry(),
+      },
     );
 
     return { reply };

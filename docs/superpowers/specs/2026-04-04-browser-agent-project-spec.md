@@ -35,7 +35,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `ui` 与 `background` 之间的消息通信。
 - `llm/providers` 的抽象与接入边界。
 - 用户消息协议支持文本与图片混排输入（`text` / `image_url`），图片来源可为远程 URL 或 Data URL。
-- `llm/tools` 的接口与注册边界，但**暂不实现任何具体工具能力**。
+- `llm/tools` 的接口、注册边界与首个页面内容读取工具能力。
 
 ### 3.2 当前阶段不做
 
@@ -46,7 +46,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - PDF / 滚动捕获。
 - 网络录制 / 页面流量分析。
 - 图片上传、图片预览与图片选择等 UI 交互。
-- 任何具体工具实现。
+- 除“读取当前网页标题、URL 与 `document.body.innerText`”之外的其他具体工具实现。
 
 ## 4. 目标目录结构
 
@@ -117,11 +117,12 @@ src/
 
 #### `src/ui/tools`
 
-- 仅放“工具所需的 UI 壳层”与可视化交互。
-- 只有当某个工具确实需要用户可见界面时，才在这里按工具拆分子目录。
+- 放工具在 content/UI 侧的执行逻辑与可视化交互。
+- 无论是否需要用户可见界面，只要工具需要 content script / DOM 能力，都应在这里按工具拆分文件。
 - 不同工具使用不同文件，避免多个工具共用一个含混的 UI 文件。
-- 不负责工具主逻辑、tool loop、provider 协议或后台调度。
-- 与工具对应的执行逻辑仍应保留在 `llm/tools` 或由 `background` 提供运行环境支持。
+- 可放工具专属的 DOM 读取、页面交互、content 侧消息监听与响应逻辑。
+- 公共逻辑放 `ui/tools/shared.ts` 一类共享模块。
+- 不负责 tool loop、provider 协议或后台调度。
 
 ### 5.2 `src/background`
 
@@ -141,6 +142,14 @@ src/
   - 在流式响应场景下，将 SSE chunk 转换为 `chatStreamChunk` 消息推送给对应 tab；
   - 为每个 tab 维护 `AbortController`，支持 UI 侧发起 `chatCancel` 消息时中断当前请求；
   - 在调用结束后清理控制器，避免泄漏。
+- 可为 `llm/tools` 注入工具运行时依赖，例如“当前 tab 对应的 background 工具桥接能力”。
+
+#### `src/background/tools`
+
+- 放需要 background/runtime 能力的工具执行逻辑。
+- 每个工具使用独立文件，避免多个工具共享一份混杂实现。
+- 公共 Chrome API / tab 消息桥接逻辑放 `background/tools/shared.ts`。
+- 负责把 `llm/tools` 的工具调用，桥接到具体 tab、content script 或后台运行环境。
 
 #### `src/background/messaging`
 
@@ -177,8 +186,11 @@ src/
 - 放工具接口定义、注册表、协议层。
 - 每个工具模块应暴露清晰的最小契约：`name`、`definition`、`invoke`。
 - 工具模块应尽量保持独立，除确有 UI 交互需要外，不把展示逻辑放入工具实现中。
-- 工具注册表负责聚合工具定义与按名称查找工具实现，不承载 provider 或 UI 逻辑。
-- 本轮仅保留接口与注册机制，不实现具体工具。
+- 工具注册表提供全局默认 registry，与 `register` 接口；每个工具模块自行调用 `register` 完成注册。
+- 工具注册表负责聚合已注册工具、按名称查找工具实现，并在运行时依赖注入后生成可执行 tool module，不承载 provider 或 UI 逻辑。
+- 当前内建工具注册为全局默认 registry 中的 built-in tool；每个工具模块自行调用 `register` 完成注册。
+- 当前页面内容读取工具在 `invoke` 内直接完成当前激活 tab 查询与 runtime message 发送，再由 `ui/tools` 返回页面内容结果。
+- 当前已实现首个工具：读取当前网页的 `title`、`url` 与 `document.body.innerText`。
 
 ### 5.4 `src/shared`
 
