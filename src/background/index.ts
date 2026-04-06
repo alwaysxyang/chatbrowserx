@@ -1,12 +1,12 @@
-import { handleChatRequest } from './chat/chat-orchestrator';
-import { isChatRequestMessage, panelCommandType } from '../shared/types/runtime-messages';
+import { handleChatRequest, cancelChatRequest } from './chat/chat-orchestrator';
+import { isChatRequestMessage, isChatCancelMessage, panelCommandType } from '../shared/types/runtime-messages';
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isChatRequestMessage(message)) {
     return undefined;
   }
 
-  handleChatRequest(message.payload)
+  handleChatRequest(message.payload, sender.tab?.id)
     .then((data) => {
       sendResponse({ ok: true, data });
     })
@@ -15,6 +15,20 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     });
 
   return true;
+});
+
+// Handle explicit cancel requests from the content script
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (!isChatCancelMessage(message)) {
+    return undefined;
+  }
+
+  const tabId = sender.tab?.id;
+  if (tabId != null) {
+    cancelChatRequest(tabId);
+  }
+
+  return undefined;
 });
 
 chrome.action.onClicked.addListener((tab) => {

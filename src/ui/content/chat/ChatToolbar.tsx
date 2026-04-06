@@ -1,13 +1,15 @@
-import { Paperclip, Scissors, Send, Trash2 } from 'lucide-react';
+import { Paperclip, Scissors, Send, Square, Trash2 } from 'lucide-react';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatToolbarProps {
   disabled: boolean;
   canSend: boolean;
   onClear: () => void;
+  isSending: boolean;
+  onStop: () => void;
 }
 
-export function ChatToolbar({ disabled, canSend, onClear }: ChatToolbarProps) {
+export function ChatToolbar({ disabled, canSend, onClear, isSending, onStop }: ChatToolbarProps) {
   return (
     <div className="chat-toolbar">
       <div className="chat-toolbar-group chat-toolbar-group-left">
@@ -43,19 +45,32 @@ export function ChatToolbar({ disabled, canSend, onClear }: ChatToolbarProps) {
           <Trash2 className="chat-toolbar-icon" strokeWidth={2.2} />
         </button>
         <span className="chat-toolbar-divider" aria-hidden="true" />
-        <button
-          className="chat-toolbar-send"
-          data-tooltip={
-            disabled || !canSend
-              ? translateMessage('chat.toolbar.sendTooltipDisabled')
-              : translateMessage('chat.toolbar.sendTooltipEnabled')
-          }
-          disabled={disabled || !canSend}
-          type="submit"
-        >
-          <Send className="chat-toolbar-send-icon" strokeWidth={2.3} />
-          <span className="visually-hidden">{translateMessage('chat.toolbar.sendLabel')}</span>
-        </button>
+        {isSending ? (
+          <button
+            className="chat-toolbar-send chat-toolbar-send-stop"
+            type="button"
+            data-tooltip={translateMessage('chat.toolbar.stopTooltip')}
+            aria-label={translateMessage('chat.toolbar.stopLabel')}
+            onClick={onStop}
+          >
+            <Square className="chat-toolbar-send-icon" strokeWidth={2.3} />
+            <span className="visually-hidden">{translateMessage('chat.toolbar.stopLabel')}</span>
+          </button>
+        ) : (
+          <button
+            className="chat-toolbar-send"
+            data-tooltip={
+              disabled || !canSend
+                ? translateMessage('chat.toolbar.sendTooltipDisabled')
+                : translateMessage('chat.toolbar.sendTooltipEnabled')
+            }
+            disabled={disabled || !canSend}
+            type="submit"
+          >
+            <Send className="chat-toolbar-send-icon" strokeWidth={2.3} />
+            <span className="visually-hidden">{translateMessage('chat.toolbar.sendLabel')}</span>
+          </button>
+        )}
       </div>
     </div>
   );

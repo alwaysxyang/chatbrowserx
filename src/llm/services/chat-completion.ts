@@ -20,12 +20,18 @@ function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: s
   return messages;
 }
 
-export async function completeChat(settings: ModelSettings, history: ChatMessage[], input: string): Promise<string> {
+export async function completeChat(
+  settings: ModelSettings,
+  history: ChatMessage[],
+  input: string,
+  onChunk?: (chunk: string) => void,
+  signal?: AbortSignal,
+): Promise<string> {
   const provider = new OpenAiCompatibleProvider(settings);
   const request: ChatCompletionInput = {
     model: settings.model,
     messages: toLlmMessages(settings, history, input),
   };
 
-  return provider.completeChat(request);
+  return provider.completeChat(request, onChunk, signal);
 }

@@ -115,7 +115,6 @@
   background: rgba(233, 233, 235, 0.96);
   color: #111827;
 }
-
 .message-card-assistant::after {
   content: '';
   position: absolute;
@@ -136,6 +135,7 @@
 .message-card-error::after {
   border-right-color: rgba(254, 226, 226, 0.92);
 }
+
 
 .message-time {
   font-size: 12px;

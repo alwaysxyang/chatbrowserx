@@ -7,9 +7,10 @@ interface MessageListProps {
   messages: ChatMessage[];
   errorMessage: string | null;
   isSending: boolean;
+  streamingContent?: string;
 }
 
-export function MessageList({ messages, errorMessage, isSending }: MessageListProps) {
+export function MessageList({ messages, errorMessage, isSending, streamingContent }: MessageListProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export function MessageList({ messages, errorMessage, isSending }: MessageListPr
     }
 
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [errorMessage, isSending, messages]);
+  }, [errorMessage, isSending, messages, streamingContent]);
 
   if (!messages.length && !isSending && !errorMessage) {
     return null;
@@ -28,18 +29,38 @@ export function MessageList({ messages, errorMessage, isSending }: MessageListPr
     <div ref={listRef} className="message-list" data-testid="message-list">
       {messages.map((message) => {
         const isUser = message.role === 'user';
-        const isError = message.role === 'assistant' && message.status === 'error';
-        const avatarClassName = isError ? 'message-avatar message-avatar-error' : 'message-avatar message-avatar-assistant';
-        const avatarTestId = isError ? 'assistant-avatar-error' : 'assistant-avatar-completed';
+        const isAssistant = message.role === 'assistant';
+        const isError = isAssistant && message.status === 'error';
+
+        const avatarClassName = isUser
+          ? 'message-avatar message-avatar-user'
+          : isError
+          ? 'message-avatar message-avatar-error'
+          : 'message-avatar message-avatar-assistant';
+
+        const avatarTestId = isUser
+          ? 'user-avatar'
+          : isError
+          ? 'assistant-avatar-error'
+          : 'assistant-avatar-completed';
+
         const cardClassName = isError
           ? 'message-card message-card-assistant message-card-error'
           : `message-card message-card-${message.role}`;
+
+        // 右侧小红叹号：仅在“错误且已有 SSE 文本”时展示，tooltip 使用 errorMessage
+        const hasErrorDetail = isError && !!message.errorMessage && !!message.content.trim();
+        const showRightIndicator = isAssistant && hasErrorDetail;
 
         return (
           <div key={message.id} className={`message-row message-row-${message.role}`}>
             {!isUser ? (
               <div className={avatarClassName} aria-hidden="true" data-testid={avatarTestId}>
-                {isError ? <CircleAlert className="h-4 w-4" strokeWidth={2.2} /> : <Bot className="h-4 w-4" strokeWidth={2.2} />}
+                {isError ? (
+                  <CircleAlert className="h-4 w-4" strokeWidth={2.2} />
+                ) : (
+                  <Bot className="h-4 w-4" strokeWidth={2.2} />
+                )}
               </div>
             ) : null}
 
@@ -51,8 +72,14 @@ export function MessageList({ messages, errorMessage, isSending }: MessageListPr
             </div>
 
             {isUser ? (
-              <div className="message-avatar message-avatar-user" aria-hidden="true" data-testid="user-avatar">
+              <div className={avatarClassName} aria-hidden="true" data-testid={avatarTestId}>
                 <UserRound className="h-4 w-4" strokeWidth={2.2} />
+              </div>
+            ) : null}
+
+            {showRightIndicator ? (
+              <div className="message-interrupted-indicator" data-tooltip={message.errorMessage || ''}>
+                <CircleAlert className="h-3 w-3 text-red-500" strokeWidth={2.2} />
               </div>
             ) : null}
           </div>
@@ -65,7 +92,11 @@ export function MessageList({ messages, errorMessage, isSending }: MessageListPr
             <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={2.2} />
           </div>
           <div className="message-stack message-stack-assistant">
-            <div className="message-card message-card-assistant">{translateMessage('chat.loading')}</div>
+            <div className="message-card message-card-assistant">
+              {streamingContent && streamingContent.length > 0
+                ? streamingContent
+                : translateMessage('chat.loading')}
+            </div>
           </div>
         </div>
       ) : null}

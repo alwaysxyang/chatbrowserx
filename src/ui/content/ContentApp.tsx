@@ -43,7 +43,8 @@ export function ContentApp() {
   const [sidebarWidth, setSidebarWidth] = useState(460);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
   const [hasHydratedLanguage, setHasHydratedLanguage] = useState(false);
-  const { messages, isSending, errorMessage, sendMessage, clearHistory } = useChatController(hostname);
+  const { messages, isSending, errorMessage, streamingContent, sendMessage, clearHistory, stop } =
+    useChatController(hostname);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
 
@@ -221,10 +222,12 @@ export function ContentApp() {
                 errorMessage={errorMessage}
                 isSending={isSending}
                 messages={messages}
+                streamingContent={streamingContent}
                 onSendMessage={sendMessage}
                 onClearHistory={() => {
                   void clearHistory();
                 }}
+                onStop={stop}
               />
             ) : (
               <SettingsPanel

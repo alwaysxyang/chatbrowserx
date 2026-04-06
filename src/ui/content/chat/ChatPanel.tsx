@@ -8,11 +8,13 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   isSending: boolean;
   errorMessage: string | null;
+  streamingContent?: string;
   onSendMessage: (input: string) => Promise<string>;
   onClearHistory: () => void;
+  onStop?: () => void;
 }
 
-export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, onClearHistory }: ChatPanelProps) {
+export function ChatPanel({ messages, isSending, errorMessage, streamingContent, onSendMessage, onClearHistory, onStop }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const hasHistory = messages.length > 0;
 
@@ -36,7 +38,12 @@ export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, on
     <section className="chat-page">
       <div className="chat-surface">
         {hasHistory || isSending ? (
-          <MessageList errorMessage={errorMessage} isSending={isSending} messages={hasHistory ? messages : []} />
+          <MessageList
+            errorMessage={errorMessage}
+            isSending={isSending}
+            streamingContent={streamingContent}
+            messages={hasHistory ? messages : []}
+          />
         ) : (
           <div className="chat-empty-state">
             <div className="chat-empty-title">{translateMessage('chat.empty.title')}</div>
@@ -67,6 +74,8 @@ export function ChatPanel({ messages, isSending, errorMessage, onSendMessage, on
             setDraft('');
             onClearHistory();
           }}
+          isSending={isSending}
+          onStop={onStop ?? (() => {})}
         />
       </div>
     </section>

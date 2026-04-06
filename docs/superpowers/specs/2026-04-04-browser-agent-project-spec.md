@@ -20,10 +20,11 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 当前阶段的核心目标按优先级排序如下：
 
 1. **维护性优先**：结构清晰、职责单一、边界稳定。
-2. **最小可用**：先落地基础聊天能力与最小设置能力。
-3. **可扩展**：后续可以逐步扩展 `providers`、`tools` 与更多浏览器增强能力。
-4. **易协作**：让后续 AI 工具与新开发者能快速理解目录和命名规则。
-5. **渐进演进**：未来增加能力时，不破坏已建立的结构边界。
+2. **最小可用**：先落地基础聊天能力与最小设置能力（包括多语言 UI、基础错误提示）。
+3. **高质量聊天交互体验**：支持流式输出、用户中断、滚动跟随等基础交互细节。
+4. **可扩展**：后续可以逐步扩展 `providers`、`tools` 与更多浏览器增强能力。
+5. **易协作**：让后续 AI 工具与新开发者能快速理解目录和命名规则。
+6. **渐进演进**：未来增加能力时，不破坏已建立的结构边界。
 
 ## 3. 本轮范围
 
@@ -84,17 +85,25 @@ src/
 - 负责创建 Shadow Root、挂载 React 应用、组织聊天与设置界面。
 - 不直接实现 provider 请求逻辑。
 - 不直接承担流式解析、tool loop、Chrome 后台任务。
+- 允许在轻量控制器（如 `use-chat-controller`）中维护聊天 UI 状态、调用 background 消息接口，以及处理滚动跟随、输入态、流式输出文本展示等交互细节，但不得直接依赖 provider 实现或 Chrome API。
 
 #### `src/ui/content/chat`
 
 - 负责网页内聊天界面。
 - 包含聊天面板、消息列表、输入框、加载态、错误态、侧边栏壳等 UI 组件。
-- 只维护展示态与轻量交互状态。
+- 通过 `use-chat-controller` 这类 hook，与后台交换消息，并在前端维护：
+  - 用户输入草稿、消息历史展示；
+  - 聊天请求进行中的流式文本（在 loading 气泡中展示）；
+  - 聊天中断状态（例如被用户停止时标记为 `interrupted` 并展示提示图标）；
+  - 自动滚动到底的行为。
+- 不直接依赖具体 provider，实现与 provider 的交互必须经过 `background` + `llm/services`。
 
 #### `src/ui/content/settings`
 
 - 负责网页内设置面板。
-- 包含配置表单、基础校验、保存交互反馈。
+- 包含配置表单、基础校验、保存交互反馈（包括“保存成功/失败”提示）。
+- 通过 `shared/storage/settings-repository` 读写设置（如 `API Base URL`、`API Key`、`Model`、`System Prompt`、`Max History`、`UI Language`）。
+- 语言选择变更只有在“保存设置”成功后才会同步到全局 UI 语言与 i18n 缓存。
 - 不直接触达 provider 实现。
 
 #### `src/ui/popup`
@@ -117,6 +126,10 @@ src/
 - 聊天后台任务协调。
 - 负责 UI 请求到 LLM service 的衔接。
 - 不直接写 provider 细节。
+- 负责将 UI 层的“聊天请求”包装为一次 LLM 调用，并：
+  - 在流式响应场景下，将 SSE chunk 转换为 `chatStreamChunk` 消息推送给对应 tab；
+  - 为每个 tab 维护 `AbortController`，支持 UI 侧发起 `chatCancel` 消息时中断当前请求；
+  - 在调用结束后清理控制器，避免泄漏。
 
 #### `src/background/messaging`
 
@@ -141,6 +154,10 @@ src/
 
 - 放 LLM 相关服务，如 chat completion、stream parser、tool loop 编排。
 - 是 provider 与 background 之间的能力层。
+- 负责将 UI 的“历史 + 当前输入”转换为通用 `ChatCompletionInput`，并在内部处理：
+  - 非流式 vs 流式调用的统一接口；
+  - 将 provider 的流式增量回调转换为可供 `background` 转发的 chunk 文本；
+  - 同时返回最终完整回复文本。
 
 #### `src/llm/tools`
 
@@ -159,14 +176,23 @@ src/
 #### `src/shared/storage`
 
 - 配置、聊天历史等持久化访问层。
+- `settings-repository`：负责设置的读写与归一化，提供默认值与键名管理。
+- `chat-history-repository`：按“归一化 hostname”（例如 `www.baidu.com` → `baidu.com`）维度存储与读取聊天历史，保证同一站点下多页面共享历史。
 
 #### `src/shared/types`
 
-- 跨模块共享类型。
+- 跨模块共享类型（包括聊天消息结构、runtime 消息协议、设置类型、语言枚举等）。
 
 #### `src/shared/utils`
 
 - 与领域无关的小工具函数。
+
+#### `src/shared/i18n`
+
+- i18n 文本与语言解析逻辑。
+- 负责根据 `UiLanguage` 与浏览器语言选择具体 locale。
+- 提供 `translateMessage` 等方法，供 UI 与错误提示统一使用。
+- 不直接依赖 UI 层组件，只暴露纯函数与配置。
 
 ## 6. 依赖边界规则
 
@@ -269,7 +295,7 @@ src/
 
 ### 9.1 第一阶段策略
 
-- 先落地最小可用聊天能力，作为浏览器增强 Agent 的起点。
+- 先落地最小可用聊天能力，作为浏览器增强 Agent 的起点（当前已包括流式输出、用户中断、滚动跟随、多语言 UI）。
 - 先删调用链，再删实现，再删配置字段。
 - 对 `tools` 只保留接口和注册边界。
 
@@ -296,6 +322,7 @@ src/
 
 - 先读取本 spec，再开始结构性修改。
 - 若任务涉及目录调整、边界变化、命名规则变化，应先更新 spec，再执行代码修改。
+- 功能开发完成后，Agent 需要检查本轮改动是否影响目录职责、依赖边界或交互约定；如有影响，应同步更新本 spec 与相关文档（例如新增/调整模块职责说明）。
 - 若实现与 spec 冲突，以“维护性优先、边界稳定优先”为默认决策原则。
 - 若某项需求会明显破坏边界，应拆成更小的子任务，而不是直接绕过规范。
 

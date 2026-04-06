@@ -1,6 +1,8 @@
 import type { ChatRequestPayload, ChatResponsePayload } from './chat';
 
 export const chatRequestType = 'chatbrowserx.chat.request';
+export const chatStreamChunkType = 'chatbrowserx.chat.stream.chunk';
+export const chatCancelType = 'chatbrowserx.chat.cancel';
 export const panelCommandType = 'chatbrowserx.panel.command';
 
 export interface ChatRequestMessage {
@@ -20,6 +22,17 @@ export interface ChatErrorResponse {
 
 export type ChatRuntimeResponse = ChatSuccessResponse | ChatErrorResponse;
 
+export interface ChatStreamChunkMessage {
+  type: typeof chatStreamChunkType;
+  payload: {
+    content: string;
+  };
+}
+
+export interface ChatCancelMessage {
+  type: typeof chatCancelType;
+}
+
 export interface PanelCommandMessage {
   type: typeof panelCommandType;
   payload: {
@@ -33,6 +46,24 @@ export function isChatRequestMessage(message: unknown): message is ChatRequestMe
       typeof message === 'object' &&
       'type' in message &&
       (message as ChatRequestMessage).type === chatRequestType,
+  );
+}
+
+export function isChatStreamChunkMessage(message: unknown): message is ChatStreamChunkMessage {
+  return Boolean(
+    message &&
+      typeof message === 'object' &&
+      'type' in message &&
+      (message as ChatStreamChunkMessage).type === chatStreamChunkType,
+  );
+}
+
+export function isChatCancelMessage(message: unknown): message is ChatCancelMessage {
+  return Boolean(
+    message &&
+      typeof message === 'object' &&
+      'type' in message &&
+      (message as ChatCancelMessage).type === chatCancelType,
   );
 }
 

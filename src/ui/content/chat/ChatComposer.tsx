@@ -8,9 +8,11 @@ interface ChatComposerProps {
   onChange: (value: string) => void;
   onSubmit: () => void;
   onClear: () => void;
+  isSending: boolean;
+  onStop: () => void;
 }
 
-export function ChatComposer({ value, disabled, onChange, onSubmit, onClear }: ChatComposerProps) {
+export function ChatComposer({ value, disabled, onChange, onSubmit, onClear, isSending, onStop }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const autoResize = () => {
@@ -67,7 +69,13 @@ export function ChatComposer({ value, disabled, onChange, onSubmit, onClear }: C
         }}
       />
 
-      <ChatToolbar disabled={disabled} canSend={!!value.trim()} onClear={onClear} />
+      <ChatToolbar
+        disabled={disabled}
+        canSend={!!value.trim()}
+        isSending={isSending}
+        onClear={onClear}
+        onStop={onStop}
+      />
     </form>
   );
 }

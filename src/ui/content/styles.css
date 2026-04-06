@@ -242,6 +242,14 @@ button:disabled {
   border: 0;
 }
 
+/* 被用户中断的助手消息：右侧红色小叹号提示 */
+.message-interrupted-indicator {
+  display: flex;
+  align-items: center;
+  margin-left: 4px;
+  align-self: center;
+}
+
 .primary-button,
 .secondary-button {
   border: none;

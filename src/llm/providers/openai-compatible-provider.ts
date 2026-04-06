@@ -20,7 +20,11 @@ interface OpenAiCompatibleResponse {
 export class OpenAiCompatibleProvider {
   constructor(private readonly settings: ModelSettings) {}
 
-  async completeChat(input: ChatCompletionInput): Promise<string> {
+  async completeChat(
+    input: ChatCompletionInput,
+    onChunk?: (chunk: string) => void,
+    signal?: AbortSignal,
+  ): Promise<string> {
     if (!this.settings.baseUrl || !this.settings.model || !this.settings.apiKey) {
       // 使用稳定的错误代码，具体文案在 UI 层结合当前语言决定
       throw new Error('MODEL_MISCONFIGURED');
@@ -35,10 +39,12 @@ export class OpenAiCompatibleProvider {
       body: JSON.stringify({
         model: input.model,
         messages: input.messages,
-        // 按照 chatplugins 的约定，使用流式响应，并显式关闭 thinking
+        // Use streaming responses and explicitly disable thinking,
+        // following the chatplugins implementation.
         stream: true,
-        thinking: false,
+        thinking: { type: 'disabled' },
       }),
+      signal,
     });
 
     if (!response.ok) {
@@ -76,6 +82,7 @@ export class OpenAiCompatibleProvider {
           const delta = json?.choices?.[0]?.delta as { content?: string } | undefined;
           if (delta?.content) {
             assistantContent += delta.content;
+            onChunk?.(delta.content);
           }
         } catch {
           // 流片段解析失败时忽略该片段，继续读取后续内容
