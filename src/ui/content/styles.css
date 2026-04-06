@@ -101,6 +101,17 @@
   height: 14px;
 }
 
+/* 固定对话头像与错误提示叹号图标尺寸，避免在不同站点字体缩放时出现大小不一致 */
+.message-avatar svg {
+  width: 18px;
+  height: 18px;
+}
+
+.message-interrupted-indicator svg {
+  width: 12px;
+  height: 12px;
+}
+
 .brand-title {
   font-size: 15px;
   font-weight: 700;
