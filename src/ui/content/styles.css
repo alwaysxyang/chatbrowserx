@@ -93,6 +93,14 @@
   box-shadow: 0 6px 14px rgba(124, 58, 237, 0.22);
 }
 
+/* 固定头部与侧边栏图标为绝对像素尺寸，避免受宿主页面 font-size 影响导致放大/缩小 */
+.brand-mark svg,
+.header-actions .icon-button svg,
+.shell-rail .rail-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
 .brand-title {
   font-size: 15px;
   font-weight: 700;

@@ -13,8 +13,27 @@ import { translateMessage } from '../../shared/i18n/i18n';
 
 const getPanelStateStorageKey = (hostname: string) => `chatbrowserx.panel.${hostname || 'default'}`;
 
+// 将完整 hostname 归一化为“二级域名”级别的标识，用于缓存键：
+// - www.baidu.com   -> baidu.com
+// - news.qq.com     -> qq.com
+// - baidu.com       -> baidu.com
+// - localhost / IP  -> 原样返回
+function normalizeHostnameForStorage(hostname: string): string {
+  const raw = (hostname || '').trim().toLowerCase();
+  if (!raw) return 'default';
+
+  const parts = raw.split('.');
+  if (parts.length <= 2) {
+    return raw;
+  }
+
+  const secondLevel = parts[parts.length - 2];
+  const topLevel = parts[parts.length - 1];
+  return `${secondLevel}.${topLevel}`;
+}
+
 export function ContentApp() {
-  const hostname = useMemo(() => window.location.hostname || 'default', []);
+  const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
   const panelStateStorageKey = useMemo(() => getPanelStateStorageKey(hostname), [hostname]);
   const buildLabel = useMemo(() => `Build ${__CHATBROWSERX_BUILD_TIME__}`, []);
   const [isOpen, setIsOpen] = useState(false);
@@ -23,6 +42,7 @@ export function ContentApp() {
   const [hasHydratedPinned, setHasHydratedPinned] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(460);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
+  const [hasHydratedLanguage, setHasHydratedLanguage] = useState(false);
   const { messages, isSending, errorMessage, sendMessage, clearHistory } = useChatController(hostname);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
@@ -45,10 +65,14 @@ export function ContentApp() {
   useEffect(() => {
     loadSettings()
       .then((settings) => {
+        // 先同步当前语言缓存，再更新本地 state，确保首次渲染就使用用户配置的语言
+        setCurrentUiLanguage(settings.general.uiLanguage);
         setUiLanguage(settings.general.uiLanguage);
+        setHasHydratedLanguage(true);
       })
       .catch(() => {
         // 读取失败时保持默认语言，不打断主流程
+        setHasHydratedLanguage(true);
       });
   }, []);
 
@@ -148,7 +172,7 @@ export function ContentApp() {
     };
   };
 
-  if (!isOpen) {
+  if (!isOpen || !hasHydratedLanguage) {
     return null;
   }
 
