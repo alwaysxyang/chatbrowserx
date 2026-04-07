@@ -75,7 +75,7 @@ describe('ChatPanel', () => {
 
     const content = container.querySelector('.message-content');
     expect(content?.firstElementChild?.tagName).toBe('IMG');
-    expect(content?.lastElementChild?.textContent).toContain('帮我看下这些图片');
+    expect(content?.textContent).toContain('帮我看下这些图片');
   });
 
   it('translates uploaded image alt text', () => {

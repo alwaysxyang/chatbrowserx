@@ -1,7 +1,49 @@
 import { useEffect, useRef, useState } from 'react';
 import { Bot, CircleAlert, LoaderCircle, UserRound } from 'lucide-react';
+import Markdown, { type MarkdownToJSX } from 'markdown-to-jsx';
 import { getChatMessageContentParts, getChatMessageTextContent, type ChatMessage } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
+
+const markdownOptions: MarkdownToJSX.Options = {
+  overrides: {
+    a: {
+      component: ({ children, ...props }: any) => (
+        // 统一在气泡内的链接样式与行为
+        <a
+          {...props}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="message-markdown-link"
+        >
+          {children}
+        </a>
+      ),
+    },
+    code: {
+      component: ({ children, className, ...props }: any) => {
+        const isBlock = typeof className === 'string' && className.includes('lang-');
+
+        return (
+          <code
+            {...props}
+            className={`message-markdown-code ${isBlock ? 'message-markdown-code-block' : 'message-markdown-code-inline'} ${
+              className ?? ''
+            }`}
+          >
+            {children}
+          </code>
+        );
+      },
+    },
+    pre: {
+      component: ({ children, ...props }: any) => (
+        <pre {...props} className="message-markdown-pre">
+          {children}
+        </pre>
+      ),
+    },
+  },
+};
 
 interface MessageListProps {
   messages: ChatMessage[];
@@ -78,7 +120,7 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
                       alt={translateMessage('chat.message.imageAlt')}
                     />
                   ))}
-                  {textContent ? <div>{textContent}</div> : null}
+                  {textContent ? <Markdown options={markdownOptions}>{textContent}</Markdown> : null}
                 </div>
               </article>
               {message.createdAt ? <div className={`message-time message-time-${message.role}`}>{message.createdAt}</div> : null}
@@ -122,9 +164,11 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
           </div>
           <div className="message-stack message-stack-assistant">
             <div className="message-card message-card-assistant">
-              {streamingContent && streamingContent.length > 0
-                ? streamingContent
-                : translateMessage('chat.loading')}
+              {streamingContent && streamingContent.length > 0 ? (
+                <Markdown options={markdownOptions}>{streamingContent}</Markdown>
+              ) : (
+                translateMessage('chat.loading')
+              )}
             </div>
           </div>
         </div>
