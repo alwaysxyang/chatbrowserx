@@ -41,4 +41,25 @@ describe('background action click', () => {
     expect(chrome.scripting.executeScript).not.toHaveBeenCalled();
     expect(chrome.tabs.reload).not.toHaveBeenCalled();
   });
+
+  it('cancels in-flight chat when the content runtime port disconnects', async () => {
+    const cancelChatRequest = vi.fn();
+    const handleChatRequest = vi.fn();
+
+    vi.doMock('../../src/background/chat/chat-orchestrator', () => ({
+      handleChatRequest,
+      cancelChatRequest,
+    }));
+
+    await import('../../src/background/index');
+
+    const port = globalThis.__chromeTestUtils.createRuntimePort({
+      name: 'chatbrowserx.chat.session',
+      tabId: 37,
+    });
+
+    port.__disconnect();
+
+    expect(cancelChatRequest).toHaveBeenCalledWith(37);
+  });
 });

@@ -1,20 +1,23 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readCurrentPageContent, registerGetPageContentToolListener } from '../../../src/ui/tools/get-page-content-tool';
+import * as sharedTools from '../../../src/ui/tools/shared';
 
 describe('ui get page content tool', () => {
-  it('extracts title, url, and innerText from the current page', () => {
-    const body = Object.create(HTMLElement.prototype) as HTMLElement;
-    Object.defineProperty(body, 'innerText', {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('extracts title, url, and innerText from the current page', async () => {
+    const documentObject = document.implementation.createHTMLDocument('Current page');
+    Object.defineProperty(documentObject.body, 'innerText', {
       configurable: true,
       value: 'Line 1\nLine 2',
     });
 
-    const pageContent = readCurrentPageContent(
-      {
-        title: 'Current page',
-        body,
-      } as Document,
+    const pageContent = await readCurrentPageContent(
+      documentObject,
       { href: 'https://example.com/page' } as Location,
+      { scrollTo: vi.fn() } as unknown as Window,
     );
 
     expect(pageContent).toEqual({
@@ -24,18 +27,26 @@ describe('ui get page content tool', () => {
     });
   });
 
-  it('registers a listener that responds with page content payload', () => {
+  it('reads body text through scroll capture flow', async () => {
+    const readPageContentSpy = vi.spyOn(sharedTools, 'readPageContent').mockResolvedValue('Scrolled text');
+    const documentObject = document.implementation.createHTMLDocument('Current page');
+
+    const pageContent = await readCurrentPageContent(
+      documentObject,
+      { href: 'https://example.com/page' } as Location,
+      { scrollTo: vi.fn() } as unknown as Window,
+    );
+
+    expect(readPageContentSpy).toHaveBeenCalledWith(documentObject, expect.anything());
+    expect(pageContent.content).toBe('Scrolled text');
+  });
+
+  it('registers a listener that responds with page content payload', async () => {
     const addListenerMock = chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>;
+    const readPageContentSpy = vi.spyOn(sharedTools, 'readPageContent').mockResolvedValue('Page body');
 
     document.title = 'Current page';
-    Object.defineProperty(document.body, 'innerText', {
-      configurable: true,
-      value: 'Page body',
-    });
-    Object.defineProperty(window, 'location', {
-      configurable: true,
-      value: { href: 'https://example.com/page' },
-    });
+    window.history.replaceState({}, '', '/page');
 
     registerGetPageContentToolListener();
 
@@ -48,10 +59,13 @@ describe('ui get page content tool', () => {
       sendResponse,
     );
 
-    expect(handled).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(handled).toBe(true);
+    expect(readPageContentSpy).toHaveBeenCalled();
     expect(sendResponse).toHaveBeenCalledWith({
       title: 'Current page',
-      url: 'https://example.com/page',
+      url: window.location.href,
       content: 'Page body',
     });
   });

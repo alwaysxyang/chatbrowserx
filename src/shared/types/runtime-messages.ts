@@ -3,6 +3,7 @@ import type { ChatRequestPayload, ChatResponsePayload } from './chat';
 export const chatRequestType = 'chatbrowserx.chat.request';
 export const chatStreamChunkType = 'chatbrowserx.chat.stream.chunk';
 export const chatCancelType = 'chatbrowserx.chat.cancel';
+export const chatSessionPortName = 'chatbrowserx.chat.session';
 export const panelCommandType = 'chatbrowserx.panel.command';
 export const getPageContentToolRequestType = 'chatbrowserx.tool.get-page-content.request';
 

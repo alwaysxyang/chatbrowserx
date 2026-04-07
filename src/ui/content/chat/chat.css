@@ -171,6 +171,45 @@
   padding-left: 10px;
 }
 
+.message-interrupted-indicator-wrapper {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  padding-top: 8px;
+  margin-left: 4px;
+  align-self: center;
+}
+
+.message-interrupted-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: transparent;
+  align-self: center;
+}
+
+.message-error-tooltip {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 4;
+  min-width: 180px;
+  max-width: min(360px, calc(100vw - 140px));
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 12px 30px rgba(127, 29, 29, 0.28);
+}
+
 .composer-shell {
   margin-top: auto;
   border-top: 1px solid rgba(221, 226, 236, 0.72);

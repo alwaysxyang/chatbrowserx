@@ -1,5 +1,5 @@
 import { handleChatRequest, cancelChatRequest } from './chat/chat-orchestrator';
-import { isChatRequestMessage, isChatCancelMessage, panelCommandType } from '../shared/types/runtime-messages';
+import { chatSessionPortName, isChatRequestMessage, isChatCancelMessage, panelCommandType } from '../shared/types/runtime-messages';
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isChatRequestMessage(message)) {
@@ -29,6 +29,21 @@ chrome.runtime.onMessage.addListener((message, sender) => {
   }
 
   return undefined;
+});
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== chatSessionPortName) {
+    return;
+  }
+
+  const tabId = port.sender?.tab?.id;
+  if (tabId == null) {
+    return;
+  }
+
+  port.onDisconnect.addListener(() => {
+    cancelChatRequest(tabId);
+  });
 });
 
 chrome.action.onClicked.addListener((tab) => {

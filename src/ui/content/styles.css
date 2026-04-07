@@ -253,41 +253,6 @@ button:disabled {
   border: 0;
 }
 
-/* 被用户中断的助手消息：右侧红色小叹号提示 */
-.message-interrupted-indicator-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-  margin-left: 4px;
-  align-self: center;
-}
-
-.message-interrupted-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  align-self: center;
-}
-
-.message-error-tooltip {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  /* 稍微偏左下一点，贴近感叹号 */
-  transform: translate(-8px, 10px);
-  /* 限制水平宽度，避免溢出侧边栏/屏幕 */
-  max-width: 260px;
-  padding: 6px 10px;
-  border-radius: 10px;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.25);
-  z-index: 50;
-  cursor: text;
-}
-
 .primary-button,
 .secondary-button {
   border: none;

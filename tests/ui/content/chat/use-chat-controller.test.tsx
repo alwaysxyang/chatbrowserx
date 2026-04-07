@@ -136,4 +136,56 @@ describe('useChatController', () => {
       },
     });
   });
+
+  it('restores interrupted partial reply after page refresh', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [{ id: 'u1', role: 'user', content: '上一轮提问' }],
+      'chatbrowserx.pending.example.com': {
+        content: '未完成的回答',
+        errorMessage: '页面已刷新，当前请求已中断。',
+        createdAt: '10:32',
+      },
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: '未完成的回答',
+      status: 'error',
+      errorMessage: '页面已刷新，当前请求已中断。',
+      createdAt: '10:32',
+    });
+
+    const persisted = await chrome.storage.local.get('chatbrowserx.pending.example.com');
+    expect(persisted['chatbrowserx.pending.example.com']).toBeUndefined();
+  });
+
+  it('restores interrupted error without partial text after page refresh', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.pending.example.com': {
+        content: '',
+        errorMessage: '页面已刷新，当前请求已中断。',
+        createdAt: '10:33',
+      },
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    expect(result.current.messages[0]).toMatchObject({
+      role: 'assistant',
+      content: '页面已刷新，当前请求已中断。',
+      status: 'error',
+      errorMessage: '页面已刷新，当前请求已中断。',
+      createdAt: '10:33',
+    });
+  });
 });

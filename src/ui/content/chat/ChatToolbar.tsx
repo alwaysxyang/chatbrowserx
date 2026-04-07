@@ -41,6 +41,7 @@ export function ChatToolbar({ disabled, canSend, onClear, isSending, onStop }: C
           aria-label={translateMessage('chat.toolbar.clearLabel')}
           data-tooltip={translateMessage('chat.toolbar.clearTooltip')}
           onClick={onClear}
+          disabled={isSending}
         >
           <Trash2 className="chat-toolbar-icon" strokeWidth={2.2} />
         </button>

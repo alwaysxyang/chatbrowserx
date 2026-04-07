@@ -134,7 +134,7 @@ export class OpenAiCompatibleProvider implements ChatCompletionProvider {
       return {
         message: {
           role: 'assistant',
-          content: 'EMPTY_RESPONSE',
+          content: '',
         },
       };
     }
@@ -217,7 +217,7 @@ export class OpenAiCompatibleProvider implements ChatCompletionProvider {
     return {
       message: {
         role: 'assistant',
-        content: assistantContent.trim() || 'EMPTY_RESPONSE',
+        content: assistantContent.trim() || '',
         ...(toolCalls.length ? { toolCalls } : {}),
       },
     };

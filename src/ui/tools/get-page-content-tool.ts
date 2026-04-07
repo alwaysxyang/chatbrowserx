@@ -2,17 +2,22 @@ import {
   isGetPageContentToolRequestMessage,
   type GetPageContentToolPayload,
 } from '../../shared/types/runtime-messages';
-import { readBodyInnerText } from './shared';
+import { readPageContent } from './shared';
 
-export function readCurrentPageContent(
-  documentObject: Document = document,
-  locationObject: Location = window.location,
-): GetPageContentToolPayload {
-  return {
+export async function readCurrentPageContent(
+    documentObject: Document = document,
+    locationObject: Location = window.location,
+    windowObject: Window = window,
+): Promise<GetPageContentToolPayload> {
+  const pageContent = {
     title: documentObject.title,
     url: locationObject.href,
-    content: readBodyInnerText(documentObject),
+    content: '',
   };
+  return ({
+    ...pageContent,
+    content: await readPageContent(documentObject, windowObject),
+  });
 }
 
 export function registerGetPageContentToolListener(): void {
@@ -21,9 +26,11 @@ export function registerGetPageContentToolListener(): void {
       return undefined;
     }
 
-    const response = readCurrentPageContent(document, window.location);
-    sendResponse(response);
-    return false;
+    void readCurrentPageContent(document, window.location, window).then((response) => {
+      sendResponse(response);
+    });
+
+    return true;
   };
 
   chrome.runtime.onMessage.addListener(listener);

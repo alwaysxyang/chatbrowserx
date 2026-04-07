@@ -54,7 +54,7 @@ export async function runToolCallOrchestrator(
     messages.push(assistantMessage);
 
     if (!assistantMessage.toolCalls?.length) {
-      return assistantMessage.content.trim() || 'EMPTY_RESPONSE';
+      return assistantMessage.content.trim() || '';
     }
 
     const toolMessages = await Promise.all(

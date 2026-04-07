@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { ContentApp } from '../../../src/ui/content/ContentApp';
+import { buildChatHistoryScope, ContentApp } from '../../../src/ui/content/ContentApp';
 
 const normalizeHostnameForStorage = (hostname: string): string => {
   const raw = (hostname || '').trim().toLowerCase();
@@ -17,6 +17,14 @@ const normalizeHostnameForStorage = (hostname: string): string => {
 const panelStateKey = `chatbrowserx.panel.${normalizeHostnameForStorage(window.location.hostname || 'default')}`;
 
 describe('ContentApp', () => {
+  it('builds page-level chat history scope from url without hash', () => {
+    expect(
+      buildChatHistoryScope({
+        hostname: 'www.example.com',
+      } as Location),
+    ).toBe('example.com');
+  });
+
   it('opens by default only when current site was pinned and open', async () => {
     await chrome.storage.local.set({
       [panelStateKey]: {

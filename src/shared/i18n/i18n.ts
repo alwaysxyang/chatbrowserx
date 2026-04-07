@@ -69,6 +69,7 @@ type MessageKey =
   | 'chat.toolbar.stopTooltip'
   | 'chat.composer.placeholder'
   | 'chat.message.imageAlt'
+  | 'tools.scroll.loading'
   | 'chat.loading'
   | 'settings.provider.switchLabel'
   | 'settings.provider.openaiTooltip'
@@ -79,6 +80,7 @@ type MessageKey =
   | 'error.request.failed'
   | 'error.response.empty'
   | 'error.message.sendFailed'
+  | 'error.message.pageRefreshInterrupted'
   | 'popup.description';
 
 const messages: Record<MessageKey, Record<Locale, string>> = {
@@ -215,6 +217,11 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     en: 'Uploaded image',
     ja: 'アップロードされた画像',
   },
+  'tools.scroll.loading': {
+    zh: '滚动中…',
+    en: 'Scrolling…',
+    ja: 'スクロール中…',
+  },
   // Shell header
   'shell.header.pin': {
     zh: '固定面板',
@@ -283,6 +290,11 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     zh: '发送失败',
     en: 'Send failed',
     ja: '送信に失敗しました',
+  },
+  'error.message.pageRefreshInterrupted': {
+    zh: '页面已刷新，当前请求已中断。',
+    en: 'The page was refreshed and the current request was interrupted.',
+    ja: 'ページが再読み込みされたため、現在のリクエストは中断されました。',
   },
   // Popup description
   'popup.description': {

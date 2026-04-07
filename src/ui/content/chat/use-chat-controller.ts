@@ -1,5 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../shared/storage/chat-history-repository';
+import {
+  clearChatHistory,
+  clearPendingChatReply,
+  loadChatHistory,
+  loadPendingChatReply,
+  saveChatHistory,
+  savePendingChatReply,
+  type PendingChatReply,
+} from '../../../shared/storage/chat-history-repository';
 import { getChatMessageTextContent, type ChatMessage, type ChatRequestPayload } from '../../../shared/types/chat';
 import {
   chatRequestType,
@@ -24,6 +32,25 @@ const createMessage = (
     hour12: false,
   }).format(new Date()),
 });
+
+const formatMessageTime = () =>
+  new Intl.DateTimeFormat('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(new Date());
+
+const createAssistantMessageFromPending = (pending: PendingChatReply): ChatMessage => {
+  const interruptedMessage = pending.errorMessage || translateMessage('error.message.pageRefreshInterrupted');
+  const content = pending.content.trim() || interruptedMessage;
+  const message = createMessage('assistant', content, 'error');
+
+  return {
+    ...message,
+    createdAt: pending.createdAt ?? message.createdAt,
+    errorMessage: interruptedMessage,
+  };
+};
 
 /**
  * 从完整的 messages 列表中构造「用于发送给大模型」的历史：
@@ -77,11 +104,15 @@ export function useChatController(hostname: string) {
   const hasUserInteractedRef = useRef(false);
   const [streamingContent, setStreamingContent] = useState('');
   const streamingRef = useRef('');
+  const pendingCreatedAtRef = useRef('');
 
   useEffect(() => {
-    loadChatHistory(hostname).then((history) => {
+    Promise.all([loadChatHistory(hostname), loadPendingChatReply(hostname)]).then(([history, pending]) => {
       if (!hasUserInteractedRef.current) {
-        setMessages(history);
+        setMessages(pending ? [...history, createAssistantMessageFromPending(pending)] : history);
+      }
+      if (pending) {
+        void clearPendingChatReply(hostname);
       }
       setIsHydrated(true);
     });
@@ -100,6 +131,10 @@ export function useChatController(hostname: string) {
       setStreamingContent((prev) => {
         const next = prev + chunk;
         streamingRef.current = next;
+        void savePendingChatReply(hostname, {
+          content: next,
+          createdAt: pendingCreatedAtRef.current,
+        });
         return next;
       });
     };
@@ -108,7 +143,7 @@ export function useChatController(hostname: string) {
     return () => {
       chrome.runtime.onMessage.removeListener(listener);
     };
-  }, []);
+  }, [hostname]);
 
   useEffect(() => {
     if (!isHydrated) {
@@ -123,6 +158,8 @@ export function useChatController(hostname: string) {
     // 本地持久化保留原始对话（包括错误轮次），
     // 仅发送给大模型时使用过滤后的 history。
     void saveChatHistory(hostname, messages);
+    pendingCreatedAtRef.current = '';
+    void clearPendingChatReply(hostname);
   }, [hostname, isHydrated, messages]);
 
   const api = useMemo(
@@ -133,6 +170,7 @@ export function useChatController(hostname: string) {
         // 每次发送前重置流式内容
         setStreamingContent('');
         streamingRef.current = '';
+        pendingCreatedAtRef.current = formatMessageTime();
 
         const nextMessages = [...messages, createMessage('user', input)];
         setMessages(nextMessages);
@@ -156,6 +194,7 @@ export function useChatController(hostname: string) {
           // 完成后将完整回复落盘为一条 assistant 消息
           setMessages((currentMessages) => [...currentMessages, createMessage('assistant', reply)]);
           setStreamingContent('');
+          streamingRef.current = '';
           return reply;
         } catch (error) {
           const fallbackSend = translateMessage('error.message.sendFailed');
@@ -169,6 +208,7 @@ export function useChatController(hostname: string) {
             errorText = error instanceof Error ? error.message || fallbackSend : fallbackSend;
           }
           const contentSoFar = streamingRef.current.trim();
+
           setMessages((currentMessages) => {
             // 没有任何 SSE 文本：气泡内容直接显示错误原因
             if (!contentSoFar) {
@@ -188,6 +228,7 @@ export function useChatController(hostname: string) {
           });
           setStreamingContent('');
           streamingRef.current = '';
+
           throw error;
         } finally {
           setIsSending(false);
@@ -197,6 +238,7 @@ export function useChatController(hostname: string) {
         hasUserInteractedRef.current = true;
         setMessages([]);
         await clearChatHistory(hostname);
+        await clearPendingChatReply(hostname);
       },
     }),
     [hostname, messages],
