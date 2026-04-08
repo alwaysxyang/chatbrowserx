@@ -37,6 +37,7 @@ type MessageKey =
   | 'settings.fields.apiBaseUrl'
   | 'settings.fields.apiKey'
   | 'settings.fields.model'
+  | 'settings.codex.fields.accessToken'
   | 'settings.fields.systemPrompt'
   | 'settings.fields.maxHistory'
   | 'settings.fields.language'
@@ -135,6 +136,11 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
     zh: 'API Key',
     en: 'API Key',
     ja: 'API Key',
+  },
+  'settings.codex.fields.accessToken': {
+    zh: 'Codex ACCESS_TOKEN',
+    en: 'Codex ACCESS_TOKEN',
+    ja: 'Codex ACCESS_TOKEN',
   },
   'settings.fields.model': {
     zh: 'Model',

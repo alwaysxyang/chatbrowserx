@@ -64,6 +64,14 @@
   padding-right: 44px;
 }
 
+.settings-input-with-icon textarea {
+  width: 100%;
+  padding-right: 44px;
+  min-height: 110px; /* 约 5 行高度 */
+  padding-top: 4px;  /* 文本从顶部开始 */
+  resize: vertical;
+}
+
 .settings-form > label:last-of-type {
   padding-bottom: 0;
   border-bottom: none;
