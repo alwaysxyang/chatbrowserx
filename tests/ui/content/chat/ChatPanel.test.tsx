@@ -119,9 +119,13 @@ describe('ChatPanel', () => {
   });
 
   it('shows loading state with the loading assistant avatar', async () => {
+    const messages: ChatMessage[] = [
+      { id: 'streaming-assistant', role: 'assistant', content: '', status: 'streaming' },
+    ];
+
     render(
       <ChatPanel
-        messages={[]}
+        messages={messages}
         isSending
         onSendMessage={vi.fn(async () => 'unused')}
         onClearHistory={vi.fn()}

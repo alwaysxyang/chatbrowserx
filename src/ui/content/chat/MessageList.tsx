@@ -48,10 +48,9 @@ const markdownOptions: MarkdownToJSX.Options = {
 interface MessageListProps {
   messages: ChatMessage[];
   isSending: boolean;
-  streamingContent?: string;
 }
 
-export function MessageList({ messages, isSending, streamingContent }: MessageListProps) {
+export function MessageList({ messages, isSending }: MessageListProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const [activeErrorId, setActiveErrorId] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -62,7 +61,7 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
     }
 
     listRef.current.scrollTop = listRef.current.scrollHeight;
-  }, [isSending, messages, streamingContent]);
+  }, [isSending, messages]);
 
   if (!messages.length && !isSending) {
     return null;
@@ -74,21 +73,27 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
         const isUser = message.role === 'user';
         const isAssistant = message.role === 'assistant';
         const isError = isAssistant && message.status === 'error';
+        const isStreamingAssistant = isAssistant && message.status === 'streaming' && isSending;
         const textContent = getChatMessageTextContent(message.content);
-        const contentParts = getChatMessageContentParts(message.content);
-        const imageParts = contentParts.filter((part) => part.type === 'image_url');
+        const imageParts = isUser
+          ? getChatMessageContentParts(message.content).filter((part) => part.type === 'image_url')
+          : [];
         const hasCopyableText = !!textContent;
 
         const avatarClassName = isUser
           ? 'message-avatar message-avatar-user'
           : isError
           ? 'message-avatar message-avatar-error'
+          : isStreamingAssistant
+          ? 'message-avatar message-avatar-loading'
           : 'message-avatar message-avatar-assistant';
 
         const avatarTestId = isUser
           ? 'user-avatar'
           : isError
           ? 'assistant-avatar-error'
+          : isStreamingAssistant
+          ? 'assistant-avatar-loading'
           : 'assistant-avatar-completed';
 
         const cardClassName = isError
@@ -109,6 +114,8 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
               >
                 {isError ? (
                   <CircleAlert className="h-4 w-4" strokeWidth={2.2} />
+                ) : isStreamingAssistant ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={2.2} />
                 ) : (
                   <Bot className="h-4 w-4" strokeWidth={2.2} />
                 )}
@@ -131,7 +138,11 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
                       alt={translateMessage('chat.message.imageAlt')}
                     />
                   ))}
-                  {textContent ? <Markdown options={markdownOptions}>{textContent}</Markdown> : null}
+                  {textContent ? (
+                    <Markdown options={markdownOptions}>{textContent}</Markdown>
+                  ) : isStreamingAssistant ? (
+                    <Markdown options={markdownOptions}>{translateMessage('chat.loading')}</Markdown>
+                  ) : null}
                 </div>
               </article>
               {message.createdAt || hasCopyableText ? (
@@ -204,22 +215,6 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
           </div>
         );
       })}
-      {isSending ? (
-        <div className="message-row message-row-assistant">
-          <div className="message-avatar message-avatar-loading" aria-hidden="true" data-testid="assistant-avatar-loading">
-            <LoaderCircle className="h-4 w-4 animate-spin" strokeWidth={2.2} />
-          </div>
-          <div className="message-stack message-stack-assistant">
-            <div className="message-card message-card-assistant">
-              {streamingContent && streamingContent.length > 0 ? (
-                <Markdown options={markdownOptions}>{streamingContent}</Markdown>
-              ) : (
-                translateMessage('chat.loading')
-              )}
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

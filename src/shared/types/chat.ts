@@ -36,7 +36,12 @@ export interface ChatMessage {
   role: ChatRole;
   content: ChatMessageContent;
   createdAt?: string;
-  status?: 'completed' | 'error' | 'interrupted';
+  // 统一用 status 表示消息状态：
+  // - completed: 正常完成
+  // - streaming: 正在流式生成
+  // - error: 生成失败
+  // - interrupted: 被主动中断
+  status?: 'completed' | 'streaming' | 'error' | 'interrupted';
   // 对于 status === 'error' 的消息，保存更详细的错误原因，便于在 UI 右侧感叹号中展示
   errorMessage?: string;
 }

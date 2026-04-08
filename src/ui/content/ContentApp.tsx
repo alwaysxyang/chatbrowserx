@@ -43,8 +43,7 @@ export function ContentApp() {
   const [hasHydratedPinned, setHasHydratedPinned] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(460);
   const [hasHydratedLanguage, setHasHydratedLanguage] = useState(false);
-  const { messages, isSending, streamingContent, sendMessage, clearHistory, stop } =
-    useChatController(hostname);
+  const { messages, isSending, sendMessage, clearHistory, stop } = useChatController(hostname);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const asideRef = useRef<HTMLElement | null>(null);
 
@@ -221,7 +220,6 @@ export function ContentApp() {
               <ChatPanel
                 isSending={isSending}
                 messages={messages}
-                streamingContent={streamingContent}
                 onSendMessage={sendMessage}
                 onClearHistory={() => {
                   void clearHistory();

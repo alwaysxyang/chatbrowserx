@@ -348,8 +348,8 @@
   display: flex;
   flex-shrink: 0;
   align-items: center;
-  padding-top: 8px;
-  margin-left: 4px;
+  /* 略微向气泡内侧偏一点 */
+  margin-left: -2px;
   align-self: center;
 }
 
@@ -361,7 +361,9 @@
   height: 20px;
   border-radius: 999px;
   background: transparent;
+  /* 轻微上移，让感叹号在气泡垂直居中 */
   align-self: center;
+  margin-top: -2px;
 }
 
 .message-error-tooltip {

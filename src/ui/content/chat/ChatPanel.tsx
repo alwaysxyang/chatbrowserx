@@ -7,13 +7,12 @@ import { translateMessage } from '../../../shared/i18n/i18n';
 interface ChatPanelProps {
   messages: ChatMessage[];
   isSending: boolean;
-  streamingContent?: string;
   onSendMessage: (input: string) => Promise<string>;
   onClearHistory: () => void;
   onStop?: () => void;
 }
 
-export function ChatPanel({ messages, isSending, streamingContent, onSendMessage, onClearHistory, onStop }: ChatPanelProps) {
+export function ChatPanel({ messages, isSending, onSendMessage, onClearHistory, onStop }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
   const hasHistory = messages.length > 0;
 
@@ -37,7 +36,7 @@ export function ChatPanel({ messages, isSending, streamingContent, onSendMessage
     <section className="chat-page">
       <div className="chat-surface">
         {hasHistory || isSending ? (
-          <MessageList isSending={isSending} streamingContent={streamingContent} messages={hasHistory ? messages : []} />
+          <MessageList isSending={isSending} messages={hasHistory ? messages : []} />
         ) : (
           <div className="chat-empty-state">
             <div className="chat-empty-title">{translateMessage('chat.empty.title')}</div>

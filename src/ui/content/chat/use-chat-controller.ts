@@ -1,13 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  clearChatHistory,
-  clearPendingChatReply,
-  loadChatHistory,
-  loadPendingChatReply,
-  saveChatHistory,
-  savePendingChatReply,
-  type PendingChatReply,
-} from '../../../shared/storage/chat-history-repository';
+import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../shared/storage/chat-history-repository';
 import { getChatMessageTextContent, type ChatMessage, type ChatRequestPayload } from '../../../shared/types/chat';
 import {
   chatRequestType,
@@ -32,25 +24,6 @@ const createMessage = (
     hour12: false,
   }).format(new Date()),
 });
-
-const formatMessageTime = () =>
-  new Intl.DateTimeFormat('zh-CN', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(new Date());
-
-const createAssistantMessageFromPending = (pending: PendingChatReply): ChatMessage => {
-  const interruptedMessage = pending.errorMessage || translateMessage('error.message.pageRefreshInterrupted');
-  const content = pending.content.trim() || interruptedMessage;
-  const message = createMessage('assistant', content, 'error');
-
-  return {
-    ...message,
-    createdAt: pending.createdAt ?? message.createdAt,
-    errorMessage: interruptedMessage,
-  };
-};
 
 /**
  * 从完整的 messages 列表中构造「用于发送给大模型」的历史：
@@ -97,22 +70,58 @@ const buildHistoryFromMessages = (source: ChatMessage[]): ChatMessage[] => {
   return result;
 };
 
+const buildErrorMessage = (message: ChatMessage, errorMessage: string): ChatMessage => {
+  const result: ChatMessage = {
+    ...message,
+    status: 'error',
+    errorMessage,
+  };
+
+  if (typeof result.content === 'string') {
+    if (!result.content) {
+      result.content = errorMessage;
+    }
+  } else if (Array.isArray(result.content) && result.content.length === 0) {
+    result.content = errorMessage;
+  }
+
+  return result;
+};
+
+const mapStreamingMessage = (
+  messages: ChatMessage[],
+  id: string | null,
+  mapFn: (message: ChatMessage) => ChatMessage,
+): ChatMessage[] => {
+  if (!id) return messages;
+
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    if (messages[i].id === id) {
+      const next = [...messages];
+      next[i] = mapFn(next[i]);
+      return next;
+    }
+  }
+  return messages;
+};
+
 export function useChatController(hostname: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const hasUserInteractedRef = useRef(false);
-  const [streamingContent, setStreamingContent] = useState('');
-  const streamingRef = useRef('');
-  const pendingCreatedAtRef = useRef('');
+  // 当前正在流式生成的 assistant 消息 id；每次 sendMessage 时创建占位消息并记录在这里
+  const streamingAssistantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    Promise.all([loadChatHistory(hostname), loadPendingChatReply(hostname)]).then(([history, pending]) => {
+    loadChatHistory(hostname).then((history) => {
       if (!hasUserInteractedRef.current) {
-        setMessages(pending ? [...history, createAssistantMessageFromPending(pending)] : history);
-      }
-      if (pending) {
-        void clearPendingChatReply(hostname);
+        setMessages(history.map<ChatMessage>((message) => {
+          if (message.role !== 'assistant' || message.status !== 'streaming') {
+            return message;
+          }
+          return buildErrorMessage(message, translateMessage('error.message.pageRefreshInterrupted'))
+        }));
       }
       setIsHydrated(true);
     });
@@ -126,16 +135,15 @@ export function useChatController(hostname: string) {
 
       const chunk = message.payload.content;
 
-      // 将流式内容累积到单独的 streamingContent 中，
-      // 由 MessageList 的 loading 气泡负责展示
-      setStreamingContent((prev) => {
-        const next = prev + chunk;
-        streamingRef.current = next;
-        void savePendingChatReply(hostname, {
-          content: next,
-          createdAt: pendingCreatedAtRef.current,
-        });
-        return next;
+      // 将增量内容直接累积到「当前正在流式生成的 assistant 消息」中，
+      // 不再使用单独的 streamingContent/pending 缓存。
+      setMessages((prevMessages) => {
+        return mapStreamingMessage(prevMessages, streamingAssistantIdRef.current, (message) => {
+          return {
+            ...message,
+            content: getChatMessageTextContent(message.content) + chunk,
+          }
+        })
       });
     };
 
@@ -158,8 +166,6 @@ export function useChatController(hostname: string) {
     // 本地持久化保留原始对话（包括错误轮次），
     // 仅发送给大模型时使用过滤后的 history。
     void saveChatHistory(hostname, messages);
-    pendingCreatedAtRef.current = '';
-    void clearPendingChatReply(hostname);
   }, [hostname, isHydrated, messages]);
 
   const api = useMemo(
@@ -167,13 +173,14 @@ export function useChatController(hostname: string) {
       async sendMessage(input: string) {
         setIsSending(true);
         hasUserInteractedRef.current = true;
-        // 每次发送前重置流式内容
-        setStreamingContent('');
-        streamingRef.current = '';
-        pendingCreatedAtRef.current = formatMessageTime();
+        streamingAssistantIdRef.current = null;
 
-        const nextMessages = [...messages, createMessage('user', input)];
-        setMessages(nextMessages);
+        const userMessage = createMessage('user', input);
+        const assistantPlaceholder: ChatMessage = createMessage('assistant', '', 'streaming');
+
+        streamingAssistantIdRef.current = assistantPlaceholder.id;
+
+        setMessages([...messages, userMessage, assistantPlaceholder]);
 
         try {
           const response = (await chrome.runtime.sendMessage({
@@ -190,11 +197,17 @@ export function useChatController(hostname: string) {
           }
 
           const reply = response.data.reply;
-          // 流式阶段只更新 loading 气泡中的 streamingContent，
-          // 完成后将完整回复落盘为一条 assistant 消息
-          setMessages((currentMessages) => [...currentMessages, createMessage('assistant', reply)]);
-          setStreamingContent('');
-          streamingRef.current = '';
+          // 将占位的 assistant 消息更新为「已完成」状态，并写入最终回复内容
+          setMessages((prevMessages) => {
+            return mapStreamingMessage(prevMessages, streamingAssistantIdRef.current, (message) => {
+              return {
+                ...message,
+                content: reply,
+                status: 'completed',
+              }
+            });
+          });
+
           return reply;
         } catch (error) {
           const fallbackSend = translateMessage('error.message.sendFailed');
@@ -207,30 +220,15 @@ export function useChatController(hostname: string) {
             // 底层报什么，错误原因就是什么（包括 AbortError / BodyStreamBuffer 等）
             errorText = error instanceof Error ? error.message || fallbackSend : fallbackSend;
           }
-          const contentSoFar = streamingRef.current.trim();
-
-          setMessages((currentMessages) => {
-            // 没有任何 SSE 文本：气泡内容直接显示错误原因
-            if (!contentSoFar) {
-              return [...currentMessages, createMessage('assistant', errorText, 'error')];
-            }
-
-            // 已经有部分 SSE 文本：
-            // - 气泡内容保留已生成文本；
-            // - 使用红色错误样式与错误头像；
-            // - 错误原因放到右侧感叹号的 tooltip 中（一次对话只保留一个气泡）。
-            const base = createMessage('assistant', contentSoFar, 'error');
-            const messageWithError: ChatMessage = {
-              ...base,
-              errorMessage: errorText,
-            };
-            return [...currentMessages, messageWithError];
+          const id = streamingAssistantIdRef.current;
+          setMessages((prevMessages) => {
+            return mapStreamingMessage(prevMessages, id, (message) => {
+              return buildErrorMessage(message, errorText);
+            })
           });
-          setStreamingContent('');
-          streamingRef.current = '';
-
           throw error;
         } finally {
+          streamingAssistantIdRef.current = null;
           setIsSending(false);
         }
       },
@@ -238,7 +236,6 @@ export function useChatController(hostname: string) {
         hasUserInteractedRef.current = true;
         setMessages([]);
         await clearChatHistory(hostname);
-        await clearPendingChatReply(hostname);
       },
     }),
     [hostname, messages],
@@ -253,7 +250,6 @@ export function useChatController(hostname: string) {
   return {
     messages,
     isSending,
-    streamingContent,
     clearHistory: api.clearHistory,
     sendMessage: api.sendMessage,
     stop,
