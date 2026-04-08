@@ -67,6 +67,8 @@ type MessageKey =
   | 'chat.toolbar.sendTooltipEnabled'
   | 'chat.toolbar.stopLabel'
   | 'chat.toolbar.stopTooltip'
+  | 'chat.message.copy'
+  | 'chat.message.copied'
   | 'chat.composer.placeholder'
   | 'chat.message.imageAlt'
   | 'tools.scroll.loading'
@@ -210,6 +212,9 @@ const messages: Record<MessageKey, Record<Locale, string>> = {
   'chat.toolbar.sendTooltipEnabled': { zh: '发送消息', en: 'Send message', ja: 'メッセージを送信' },
   'chat.toolbar.stopLabel': { zh: '停止生成', en: 'Stop generating', ja: '生成を停止' },
   'chat.toolbar.stopTooltip': { zh: '中断当前回复', en: 'Stop current reply', ja: '現在の返信を中断' },
+  // Chat message copy
+  'chat.message.copy': { zh: '复制消息', en: 'Copy message', ja: 'メッセージをコピー' },
+  'chat.message.copied': { zh: '已复制', en: 'Copied', ja: 'コピーしました' },
   // Composer
   'chat.composer.placeholder': { zh: '问任何问题，@ 模型，/ 提示', en: 'Ask anything, @ model, / prompt', ja: '何でも質問、@ モデル、/ プロンプト' },
   'chat.message.imageAlt': {

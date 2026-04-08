@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Bot, CircleAlert, LoaderCircle, UserRound } from 'lucide-react';
+import { Bot, Check, CircleAlert, Copy, LoaderCircle, UserRound } from 'lucide-react';
 import Markdown, { type MarkdownToJSX } from 'markdown-to-jsx';
 import { getChatMessageContentParts, getChatMessageTextContent, type ChatMessage } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
@@ -54,6 +54,7 @@ interface MessageListProps {
 export function MessageList({ messages, isSending, streamingContent }: MessageListProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const [activeErrorId, setActiveErrorId] = useState<string | null>(null);
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!listRef.current) {
@@ -76,6 +77,7 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
         const textContent = getChatMessageTextContent(message.content);
         const contentParts = getChatMessageContentParts(message.content);
         const imageParts = contentParts.filter((part) => part.type === 'image_url');
+        const hasCopyableText = !!textContent;
 
         const avatarClassName = isUser
           ? 'message-avatar message-avatar-user'
@@ -100,7 +102,11 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
         return (
           <div key={message.id} className={`message-row message-row-${message.role}`}>
             {!isUser ? (
-              <div className={avatarClassName} aria-hidden="true" data-testid={avatarTestId}>
+              <div
+                className={avatarClassName}
+                aria-hidden="true"
+                data-testid={avatarTestId}
+              >
                 {isError ? (
                   <CircleAlert className="h-4 w-4" strokeWidth={2.2} />
                 ) : (
@@ -109,7 +115,12 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
               </div>
             ) : null}
 
-            <div className={`message-stack message-stack-${message.role}`}>
+            <div
+              className={`message-stack message-stack-${message.role}`}
+              onMouseLeave={() => {
+                setCopiedMessageId((current) => (current === message.id ? null : current));
+              }}
+            >
               <article className={cardClassName}>
                 <div className="message-content">
                   {imageParts.map((part, index) => (
@@ -123,7 +134,43 @@ export function MessageList({ messages, isSending, streamingContent }: MessageLi
                   {textContent ? <Markdown options={markdownOptions}>{textContent}</Markdown> : null}
                 </div>
               </article>
-              {message.createdAt ? <div className={`message-time message-time-${message.role}`}>{message.createdAt}</div> : null}
+              {message.createdAt || hasCopyableText ? (
+                <div className={`message-meta message-meta-${message.role}`}>
+                  {message.createdAt ? (
+                    <div className={`message-time message-time-${message.role}`}>{message.createdAt}</div>
+                  ) : null}
+                  {hasCopyableText ? (
+                    <button
+                      type="button"
+                      className="message-copy-button"
+                      aria-label={
+                        copiedMessageId === message.id
+                          ? translateMessage('chat.message.copied')
+                          : translateMessage('chat.message.copy')
+                      }
+                      data-tooltip={
+                        copiedMessageId === message.id
+                          ? translateMessage('chat.message.copied')
+                          : translateMessage('chat.message.copy')
+                      }
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(textContent);
+                          setCopiedMessageId(message.id);
+                        } catch {
+                          // ignore clipboard errors in unsupported environments
+                        }
+                      }}
+                    >
+                      {copiedMessageId === message.id ? (
+                        <Check className="h-3 w-3 message-copy-icon-success" strokeWidth={2.2} />
+                      ) : (
+                        <Copy className="h-3 w-3" strokeWidth={2.0} />
+                      )}
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
 
             {isUser ? (
