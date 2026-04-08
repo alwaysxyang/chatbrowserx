@@ -14,9 +14,8 @@ describe('OpenAiCompatibleProvider', () => {
     );
 
     const provider = new OpenAiCompatibleProvider({
-      ...defaultSettings.model,
+      baseUrl: defaultSettings.model.openai.baseUrl,
       apiKey: 'k',
-      model: 'm',
     });
 
     await expect(
@@ -59,9 +58,8 @@ describe('OpenAiCompatibleProvider', () => {
     );
 
     const provider = new OpenAiCompatibleProvider({
-      ...defaultSettings.model,
+      baseUrl: defaultSettings.model.openai.baseUrl,
       apiKey: 'k',
-      model: 'm',
     });
 
     const result = await provider.completeChat({
@@ -110,9 +108,8 @@ describe('OpenAiCompatibleProvider', () => {
     );
 
     const provider = new OpenAiCompatibleProvider({
-      ...defaultSettings.model,
+      baseUrl: defaultSettings.model.openai.baseUrl,
       apiKey: 'k',
-      model: 'm',
     });
 
     await provider.completeChat({
@@ -183,9 +180,8 @@ describe('OpenAiCompatibleProvider', () => {
     );
 
     const provider = new OpenAiCompatibleProvider({
-      ...defaultSettings.model,
+      baseUrl: defaultSettings.model.openai.baseUrl,
       apiKey: 'k',
-      model: 'm',
     });
 
     await provider.completeChat({

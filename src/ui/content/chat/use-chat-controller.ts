@@ -179,7 +179,7 @@ export function useChatController(hostname: string) {
         const assistantPlaceholder: ChatMessage = createMessage('assistant', '', 'streaming');
 
         streamingAssistantIdRef.current = assistantPlaceholder.id;
-
+        const currentId = assistantPlaceholder.id;
         setMessages([...messages, userMessage, assistantPlaceholder]);
 
         try {
@@ -199,7 +199,7 @@ export function useChatController(hostname: string) {
           const reply = response.data.reply;
           // 将占位的 assistant 消息更新为「已完成」状态，并写入最终回复内容
           setMessages((prevMessages) => {
-            return mapStreamingMessage(prevMessages, streamingAssistantIdRef.current, (message) => {
+            return mapStreamingMessage(prevMessages, currentId, (message) => {
               return {
                 ...message,
                 content: reply,
@@ -220,9 +220,8 @@ export function useChatController(hostname: string) {
             // 底层报什么，错误原因就是什么（包括 AbortError / BodyStreamBuffer 等）
             errorText = error instanceof Error ? error.message || fallbackSend : fallbackSend;
           }
-          const id = streamingAssistantIdRef.current;
           setMessages((prevMessages) => {
-            return mapStreamingMessage(prevMessages, id, (message) => {
+            return mapStreamingMessage(prevMessages, currentId, (message) => {
               return buildErrorMessage(message, errorText);
             })
           });

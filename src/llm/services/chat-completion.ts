@@ -2,7 +2,8 @@ import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } 
 import type { ModelSettings } from '../../shared/types/settings';
 import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai-compatible-provider';
-import {getDefaultToolRegistry, type ToolRegistry} from '../tools/tool-registry';
+import { CodexProvider } from '../providers/codex-provider';
+import { getDefaultToolRegistry, type ToolRegistry } from '../tools/tool-registry';
 import { runToolCallOrchestrator } from './tool-call-orchestrator';
 
 function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: ChatMessageContent): LlmChatMessage[] {
@@ -38,9 +39,20 @@ export async function completeChat(
     toolRegistry?: ToolRegistry;
   },
 ): Promise<string> {
-  const provider = options?.provider ?? new OpenAiCompatibleProvider(settings);
+  const provider =
+    options?.provider ??
+    (settings.provider === 'openai'
+      ? new OpenAiCompatibleProvider({
+          baseUrl: settings.openai.baseUrl,
+          apiKey: settings.openai.apiKey,
+        })
+      : new CodexProvider({
+          baseUrl: settings.codex.baseUrl,
+          accessToken: settings.codex.accessToken,
+        }));
+  const modelName = settings.provider === 'openai' ? settings.openai.model : settings.codex.model;
   const request: ChatCompletionInput = {
-    model: settings.model,
+    model: modelName,
     messages: toLlmMessages(settings, history, input),
   };
 

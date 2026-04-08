@@ -60,8 +60,13 @@ describe('completeChat', () => {
     const reply = await completeChat(
       {
         ...defaultSettings.model,
-        apiKey: 'key',
+        provider: 'openai',
         model: 'gpt-test',
+        openai: {
+          ...defaultSettings.model.openai,
+          apiKey: 'key',
+          model: 'gpt-test',
+        },
       },
       [{ id: '1', role: 'assistant', content: 'Old answer' }],
       'Summarize the page',
@@ -128,8 +133,13 @@ describe('completeChat', () => {
       completeChat(
         {
           ...defaultSettings.model,
-          apiKey: 'key',
+          provider: 'openai',
           model: 'gpt-test',
+          openai: {
+            ...defaultSettings.model.openai,
+            apiKey: 'key',
+            model: 'gpt-test',
+          },
         },
         [],
         'Try a missing tool',
@@ -156,8 +166,13 @@ describe('completeChat', () => {
     await completeChat(
       {
         ...defaultSettings.model,
-        apiKey: 'key',
+        provider: 'openai',
         model: 'gpt-test',
+        openai: {
+          ...defaultSettings.model.openai,
+          apiKey: 'key',
+          model: 'gpt-test',
+        },
       },
       [
         {

@@ -6,7 +6,6 @@ import type {
   LlmToolCall,
 } from '../model/chat';
 import type { ChatContentPart } from '../../shared/types/chat';
-import type { ModelSettings } from '../../shared/types/settings';
 
 interface OpenAiCompatibleResponse {
   choices?: Array<{
@@ -92,24 +91,29 @@ function toWireUserContent(content: string | ChatContentPart[]): string | ChatCo
   });
 }
 
+export interface OpenAiCompatibleProviderConfig {
+  baseUrl: string;
+  apiKey: string;
+}
+
 export class OpenAiCompatibleProvider implements ChatCompletionProvider {
-  constructor(private readonly settings: ModelSettings) {}
+  constructor(private readonly config: OpenAiCompatibleProviderConfig) {}
 
   async completeChat(
     input: ChatCompletionInput,
     onChunk?: (chunk: string) => void,
     signal?: AbortSignal,
   ): Promise<ChatCompletionResult> {
-    if (!this.settings.baseUrl || !this.settings.model || !this.settings.apiKey) {
+    if (!this.config.baseUrl || !input.model || !this.config.apiKey) {
       // 使用稳定的错误代码，具体文案在 UI 层结合当前语言决定
       throw new Error('MODEL_MISCONFIGURED');
     }
 
-    const response = await fetch(`${this.settings.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const response = await fetch(`${this.config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${this.settings.apiKey}`,
+        Authorization: `Bearer ${this.config.apiKey}`,
       },
       body: JSON.stringify({
         model: input.model,

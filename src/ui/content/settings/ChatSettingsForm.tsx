@@ -46,16 +46,27 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         </button>
       </div>
 
-      {value.provider === 'openai' ? (
-        <label>
-          <span>{label('settings.fields.apiBaseUrl')}</span>
-          <input
-            aria-label={label('settings.fields.apiBaseUrl')}
-            value={value.baseUrl}
-            onChange={(event) => updateField('baseUrl', event.target.value)}
-          />
-        </label>
-      ) : null}
+      <label>
+        <span>{label('settings.fields.apiBaseUrl')}</span>
+        <input
+          aria-label={label('settings.fields.apiBaseUrl')}
+          value={value.provider === 'openai' ? value.openai.baseUrl : value.codex.baseUrl}
+          onChange={(event) => {
+            const next = event.target.value;
+            if (value.provider === 'openai') {
+              onChange({
+                ...value,
+                openai: { ...value.openai, baseUrl: next },
+              });
+            } else {
+              onChange({
+                ...value,
+                codex: { ...value.codex, baseUrl: next },
+              });
+            }
+          }}
+        />
+      </label>
 
       <label>
         <span>
@@ -64,48 +75,62 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
             : label('settings.codex.fields.accessToken')}
         </span>
 
-          <div className="settings-input-with-icon">
-            {value.provider === 'openai' ? (
-                <input
-                  aria-label={label('settings.fields.apiKey')}
-                  type={showApiKey ? 'text' : 'password'}
-                  value={value.apiKey}
-                  onChange={(event) => updateField('apiKey', event.target.value)}
-                />) :
-                (
-                    <textarea
-                        aria-label={label('settings.codex.fields.accessToken')}
-                        rows={5}
-                        value={showApiKey ? value.apiKey : '•'.repeat(value.apiKey.length || 8)}
-                        onChange={
-                            showApiKey
-                                ? (event) => updateField('apiKey', event.target.value)
-                                : undefined
-                        }
-                        readOnly={!showApiKey}
-                    />
-                )}
-            <button
-              type="button"
-              className="settings-input-icon-button"
-              aria-label={showApiKey ? label('settings.apiKey.hide') : label('settings.apiKey.show')}
-              onClick={() => setShowApiKey((current) => !current)}
-              disabled={disabled}
-            >
-              {showApiKey ? (
-                <EyeOff className="settings-input-icon" strokeWidth={2.1} />
-              ) : (
-                <Eye className="settings-input-icon" strokeWidth={2.1} />
-              )}
-            </button>
-          </div>
+        <div className="settings-input-with-icon">
+          {value.provider === 'openai' ? (
+            <input
+              aria-label={label('settings.fields.apiKey')}
+              type={showApiKey ? 'text' : 'password'}
+              value={value.openai.apiKey}
+              onChange={(event) =>
+                onChange({ ...value, openai: { ...value.openai, apiKey: event.target.value } })
+              }
+            />
+          ) : (
+            <textarea
+              aria-label={label('settings.codex.fields.accessToken')}
+              rows={5}
+              value={
+                showApiKey
+                  ? value.codex.accessToken
+                  : '•'.repeat(value.codex.accessToken ? value.codex.accessToken.length : 8)
+              }
+              onChange={
+                showApiKey
+                  ? (event) =>
+                      onChange({
+                        ...value,
+                        codex: { ...value.codex, accessToken: event.target.value },
+                      })
+                  : undefined
+              }
+              readOnly={!showApiKey}
+            />
+          )}
+          <button
+            type="button"
+            className="settings-input-icon-button"
+            aria-label={showApiKey ? label('settings.apiKey.hide') : label('settings.apiKey.show')}
+            onClick={() => setShowApiKey((current) => !current)}
+            disabled={disabled}
+          >
+            {showApiKey ? (
+              <EyeOff className="settings-input-icon" strokeWidth={2.1} />
+            ) : (
+              <Eye className="settings-input-icon" strokeWidth={2.1} />
+            )}
+          </button>
+        </div>
       </label>
       <label>
         <span>{label('settings.fields.model')}</span>
         <input
           aria-label={label('settings.fields.model')}
-          value={value.model}
-          onChange={(event) => updateField('model', event.target.value)}
+          value={value.provider === 'openai' ? value.openai.model : value.codex.model}
+          onChange={(event) =>
+            value.provider === 'openai'
+              ? onChange({ ...value, openai: { ...value.openai, model: event.target.value } })
+              : onChange({ ...value, codex: { ...value.codex, model: event.target.value } })
+          }
         />
       </label>
 
