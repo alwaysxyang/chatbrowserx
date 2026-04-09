@@ -57,8 +57,19 @@ export async function cropScreenshotDataUrl(dataUrl: string, rect: ScreenshotRec
   const image = await loadImage(dataUrl);
   const scaleX = image.naturalWidth / viewport.width || 1;
   const scaleY = image.naturalHeight / viewport.height || 1;
-  const targetWidth = Math.max(1, Math.round(normalizedRect.width * scaleX));
-  const targetHeight = Math.max(1, Math.round(normalizedRect.height * scaleY));
+  const outputScale = Math.min(scaleX, scaleY) || 1;
+  const sourceLeft = Math.round(normalizedRect.left * scaleX);
+  const sourceTop = Math.round(normalizedRect.top * scaleY);
+  const sourceWidth = Math.min(
+    Math.max(1, image.naturalWidth - sourceLeft),
+    Math.max(1, Math.round(normalizedRect.width * scaleX)),
+  );
+  const sourceHeight = Math.min(
+    Math.max(1, image.naturalHeight - sourceTop),
+    Math.max(1, Math.round(normalizedRect.height * scaleY)),
+  );
+  const targetWidth = Math.max(1, Math.round(normalizedRect.width * outputScale));
+  const targetHeight = Math.max(1, Math.round(normalizedRect.height * outputScale));
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
 
@@ -70,10 +81,10 @@ export async function cropScreenshotDataUrl(dataUrl: string, rect: ScreenshotRec
   canvas.height = targetHeight;
   context.drawImage(
     image,
-    Math.round(normalizedRect.left * scaleX),
-    Math.round(normalizedRect.top * scaleY),
-    targetWidth,
-    targetHeight,
+    sourceLeft,
+    sourceTop,
+    sourceWidth,
+    sourceHeight,
     0,
     0,
     targetWidth,
