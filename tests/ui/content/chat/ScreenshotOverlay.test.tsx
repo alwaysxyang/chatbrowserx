@@ -60,7 +60,7 @@ describe('ScreenshotOverlay', () => {
     const selectionWidth = parseFloat(selection.style.width);
 
     expect(overlay).toHaveStyle({ background: 'transparent' });
-    expect(selection).toHaveStyle({ background: 'transparent', borderColor: '#ffffff' });
+    expect(selection).toHaveStyle({ background: 'transparent', border: '0px', outlineColor: '#ffffff' });
     expect(controls).toHaveStyle({ transform: 'translateX(-50%)' });
     expect(parseFloat(controls.style.left)).toBeCloseTo(selectionLeft + selectionWidth / 2);
   });
@@ -219,11 +219,15 @@ describe('ScreenshotOverlay', () => {
       .mockReturnValueOnce('data:image/png;base64,crop-next-2')
       .mockReturnValue('data:image/png;base64,stitched');
     const onComplete = vi.fn();
-    const onCaptureVisibleTab = vi
-      .fn()
-      .mockResolvedValueOnce('data:image/png;base64,viewport-start')
-      .mockResolvedValueOnce('data:image/png;base64,viewport-next')
-      .mockResolvedValueOnce('data:image/png;base64,viewport-next-2');
+    const captureResults = [
+      'data:image/png;base64,viewport-start',
+      'data:image/png;base64,viewport-next',
+      'data:image/png;base64,viewport-next-2',
+    ];
+    const onCaptureVisibleTab = vi.fn(async () => {
+      expect(screen.getByTestId('screenshot-overlay')).not.toHaveClass('screenshot-overlay-capturing');
+      return captureResults.shift() ?? 'data:image/png;base64,viewport-extra';
+    });
 
     try {
       render(
@@ -283,6 +287,118 @@ describe('ScreenshotOverlay', () => {
         parseFloat(selection.style.height) + 400,
       );
       expect(window.scrollTo).not.toHaveBeenCalled();
+    } finally {
+      getContextSpy.mockRestore();
+      toDataUrlSpy.mockRestore();
+      Object.defineProperty(globalThis, 'Image', {
+        value: originalImage,
+        configurable: true,
+      });
+      Object.defineProperty(window, 'scrollBy', {
+        value: originalScrollBy,
+        configurable: true,
+      });
+      Object.defineProperty(window, 'scrollTo', {
+        value: originalScrollTo,
+        configurable: true,
+      });
+      Object.defineProperty(window, 'scrollY', {
+        value: originalScrollY,
+        configurable: true,
+      });
+    }
+  });
+
+  it('does not keep draining queued wheel scrolls after long screenshot is completed', async () => {
+    const originalImage = globalThis.Image;
+    const originalScrollBy = window.scrollBy;
+    const originalScrollTo = window.scrollTo;
+    const originalScrollY = window.scrollY;
+    let scrollY = 0;
+
+    class MockImage {
+      naturalWidth = 1024;
+      naturalHeight = 768;
+      onload: (() => void) | null = null;
+
+      set src(_value: string) {
+        queueMicrotask(() => {
+          this.onload?.();
+        });
+      }
+    }
+
+    Object.defineProperty(globalThis, 'Image', {
+      value: MockImage as unknown as typeof Image,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'scrollY', {
+      get: () => scrollY,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'scrollBy', {
+      value: vi.fn((options: ScrollToOptions) => {
+        scrollY += Number(options.top ?? 0);
+      }),
+      configurable: true,
+    });
+    Object.defineProperty(window, 'scrollTo', {
+      value: vi.fn((_x: number, y: number) => {
+        scrollY = y;
+      }),
+      configurable: true,
+    });
+
+    const getContextSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'getContext')
+      .mockImplementation(() => ({ drawImage: vi.fn() }) as unknown as CanvasRenderingContext2D);
+    const toDataUrlSpy = vi
+      .spyOn(HTMLCanvasElement.prototype, 'toDataURL')
+      .mockReturnValueOnce('data:image/png;base64,crop-start')
+      .mockReturnValue('data:image/png;base64,stitched');
+    const onComplete = vi.fn();
+    const onCaptureVisibleTab = vi.fn(async () => 'data:image/png;base64,viewport');
+
+    try {
+      render(
+        <ScreenshotOverlay
+          onCaptureVisibleTab={onCaptureVisibleTab}
+          onComplete={onComplete}
+          onCancel={vi.fn()}
+        />,
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: '长截图' }));
+
+      await waitFor(() => {
+        expect(HTMLCanvasElement.prototype.toDataURL).toHaveBeenCalledTimes(1);
+      });
+
+      const overlay = screen.getByTestId('screenshot-overlay');
+      const selection = screen.getByTestId('screenshot-selection');
+      const selectionLeft = parseFloat(selection.style.left);
+      const selectionTop = parseFloat(selection.style.top);
+      const selectionWidth = parseFloat(selection.style.width);
+      const selectionHeight = parseFloat(selection.style.height);
+
+      vi.mocked(window.scrollBy).mockClear();
+
+      fireEvent.wheel(overlay, {
+        clientX: selectionLeft + selectionWidth / 2,
+        clientY: selectionTop + selectionHeight / 2,
+        deltaY: 220,
+      });
+      fireEvent.wheel(overlay, {
+        clientX: selectionLeft + selectionWidth / 2,
+        clientY: selectionTop + selectionHeight / 2,
+        deltaY: 180,
+      });
+      fireEvent.click(screen.getByRole('button', { name: '截图完成' }));
+
+      await waitFor(() => {
+        expect(onComplete).toHaveBeenCalledWith('data:image/png;base64,stitched');
+      });
+      expect(window.scrollBy).not.toHaveBeenCalled();
     } finally {
       getContextSpy.mockRestore();
       toDataUrlSpy.mockRestore();

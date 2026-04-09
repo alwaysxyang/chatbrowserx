@@ -51,12 +51,8 @@ describe('ImagePreviewOverlay', () => {
     render(<ImagePreviewOverlay src="data:image/png;base64,AA==" onClose={vi.fn()} />);
 
     expect(screen.getByTestId('image-preview-stage')).toContainElement(screen.getByRole('img', { name: '图片预览' }));
-    expect(screen.getByRole('button', { name: '关闭图片预览' })).toHaveStyle({
-      position: 'absolute',
-      top: '0px',
-      right: '0px',
-      borderRadius: '999px',
-      caretColor: 'transparent',
-    });
+    expect(screen.getByRole('button', { name: '关闭图片预览' })).toHaveStyle(
+      'position: absolute; top: 0px; right: 0px; border-radius: 999px; caret-color: rgba(0, 0, 0, 0);',
+    );
   });
 });

@@ -101,6 +101,9 @@ export function ChatPanel({
           onRemoveScreenshot={(index) => {
             setScreenshotUrls((current) => current.filter((_, currentIndex) => currentIndex !== index));
           }}
+          onAddScreenshots={(dataUrls) => {
+            setScreenshotUrls((current) => [...current, ...dataUrls]);
+          }}
           isSending={isSending}
           onStop={onStop ?? (() => {})}
           onScreenshot={

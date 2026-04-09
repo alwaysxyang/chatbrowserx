@@ -85,25 +85,28 @@ export function ImagePreviewOverlay({ src, onClose }: ImagePreviewOverlayProps) 
       aria-modal="true"
       onClick={onClose}
     >
-      <button
-        type="button"
-        className="image-preview-close"
-        aria-label={closeLabel}
+      <div
+        className="image-preview-stage"
+        data-testid="image-preview-stage"
         onClick={(event) => {
           event.stopPropagation();
-          onClose();
         }}
       >
-        ×
-      </button>
-      <img
-        className="image-preview-image"
-        src={src}
-        alt={label}
-        onClick={(event) => {
-          event.stopPropagation();
-        }}
-      />
+        <button
+          type="button"
+          className="image-preview-close"
+          aria-label={closeLabel}
+          style={{ position: 'absolute', top: 0, right: 0, borderRadius: '999px', caretColor: 'transparent' }}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClose();
+          }}
+        >
+          ×
+        </button>
+        <img className="image-preview-image" src={src} alt={label} />
+      </div>
     </div>
   );
 }

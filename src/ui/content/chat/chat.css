@@ -415,7 +415,7 @@
   width: 72px;
   height: 54px;
   flex: 0 0 auto;
-  overflow: hidden;
+  overflow: visible;
   border-radius: 8px;
   border: 1px solid rgba(209, 213, 219, 0.95);
   background: rgba(243, 244, 246, 0.96);
@@ -426,22 +426,35 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 8px;
   cursor: zoom-in;
 }
 
 .chat-screenshot-remove {
   position: absolute;
-  top: 3px;
-  right: 3px;
-  width: 18px;
-  height: 18px;
+  top: -7px;
+  right: -7px;
+  z-index: 1;
+  display: inline-flex;
+  width: 20px;
+  height: 20px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: 999px;
   background: rgba(17, 24, 39, 0.76);
   color: #ffffff;
   font-size: 13px;
   line-height: 1;
   cursor: pointer;
+  caret-color: transparent;
+  user-select: none;
+}
+
+.chat-screenshot-remove:focus-visible {
+  outline: 2px solid rgba(37, 99, 235, 0.72);
+  outline-offset: 2px;
 }
 
 .chat-input {
@@ -583,14 +596,16 @@
   user-select: none;
 }
 
-.screenshot-overlay-capturing {
+.screenshot-overlay-capturing .screenshot-selection,
+.screenshot-overlay-capturing .screenshot-controls {
   visibility: hidden;
-  pointer-events: none;
 }
 
 .screenshot-selection {
   position: fixed;
-  border: 2px solid #ffffff;
+  border: 0;
+  outline: 2px solid #ffffff;
+  outline-offset: 0;
   background: transparent;
   box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.38);
   box-sizing: border-box;
@@ -643,25 +658,47 @@
   cursor: zoom-out;
 }
 
+.image-preview-stage {
+  position: relative;
+  display: inline-flex;
+  max-width: min(90vw, 1120px);
+  max-height: 86vh;
+  overflow: visible;
+  cursor: default;
+}
+
 .image-preview-close {
-  position: fixed;
-  top: 24px;
-  right: 24px;
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 1;
+  transform: translate(50%, -50%);
+  display: inline-flex;
   width: 32px;
   height: 32px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid rgba(255, 255, 255, 0.58);
-  border-radius: 8px;
+  border-radius: 999px;
   background: rgba(17, 24, 39, 0.74);
   color: #ffffff;
   font: inherit;
   font-size: 22px;
-  line-height: 28px;
+  line-height: 1;
   cursor: pointer;
+  caret-color: transparent;
+  user-select: none;
+}
+
+.image-preview-close:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.86);
+  outline-offset: 2px;
 }
 
 .image-preview-image {
   display: block;
-  max-width: min(90vw, 1120px);
+  max-width: 100%;
   max-height: 86vh;
   object-fit: contain;
   border-radius: 8px;

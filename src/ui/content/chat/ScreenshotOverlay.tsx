@@ -184,6 +184,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
   const [cursor, setCursor] = useState<CSSProperties['cursor']>('crosshair');
   const isCapturingRef = useRef(false);
   const interactionStateRef = useRef<InteractionState | null>(null);
+  const isLongModeRef = useRef(false);
   const longChunksRef = useRef<CapturedLongScreenshotChunk[]>([]);
   const longCapturePromiseRef = useRef<Promise<void>>(Promise.resolve());
   const longModeRunIdRef = useRef(0);
@@ -237,6 +238,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
 
   const resetLongMode = () => {
     longModeRunIdRef.current += 1;
+    isLongModeRef.current = false;
     setIsLongMode(false);
     longChunksRef.current = [];
     longCapturePromiseRef.current = Promise.resolve();
@@ -247,33 +249,8 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
     setInteractionState(nextState);
   };
 
-  const captureLongSelectionChunks = (currentSelection: ScreenshotRect, runId: number) => {
-    const captureTask = async () => {
-      if (longModeRunIdRef.current !== runId) {
-        return;
-      }
-
-      const segments = getUncapturedLongScreenshotSegments(
-        getScreenshotDocumentRange(currentSelection),
-        longChunksRef.current,
-      );
-
-      if (!segments.length) {
-        return;
-      }
-
-      const chunks = await runWithHiddenOverlay(() =>
-        captureLongScreenshotSegments(onCaptureVisibleTab, currentSelection, segments),
-      );
-
-      if (!chunks?.length || longModeRunIdRef.current !== runId) {
-        return;
-      }
-
-      longChunksRef.current = [...longChunksRef.current, ...chunks].sort((left, right) => left.startY - right.startY);
-    };
-
-    const nextCapture = longCapturePromiseRef.current.then(captureTask, captureTask);
+  const queueLongCaptureTask = (task: () => Promise<void>) => {
+    const nextCapture = longCapturePromiseRef.current.then(task, task);
     longCapturePromiseRef.current = nextCapture.then(
       () => undefined,
       () => undefined,
@@ -281,12 +258,47 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
     void longCapturePromiseRef.current;
   };
 
+  const captureMissingLongSelectionChunks = async (currentSelection: ScreenshotRect, runId: number) => {
+    if (longModeRunIdRef.current !== runId) {
+      return;
+    }
+
+    const segments = getUncapturedLongScreenshotSegments(
+      getScreenshotDocumentRange(currentSelection),
+      longChunksRef.current,
+    );
+
+    if (!segments.length) {
+      return;
+    }
+
+    const chunks = await captureLongScreenshotSegments(onCaptureVisibleTab, currentSelection, segments);
+
+    if (!chunks?.length || longModeRunIdRef.current !== runId) {
+      return;
+    }
+
+    longChunksRef.current = [...longChunksRef.current, ...chunks].sort((left, right) => left.startY - right.startY);
+  };
+
+  const captureLongSelectionChunks = (currentSelection: ScreenshotRect, runId: number) => {
+    queueLongCaptureTask(() => captureMissingLongSelectionChunks(currentSelection, runId));
+  };
+
   const startLongMode = () => {
     longModeRunIdRef.current += 1;
     const runId = longModeRunIdRef.current;
+    isLongModeRef.current = true;
     longChunksRef.current = [];
+    longCapturePromiseRef.current = Promise.resolve();
     setIsLongMode(true);
     captureLongSelectionChunks(selection, runId);
+  };
+
+  const stopLongModeQueue = () => {
+    longModeRunIdRef.current += 1;
+    isLongModeRef.current = false;
+    setIsLongMode(false);
   };
 
   const handlePointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -374,7 +386,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
   };
 
   const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    if (!isLongMode || isCapturingRef.current || !isInsideSelection(event.clientX, event.clientY, selection)) {
+    if (!isLongModeRef.current || !isLongMode || !isInsideSelection(event.clientX, event.clientY, selection)) {
       return;
     }
 
@@ -386,15 +398,19 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
     const deltaY = event.deltaY;
     const runId = longModeRunIdRef.current;
 
-    void (async () => {
+    queueLongCaptureTask(async () => {
+      if (longModeRunIdRef.current !== runId) {
+        return;
+      }
+
       if (typeof window.scrollBy === 'function') {
         window.scrollBy({ left: deltaX, top: deltaY, behavior: 'auto' });
       } else {
         window.scrollTo(window.scrollX + deltaX, window.scrollY + deltaY);
       }
       await waitForScreenshotFrame();
-      captureLongSelectionChunks(currentSelection, runId);
-    })();
+      await captureMissingLongSelectionChunks(currentSelection, runId);
+    });
   };
 
   const completeLongScreenshot = async () => {
@@ -408,6 +424,10 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
   };
 
   const completeLongScreenshotAndFinish = async () => {
+    if (isLongModeRef.current) {
+      stopLongModeQueue();
+    }
+
     const dataUrl = await completeLongScreenshot();
 
     if (typeof dataUrl === 'string') {
@@ -428,7 +448,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
       <div
         className="screenshot-selection"
         data-testid="screenshot-selection"
-        style={{ ...selection, background: 'transparent', borderColor: '#ffffff' }}
+        style={{ ...selection, background: 'transparent', border: 0, outlineColor: '#ffffff' }}
         aria-hidden="true"
       />
       <div className="screenshot-controls" data-testid="screenshot-controls" style={controlsStyle}>
