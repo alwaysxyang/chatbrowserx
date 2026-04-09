@@ -5,6 +5,7 @@
   flex: 1;
   gap: 16px;
   position: relative;
+  overflow: hidden;
 }
 
 .settings-tabs {
@@ -40,6 +41,15 @@
   border: none;
   box-shadow: none;
   padding: 0;
+}
+
+.settings-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .settings-form label {
@@ -147,10 +157,10 @@
 
 .settings-footer {
   display: flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: auto;
   padding-top: 12px;
   border-top: 1px solid rgba(226, 232, 240, 0.9);
 }

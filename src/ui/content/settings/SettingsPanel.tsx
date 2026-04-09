@@ -94,25 +94,27 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
               </div>
             ) : null}
 
-            {activeTab === 'model' ? (
-              <ChatSettingsForm
-                disabled={isSaving}
-                value={settings.model}
-                onChange={(nextModelSettings: ModelSettings) => {
-                  hasUserInteractedRef.current = true;
-                  setSettings((prev) => ({ ...prev, model: nextModelSettings }));
-                }}
-              />
-            ) : (
-              <GeneralSettingsForm
-                disabled={isSaving}
-                value={settings.general}
-                onChange={(nextGeneralSettings) => {
-                  hasUserInteractedRef.current = true;
-                  setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
-                }}
-              />
-            )}
+            <div className="settings-body">
+              {activeTab === 'model' ? (
+                <ChatSettingsForm
+                  disabled={isSaving}
+                  value={settings.model}
+                  onChange={(nextModelSettings: ModelSettings) => {
+                    hasUserInteractedRef.current = true;
+                    setSettings((prev) => ({ ...prev, model: nextModelSettings }));
+                  }}
+                />
+              ) : (
+                <GeneralSettingsForm
+                  disabled={isSaving}
+                  value={settings.general}
+                  onChange={(nextGeneralSettings) => {
+                    hasUserInteractedRef.current = true;
+                    setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
+                  }}
+                />
+              )}
+            </div>
 
             <footer className="settings-footer">
               <button

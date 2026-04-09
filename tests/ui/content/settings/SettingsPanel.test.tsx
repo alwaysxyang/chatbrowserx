@@ -42,7 +42,6 @@ describe('SettingsPanel', () => {
 
   it('keeps user edits when async settings hydration finishes later', async () => {
     let resolveGet!: (value: Record<string, unknown>) => void;
-    const originalGet = chrome.storage.local.get;
     const getMock = chrome.storage.local.get as unknown as ReturnType<typeof vi.fn>;
 
     getMock.mockImplementationOnce(() => {
@@ -69,7 +68,33 @@ describe('SettingsPanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('Model')).toHaveValue('draft-model');
     });
+  });
 
-    getMock.mockImplementation(originalGet as unknown as (...args: unknown[]) => unknown);
+  it('keeps settings actions outside the scrollable form body for each tab', async () => {
+    const { container } = render(<SettingsPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Model')).toBeInTheDocument();
+    });
+
+    const settingsBody = container.querySelector('.settings-body');
+    const footer = container.querySelector('.settings-footer');
+
+    expect(settingsBody).toBeInstanceOf(HTMLElement);
+    expect(footer).toBeInstanceOf(HTMLElement);
+
+    const bodyElement = settingsBody as HTMLElement;
+    const footerElement = footer as HTMLElement;
+
+    expect(bodyElement).toContainElement(screen.getByLabelText('Model'));
+    expect(bodyElement).not.toContainElement(footerElement);
+    expect(footerElement.previousElementSibling).toBe(bodyElement);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '通用' }));
+
+    expect(bodyElement).toContainElement(screen.getByLabelText('语言'));
+    expect(bodyElement).not.toContainElement(screen.getByRole('button', { name: '保存设置' }));
+    expect(bodyElement).not.toContainElement(screen.getByRole('button', { name: '恢复默认' }));
   });
 });
