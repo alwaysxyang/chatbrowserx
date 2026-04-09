@@ -1,5 +1,12 @@
 import '@testing-library/jest-dom/vitest';
 
+if (typeof globalThis.PointerEvent === 'undefined') {
+  Object.defineProperty(globalThis, 'PointerEvent', {
+    value: MouseEvent,
+    writable: true,
+  });
+}
+
 type LocalStore = Record<string, unknown>;
 type RuntimeMessageListener = (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => void | boolean;
 type ActionClickListener = (tab: chrome.tabs.Tab) => void;
@@ -99,6 +106,7 @@ const chromeMock = {
   tabs: {
     query: vi.fn(),
     sendMessage: vi.fn(),
+    captureVisibleTab: vi.fn(),
     reload: vi.fn(),
   },
   scripting: {
@@ -132,6 +140,7 @@ beforeEach(() => {
   chromeMock.runtime.connect.mockReset();
   chromeMock.tabs.query.mockReset();
   chromeMock.tabs.sendMessage.mockReset();
+  chromeMock.tabs.captureVisibleTab.mockReset();
   chromeMock.tabs.reload.mockReset();
   chromeMock.scripting.executeScript.mockReset();
   chromeMock.runtime.onMessage.addListener.mockClear();

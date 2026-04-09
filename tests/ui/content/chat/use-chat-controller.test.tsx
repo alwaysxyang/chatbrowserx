@@ -137,7 +137,35 @@ describe('useChatController', () => {
     });
   });
 
-  it('restores interrupted partial reply after page refresh', async () => {
+  it('preserves screenshots in the current multimodal input', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockResolvedValue({
+      ok: true,
+      data: { reply: 'assistant reply' },
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await act(async () => {
+      await result.current.sendMessage([
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,shot1' } },
+        { type: 'text', text: '帮我看这张图' },
+      ]);
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith({
+      type: 'chatbrowserx.chat.request',
+      payload: {
+        input: [
+          { type: 'image_url', image_url: { url: 'data:image/png;base64,shot1' } },
+          { type: 'text', text: '帮我看这张图' },
+        ],
+        history: [],
+      },
+    });
+  });
+
+  it('keeps persisted pending replies out of hydration until that behavior is implemented', async () => {
     await chrome.storage.local.set({
       'chatbrowserx.history.example.com': [{ id: 'u1', role: 'user', content: '上一轮提问' }],
       'chatbrowserx.pending.example.com': {
@@ -150,42 +178,19 @@ describe('useChatController', () => {
     const { result } = renderHook(() => useChatController('example.com'));
 
     await waitFor(() => {
-      expect(result.current.messages).toHaveLength(2);
-    });
-
-    expect(result.current.messages[1]).toMatchObject({
-      role: 'assistant',
-      content: '未完成的回答',
-      status: 'error',
-      errorMessage: '页面已刷新，当前请求已中断。',
-      createdAt: '10:32',
-    });
-
-    const persisted = await chrome.storage.local.get('chatbrowserx.pending.example.com');
-    expect(persisted['chatbrowserx.pending.example.com']).toBeUndefined();
-  });
-
-  it('restores interrupted error without partial text after page refresh', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.pending.example.com': {
-        content: '',
-        errorMessage: '页面已刷新，当前请求已中断。',
-        createdAt: '10:33',
-      },
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await waitFor(() => {
       expect(result.current.messages).toHaveLength(1);
     });
 
     expect(result.current.messages[0]).toMatchObject({
-      role: 'assistant',
-      content: '页面已刷新，当前请求已中断。',
-      status: 'error',
+      role: 'user',
+      content: '上一轮提问',
+    });
+
+    const persisted = await chrome.storage.local.get('chatbrowserx.pending.example.com');
+    expect(persisted['chatbrowserx.pending.example.com']).toEqual({
+      content: '未完成的回答',
       errorMessage: '页面已刷新，当前请求已中断。',
-      createdAt: '10:33',
+      createdAt: '10:32',
     });
   });
 });

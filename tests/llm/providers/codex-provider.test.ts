@@ -224,6 +224,16 @@ describe('CodexProvider', () => {
     expect(JSON.parse(String(request.body))).toMatchObject({
       input: [
         {
+          type: 'message',
+          role: 'assistant',
+          content: [
+            {
+              type: 'output_text',
+              text: '',
+            },
+          ],
+        },
+        {
           type: 'function_call',
           call_id: 'call_1',
           name: 'get_page_summary',

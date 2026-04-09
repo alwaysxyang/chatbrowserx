@@ -48,9 +48,10 @@ const markdownOptions: MarkdownToJSX.Options = {
 interface MessageListProps {
   messages: ChatMessage[];
   isSending: boolean;
+  onPreviewImage?: (src: string) => void;
 }
 
-export function MessageList({ messages, isSending }: MessageListProps) {
+export function MessageList({ messages, isSending, onPreviewImage }: MessageListProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
   const [activeErrorId, setActiveErrorId] = useState<string | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null);
@@ -136,6 +137,9 @@ export function MessageList({ messages, isSending }: MessageListProps) {
                       className="message-content-image"
                       src={part.image_url.url}
                       alt={translateMessage('chat.message.imageAlt')}
+                      onDoubleClick={() => {
+                        onPreviewImage?.(part.image_url.url);
+                      }}
                     />
                   ))}
                   {textContent ? (

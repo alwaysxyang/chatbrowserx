@@ -19,6 +19,11 @@
   color: #1f2937;
 }
 
+.sidebar-shell-hidden-for-screenshot {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .sidebar-resize-handle {
   position: absolute;
   left: -2px;

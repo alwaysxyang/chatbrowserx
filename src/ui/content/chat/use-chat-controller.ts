@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../shared/storage/chat-history-repository';
-import { getChatMessageTextContent, type ChatMessage, type ChatRequestPayload } from '../../../shared/types/chat';
+import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent, type ChatRequestPayload } from '../../../shared/types/chat';
 import {
   chatRequestType,
   chatCancelType,
@@ -11,7 +11,7 @@ import { translateMessage } from '../../../shared/i18n/i18n';
 
 const createMessage = (
   role: ChatMessage['role'],
-  content: string,
+  content: ChatMessageContent,
   status: ChatMessage['status'] = 'completed',
 ): ChatMessage => ({
   id: `${role}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -170,7 +170,7 @@ export function useChatController(hostname: string) {
 
   const api = useMemo(
     () => ({
-      async sendMessage(input: string) {
+      async sendMessage(input: ChatMessageContent) {
         setIsSending(true);
         hasUserInteractedRef.current = true;
         streamingAssistantIdRef.current = null;

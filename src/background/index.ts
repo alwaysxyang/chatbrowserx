@@ -1,5 +1,8 @@
 import { handleChatRequest, cancelChatRequest } from './chat/chat-orchestrator';
+import { registerScreenshotCaptureHandler } from './chat/screenshot-capture';
 import { chatSessionPortName, isChatRequestMessage, isChatCancelMessage, panelCommandType } from '../shared/types/runtime-messages';
+
+registerScreenshotCaptureHandler();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!isChatRequestMessage(message)) {

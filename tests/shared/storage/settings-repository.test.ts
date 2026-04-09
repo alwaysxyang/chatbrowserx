@@ -12,17 +12,21 @@ describe('settings repository', () => {
     await saveSettings({
       model: {
         ...defaultSettings.model,
-        apiKey: 'test-key',
         model: 'gpt-4o-mini',
         provider: 'openai',
+        openai: {
+          ...defaultSettings.model.openai,
+          apiKey: 'test-key',
+          model: 'gpt-4o-mini',
+        },
       },
     });
 
     const settings = await loadSettings();
 
-    expect(settings.model.apiKey).toBe('test-key');
+    expect(settings.model.openai.apiKey).toBe('test-key');
     expect(settings.model.model).toBe('gpt-4o-mini');
-    expect(settings.model.baseUrl).toBe(defaultSettings.model.baseUrl);
+    expect(settings.model.openai.baseUrl).toBe(defaultSettings.model.openai.baseUrl);
   });
 
   it('normalizes malformed persisted settings', async () => {
@@ -40,9 +44,10 @@ describe('settings repository', () => {
 
     const settings = await loadSettings();
 
-    expect(settings.model.baseUrl).toBe(defaultSettings.model.baseUrl);
+    expect(settings.model.openai.baseUrl).toBe(defaultSettings.model.openai.baseUrl);
     expect(settings.model.systemPrompt).toBe(defaultSettings.model.systemPrompt);
     expect(settings.model.maxHistory).toBe(defaultSettings.model.maxHistory);
     expect(settings.model.model).toBe('bad-model');
+    expect(settings.model.openai.model).toBe('bad-model');
   });
 });

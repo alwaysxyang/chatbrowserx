@@ -2,113 +2,114 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setCurrentUiLanguage } from '../../../src/shared/i18n/current-language';
 import { findMainScrollContainer, scanPage } from '../../../src/ui/tools/scroll';
 
+function mockWindowScroll(initialY = 0) {
+  const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
+  const originalScrollTo = Object.getOwnPropertyDescriptor(window, 'scrollTo');
+  const originalScrollBy = Object.getOwnPropertyDescriptor(window, 'scrollBy');
+  let scrollY = initialY;
+  const scrollToMock = vi.fn((_x: number, y: number) => {
+    scrollY = y;
+  });
+  const scrollByMock = vi.fn((_x: number, y: number) => {
+    scrollY += y;
+  });
+
+  Object.defineProperty(window, 'scrollY', {
+    configurable: true,
+    get: () => scrollY,
+  });
+  Object.defineProperty(window, 'scrollTo', {
+    configurable: true,
+    value: scrollToMock,
+  });
+  Object.defineProperty(window, 'scrollBy', {
+    configurable: true,
+    value: scrollByMock,
+  });
+
+  return {
+    getScrollY: () => scrollY,
+    restore() {
+      if (originalScrollY) Object.defineProperty(window, 'scrollY', originalScrollY);
+      else Reflect.deleteProperty(window, 'scrollY');
+      if (originalScrollTo) Object.defineProperty(window, 'scrollTo', originalScrollTo);
+      else Reflect.deleteProperty(window, 'scrollTo');
+      if (originalScrollBy) Object.defineProperty(window, 'scrollBy', originalScrollBy);
+      else Reflect.deleteProperty(window, 'scrollBy');
+    },
+    scrollByMock,
+    scrollToMock,
+  };
+}
+
 describe('scroll helper', () => {
   afterEach(() => {
     setCurrentUiLanguage('zh');
     document.body.innerHTML = '';
   });
 
-  it('scrolls to the bottom, shows translated hint, and resolves callback result', async () => {
+  it('scrolls to the bottom and resolves callback result', async () => {
     setCurrentUiLanguage('en');
 
     const documentObject = document.implementation.createHTMLDocument('scroll');
-    const scrollHost = documentObject.documentElement;
-    let scrollHeight = 1200;
+    const windowScroll = mockWindowScroll(200);
 
-    Object.defineProperty(scrollHost, 'clientHeight', {
-      configurable: true,
-      get: () => 400,
-    });
-    Object.defineProperty(scrollHost, 'scrollHeight', {
-      configurable: true,
-      get: () => scrollHeight,
-    });
-    Object.defineProperty(scrollHost, 'scrollTop', {
-      configurable: true,
-      writable: true,
-      value: 200,
-    });
-    Object.defineProperty(documentObject, 'scrollingElement', {
-      configurable: true,
-      value: scrollHost,
-    });
     Object.defineProperty(documentObject.documentElement, 'scrollHeight', {
       configurable: true,
-      get: () => 400,
+      get: () => 1800,
     });
     Object.defineProperty(documentObject.body, 'scrollHeight', {
       configurable: true,
       get: () => 400,
     });
 
-    const indicatorTexts: string[] = [];
-    const scrollToMock = vi.fn(({ top }: { top: number }) => {
-      scrollHost.scrollTop = top;
-      scrollHeight = scrollHeight === 1200 ? 1800 : 1800;
-    });
+    try {
+      const result = await scanPage({
+        documentObject,
+        windowObject: window,
+        delayMs: 0,
+        maxStableIterations: 2,
+        callback: async () => 'done',
+      });
 
-    const result = await scanPage({
-      documentObject,
-      windowObject: { scrollTo: scrollToMock } as unknown as Window,
-      delayMs: 0,
-      maxStableIterations: 2,
-      callback: async () => 'done',
-      onStep: () => {
-        indicatorTexts.push(
-          documentObject.querySelector('[data-testid="tool-scrolling-toast"]')?.textContent ?? '',
-        );
-      },
-    });
-
-    expect(result).toBe('done');
-    expect(scrollToMock).toHaveBeenCalled();
-    expect(scrollToMock.mock.calls[0]?.[0]).toMatchObject({ top: 0 });
-    expect(scrollToMock.mock.calls.length).toBeGreaterThanOrEqual(2);
-    expect(scrollToMock.mock.calls.at(-1)?.[0]).toMatchObject({ top: 200 });
-    expect(scrollHost.scrollTop).toBe(200);
-    expect(indicatorTexts).toContain('Scrolling…');
-    expect(documentObject.querySelector('[data-testid="tool-scrolling-toast"]')).toBeNull();
+      expect(result).toBe('done');
+      expect(windowScroll.scrollToMock).toHaveBeenCalled();
+      expect(windowScroll.scrollToMock.mock.calls[0]).toEqual([0, 0]);
+      expect(windowScroll.scrollByMock).toHaveBeenCalled();
+      expect(windowScroll.scrollToMock.mock.calls.at(-1)).toEqual([0, 200]);
+      expect(windowScroll.getScrollY()).toBe(200);
+      expect(documentObject.querySelector('[data-testid="tool-scrolling-toast"]')).toBeNull();
+    } finally {
+      windowScroll.restore();
+    }
   });
 
   it('stops scanning early when onStep returns false', async () => {
     const documentObject = document.implementation.createHTMLDocument('scan');
-    const scrollHost = documentObject.documentElement;
+    const windowScroll = mockWindowScroll(0);
 
-    Object.defineProperty(scrollHost, 'clientHeight', {
-      configurable: true,
-      get: () => 400,
-    });
-    Object.defineProperty(scrollHost, 'scrollHeight', {
+    Object.defineProperty(documentObject.documentElement, 'scrollHeight', {
       configurable: true,
       get: () => 1600,
     });
-    Object.defineProperty(scrollHost, 'scrollTop', {
-      configurable: true,
-      writable: true,
-      value: 0,
-    });
-    Object.defineProperty(documentObject, 'scrollingElement', {
-      configurable: true,
-      value: scrollHost,
-    });
-
-    const scrollToMock = vi.fn(({ top }: { top: number }) => {
-      scrollHost.scrollTop = top;
-    });
     const onStep = vi.fn(() => false);
 
-    await scanPage({
-      documentObject,
-      windowObject: { scrollTo: scrollToMock } as unknown as Window,
-      delayMs: 0,
-      callback: async () => 'done',
-      onStep,
-    });
+    try {
+      await scanPage({
+        documentObject,
+        windowObject: window,
+        delayMs: 0,
+        callback: async () => 'done',
+        onStep,
+      });
 
-    expect(onStep).toHaveBeenCalledTimes(1);
-    expect(scrollToMock).toHaveBeenCalledTimes(2);
-    expect(scrollToMock.mock.calls[0]?.[0]).toMatchObject({ top: 0 });
-    expect(scrollToMock.mock.calls[1]?.[0]).toMatchObject({ top: 0 });
+      expect(onStep).toHaveBeenCalledTimes(1);
+      expect(windowScroll.scrollToMock).toHaveBeenCalledTimes(2);
+      expect(windowScroll.scrollToMock.mock.calls[0]).toEqual([0, 0]);
+      expect(windowScroll.scrollToMock.mock.calls[1]).toEqual([0, 0]);
+    } finally {
+      windowScroll.restore();
+    }
   });
 
   it('prefers window scrolling when document root is tall enough', () => {

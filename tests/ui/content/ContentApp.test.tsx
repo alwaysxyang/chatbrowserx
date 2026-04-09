@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { act } from 'react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
-import { buildChatHistoryScope, ContentApp } from '../../../src/ui/content/ContentApp';
+import { ContentApp } from '../../../src/ui/content/ContentApp';
 
 const normalizeHostnameForStorage = (hostname: string): string => {
   const raw = (hostname || '').trim().toLowerCase();
@@ -17,14 +17,6 @@ const normalizeHostnameForStorage = (hostname: string): string => {
 const panelStateKey = `chatbrowserx.panel.${normalizeHostnameForStorage(window.location.hostname || 'default')}`;
 
 describe('ContentApp', () => {
-  it('builds page-level chat history scope from url without hash', () => {
-    expect(
-      buildChatHistoryScope({
-        hostname: 'www.example.com',
-      } as Location),
-    ).toBe('example.com');
-  });
-
   it('opens by default only when current site was pinned and open', async () => {
     await chrome.storage.local.set({
       [panelStateKey]: {
@@ -50,7 +42,9 @@ describe('ContentApp', () => {
       },
     });
 
-    render(<ContentApp />);
+    await act(async () => {
+      render(<ContentApp />);
+    });
 
     expect(screen.queryByText('ChatBrowserX')).not.toBeInTheDocument();
   });
@@ -91,6 +85,89 @@ describe('ContentApp', () => {
     });
 
     expect(screen.queryByText('浏览器增强 Agent')).not.toBeInTheDocument();
+  });
+
+  it('hides the sidebar while taking a screenshot and restores it after capture', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockResolvedValue({
+      ok: true,
+      data: { dataUrl: 'data:image/png;base64,shot1' },
+    });
+
+    render(<ContentApp />);
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.panel.command',
+        payload: { command: 'toggle-chat' },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '截图' }));
+
+    expect(screen.getByTestId('sidebar-shell')).toHaveClass('sidebar-shell-hidden-for-screenshot');
+
+    await user.click(screen.getByRole('button', { name: '全屏截图' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: '截图预览' })).toHaveAttribute('src', 'data:image/png;base64,shot1');
+    });
+
+    expect(screen.getByTestId('sidebar-shell')).not.toHaveClass('sidebar-shell-hidden-for-screenshot');
+  });
+
+  it('renders image previews outside the sidebar so the page is dimmed instead of the plugin only', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockResolvedValue({
+      ok: true,
+      data: { dataUrl: 'data:image/png;base64,shot1' },
+    });
+
+    render(<ContentApp />);
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.panel.command',
+        payload: { command: 'toggle-chat' },
+      });
+    });
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '截图' }));
+    await user.click(screen.getByRole('button', { name: '全屏截图' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('img', { name: '截图预览' })).toBeInTheDocument();
+    });
+
+    await user.dblClick(screen.getByRole('img', { name: '截图预览' }));
+
+    const dialog = screen.getByTestId('image-preview-dialog');
+    expect(dialog).toHaveClass('image-preview-dialog');
+    expect(dialog).toHaveAttribute('aria-modal', 'true');
+    expect(screen.getByTestId('sidebar-shell').contains(dialog)).toBe(false);
+
+    await user.click(screen.getByRole('img', { name: '图片预览' }));
+
+    expect(screen.getByTestId('image-preview-dialog')).toBeInTheDocument();
+    expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
+
+    await user.click(dialog);
+
+    expect(screen.queryByTestId('image-preview-dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
+
+    await user.dblClick(screen.getByRole('img', { name: '截图预览' }));
+
+    await user.click(screen.getByRole('button', { name: '关闭图片预览' }));
+
+    expect(screen.queryByTestId('image-preview-dialog')).not.toBeInTheDocument();
+    expect(screen.getByText('ChatBrowserX')).toBeInTheDocument();
   });
 
   it('supports resizing the sidebar horizontally', async () => {

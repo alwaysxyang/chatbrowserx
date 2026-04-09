@@ -7,9 +7,10 @@ interface ChatToolbarProps {
   onClear: () => void;
   isSending: boolean;
   onStop: () => void;
+  onScreenshot?: () => void;
 }
 
-export function ChatToolbar({ disabled, canSend, onClear, isSending, onStop }: ChatToolbarProps) {
+export function ChatToolbar({ disabled, canSend, onClear, isSending, onStop, onScreenshot }: ChatToolbarProps) {
   return (
     <div className="chat-toolbar">
       <div className="chat-toolbar-group chat-toolbar-group-left">
@@ -18,7 +19,8 @@ export function ChatToolbar({ disabled, canSend, onClear, isSending, onStop }: C
           type="button"
           aria-label={translateMessage('chat.toolbar.screenshotLabel')}
           data-tooltip={translateMessage('chat.toolbar.screenshotTooltip')}
-          disabled
+          disabled={disabled || !onScreenshot}
+          onClick={onScreenshot}
         >
           <Scissors className="chat-toolbar-icon chat-toolbar-icon-scissors" strokeWidth={2.2} />
         </button>
