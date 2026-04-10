@@ -388,3 +388,25 @@ src/
 - 后续 AI 与开发者应如何继续协作。
 
 若未来项目目标发生显著变化，应基于新目标更新此 spec，而不是默默偏离。
+
+## 12. Refactoring History
+
+### Phase 1: Shared Layer Refactoring (2026-04-10)
+
+- Completed items
+  - Added provider type guard functions `isOpenAIProvider` and `isCodexProvider` in `/src/shared/types/settings.ts` to centralize provider narrowing logic.
+  - Added comprehensive JSDoc documentation to shared/LLM core type modules:
+    - `/src/shared/types/settings.ts`
+    - `/src/shared/types/runtime-messages.ts`
+    - `/src/shared/types/chat.ts`
+    - `/src/llm/model/chat.ts`
+  - Completed verification for this phase: build, tests, and typecheck all pass.
+
+- Benefits
+  - Reduced repeated provider branch checks across layers by reusing shared type guards.
+  - Improved type readability and maintainability through explicit type-level documentation.
+  - Lowered onboarding and cross-module collaboration cost by making shared contracts easier to understand.
+
+- Next Phase
+  - Continue with the planned provider/service layer refactoring tasks on top of the stabilized shared type contracts.
+
