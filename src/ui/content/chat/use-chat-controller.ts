@@ -76,7 +76,9 @@ export function useChatController(hostname: string) {
 
     // 本地持久化保留原始对话（包括错误轮次），
     // 仅发送给大模型时使用过滤后的 history。
-    void saveChatHistory(hostname, messages);
+    saveChatHistory(hostname, messages).catch((error) => {
+      console.error('[ChatBrowserX] Failed to save chat history:', error);
+    });
   }, [hostname, isHydrated, messages]);
 
   const sendMessage = useCallback(async (input: ChatMessageContent) => {

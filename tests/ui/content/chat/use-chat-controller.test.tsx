@@ -213,4 +213,125 @@ describe('useChatController', () => {
       createdAt: '10:32',
     });
   });
+
+  it('converts streaming assistant messages to error on page refresh', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [
+        { id: 'u1', role: 'user', content: '分析这张图片' },
+        { id: 'a1', role: 'assistant', content: '正在分析', status: 'streaming' },
+      ],
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    const assistantMessage = result.current.messages[1];
+    expect(assistantMessage).toMatchObject({
+      role: 'assistant',
+      status: 'error',
+      errorMessage: '页面已刷新，当前请求已中断。',
+    });
+  });
+
+  it('converts streaming assistant messages with image input to error on page refresh', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [
+        {
+          id: 'u1',
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+            { type: 'text', text: '分析这张图片' },
+          ],
+        },
+        { id: 'a1', role: 'assistant', content: '正在分析', status: 'streaming' },
+      ],
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    const userMessage = result.current.messages[0];
+    expect(userMessage.content).toEqual([
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+      { type: 'text', text: '分析这张图片' },
+    ]);
+
+    const assistantMessage = result.current.messages[1];
+    expect(assistantMessage).toMatchObject({
+      role: 'assistant',
+      status: 'error',
+      errorMessage: '页面已刷新，当前请求已中断。',
+      content: '正在分析',
+    });
+  });
+
+  it('converts streaming assistant messages with empty content to error on page refresh', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.history.example.com': [
+        {
+          id: 'u1',
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+            { type: 'text', text: '分析这张图片' },
+          ],
+        },
+        { id: 'a1', role: 'assistant', content: '', status: 'streaming' },
+      ],
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    const userMessage = result.current.messages[0];
+    expect(userMessage.content).toEqual([
+      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+      { type: 'text', text: '分析这张图片' },
+    ]);
+
+    const assistantMessage = result.current.messages[1];
+    expect(assistantMessage).toMatchObject({
+      role: 'assistant',
+      status: 'error',
+      errorMessage: '页面已刷新，当前请求已中断。',
+      content: '页面已刷新，当前请求已中断。',
+    });
+  });
+
+  it('handles storage quota errors gracefully when saving large images', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockResolvedValue({
+      ok: true,
+      data: { reply: 'assistant reply' },
+    });
+
+    // 模拟一个很大的图片（超过 storage 限制）
+    const largeImageUrl = 'data:image/png;base64,' + 'a'.repeat(1024 * 1024 * 5); // 5MB
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await act(async () => {
+      await result.current.sendMessage([
+        { type: 'image_url', image_url: { url: largeImageUrl } },
+        { type: 'text', text: '分析这张大图片' },
+      ]);
+    });
+
+    // 验证消息被添加到状态中
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[0].content).toEqual([
+      { type: 'image_url', image_url: { url: largeImageUrl } },
+      { type: 'text', text: '分析这张大图片' },
+    ]);
+  });
 });

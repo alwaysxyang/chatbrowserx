@@ -10,7 +10,7 @@ export default defineManifest({
     48: 'src/assets/icon-48.png',
     128: 'src/assets/icon-128.png',
   },
-  permissions: ['storage', 'activeTab'],
+  permissions: ['storage', 'unlimitedStorage', 'activeTab'],
   host_permissions: ['<all_urls>'],
   action: {
     default_icon: {

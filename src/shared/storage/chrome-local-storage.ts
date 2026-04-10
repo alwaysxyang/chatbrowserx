@@ -12,9 +12,18 @@ export async function loadStoredValue<T>(key: string, fallback: T): Promise<T> {
 }
 
 export async function saveStoredValue<T>(key: string, value: T): Promise<void> {
-  await chrome.storage.local.set({
-    [key]: value,
-  });
+  try {
+    await chrome.storage.local.set({
+      [key]: value,
+    });
+  } catch (error) {
+    console.error('[ChatBrowserX] Failed to save to storage:', {
+      key,
+      error,
+      valueSize: JSON.stringify(value).length,
+    });
+    throw error;
+  }
 }
 
 export async function removeStoredValue(key: string): Promise<void> {
