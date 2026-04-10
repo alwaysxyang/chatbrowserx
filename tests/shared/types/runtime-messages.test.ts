@@ -4,6 +4,7 @@ import {
   createRuntimeMessageGuard,
   getRuntimeResponseData,
   hasRuntimeMessageType,
+  toRuntimeResponse,
 } from '../../../src/shared/types/runtime-messages';
 
 describe('runtime message helpers', () => {
@@ -22,5 +23,17 @@ describe('runtime message helpers', () => {
     expect(getRuntimeResponseData({ ok: true, data: { value: 1 } }, 'fallback')).toEqual({ value: 1 });
     expect(() => getRuntimeResponseData({ ok: false, error: 'failed' }, 'fallback')).toThrow('failed');
     expect(() => getRuntimeResponseData(undefined, 'fallback')).toThrow('fallback');
+  });
+
+  it('wraps async results into runtime response envelopes', async () => {
+    await expect(toRuntimeResponse(Promise.resolve({ value: 1 }))).resolves.toEqual({
+      ok: true,
+      data: { value: 1 },
+    });
+
+    await expect(toRuntimeResponse(Promise.reject(new Error('failed')))).resolves.toEqual({
+      ok: false,
+      error: 'failed',
+    });
   });
 });

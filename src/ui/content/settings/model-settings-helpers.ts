@@ -2,13 +2,10 @@ import {
   getActiveProviderBaseUrl,
   getActiveProviderCredential,
   getActiveProviderModel,
+  isOpenAIProvider,
   type ChatProviderId,
   type ModelSettings,
 } from '../../../shared/types/settings';
-
-export function isOpenAiProvider(settings: ModelSettings): boolean {
-  return settings.provider === 'openai';
-}
 
 export function updateProvider(settings: ModelSettings, provider: ChatProviderId): ModelSettings {
   return {
@@ -57,7 +54,7 @@ export function updateCodexSettings(
 
 export function getActiveProviderFormValues(settings: ModelSettings) {
   return {
-    isOpenAi: isOpenAiProvider(settings),
+    isOpenAi: isOpenAIProvider(settings),
     baseUrl: getActiveProviderBaseUrl(settings),
     credential: getActiveProviderCredential(settings),
     model: getActiveProviderModel(settings),

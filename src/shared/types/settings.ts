@@ -55,3 +55,21 @@ export function getActiveProviderCredential(settings: ModelSettings): string {
 export function getActiveProviderModel(settings: ModelSettings): string {
   return settings.provider === 'openai' ? settings.openai.model : settings.codex.model;
 }
+
+/**
+ * Type guard to check if the current provider is OpenAI.
+ * @param settings - The model settings to check
+ * @returns true if the provider is 'openai'
+ */
+export function isOpenAIProvider(settings: ModelSettings): settings is ModelSettings & { provider: 'openai' } {
+  return settings.provider === 'openai';
+}
+
+/**
+ * Type guard to check if the current provider is Codex.
+ * @param settings - The model settings to check
+ * @returns true if the provider is 'codex'
+ */
+export function isCodexProvider(settings: ModelSettings): settings is ModelSettings & { provider: 'codex' } {
+  return settings.provider === 'codex';
+}

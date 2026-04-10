@@ -4,6 +4,7 @@ import type {
   ChatCompletionResult,
 } from '../model/chat';
 import { splitInstructionsAndInput, toCodexResponsesTools } from './codex-responses-format';
+import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from './provider-response';
 import { readCodexResponsesStream } from './codex-responses-stream';
 
 /*
@@ -24,9 +25,7 @@ export class CodexProvider implements ChatCompletionProvider {
     onChunk?: (chunk: string) => void,
     signal?: AbortSignal,
   ): Promise<ChatCompletionResult> {
-    if (!this.config.baseUrl || !input.model || !this.config.accessToken) {
-      throw new Error('MODEL_MISCONFIGURED');
-    }
+    throwIfProviderMisconfigured(this.config.baseUrl, input.model, this.config.accessToken);
 
     const { instructions, input: structuredInput } = splitInstructionsAndInput(input.messages);
 
@@ -49,7 +48,7 @@ export class CodexProvider implements ChatCompletionProvider {
       requestBody.tools = toCodexResponsesTools(input.tools);
     }
 
-    const response = await fetch(`${this.config.baseUrl.replace(/\/$/, '')}/codex/responses`, {
+    const response = await fetch(getProviderEndpoint(this.config.baseUrl, '/codex/responses'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,21 +64,10 @@ export class CodexProvider implements ChatCompletionProvider {
     }
 
     if (!response.body) {
-      return {
-        message: {
-          role: 'assistant',
-          content: '',
-        },
-      };
+      return buildAssistantMessageResult();
     }
     const assistantMessage = await readCodexResponsesStream(response.body, input.tools, onChunk);
 
-    return {
-      message: {
-        role: 'assistant',
-        content: assistantMessage.content,
-        ...(assistantMessage.toolCalls?.length ? { toolCalls: assistantMessage.toolCalls } : {}),
-      },
-    };
+    return buildAssistantMessageResult(assistantMessage);
   }
 }

@@ -1,6 +1,6 @@
 import { handleChatRequest, cancelChatRequest } from './chat/chat-orchestrator';
 import { registerScreenshotCaptureHandler } from './chat/screenshot-capture';
-import { chatSessionPortName, isChatRequestMessage, isChatCancelMessage, panelCommandType } from '../shared/types/runtime-messages';
+import { chatSessionPortName, isChatRequestMessage, isChatCancelMessage, panelCommandType, toRuntimeResponse } from '../shared/types/runtime-messages';
 
 registerScreenshotCaptureHandler();
 
@@ -9,13 +9,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return undefined;
   }
 
-  handleChatRequest(message.payload, sender.tab?.id)
-    .then((data) => {
-      sendResponse({ ok: true, data });
-    })
-    .catch((error: Error) => {
-      sendResponse({ ok: false, error: error.message });
-    });
+  void toRuntimeResponse(handleChatRequest(message.payload, sender.tab?.id)).then(sendResponse);
 
   return true;
 });

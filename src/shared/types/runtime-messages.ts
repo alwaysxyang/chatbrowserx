@@ -105,6 +105,20 @@ export function getRuntimeResponseData<TData>(response: RuntimeResponse<TData> |
   return response.data;
 }
 
+export async function toRuntimeResponse<TData>(task: Promise<TData>): Promise<RuntimeResponse<TData>> {
+  try {
+    return {
+      ok: true,
+      data: await task,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
 const isChatRequestMessageGuard = createRuntimeMessageGuard<ChatRequestMessage>(chatRequestType);
 const isChatStreamChunkMessageGuard = createRuntimeMessageGuard<ChatStreamChunkMessage>(chatStreamChunkType);
 const isChatCancelMessageGuard = createRuntimeMessageGuard<ChatCancelMessage>(chatCancelType);

@@ -1,6 +1,7 @@
 import {
   isScreenshotCaptureRequestMessage,
   type ScreenshotCaptureRuntimeResponse,
+  toRuntimeResponse,
 } from '../../shared/types/runtime-messages';
 
 async function captureVisibleTab(sender: chrome.runtime.MessageSender): Promise<string> {
@@ -22,19 +23,9 @@ export function registerScreenshotCaptureHandler(): void {
       return undefined;
     }
 
-    captureVisibleTab(sender)
-      .then((dataUrl) => {
-        sendResponse({
-          ok: true,
-          data: { dataUrl },
-        } satisfies ScreenshotCaptureRuntimeResponse);
-      })
-      .catch((error: Error) => {
-        sendResponse({
-          ok: false,
-          error: error.message,
-        } satisfies ScreenshotCaptureRuntimeResponse);
-      });
+    void toRuntimeResponse(captureVisibleTab(sender).then((dataUrl) => ({ dataUrl }))).then((response) => {
+      sendResponse(response satisfies ScreenshotCaptureRuntimeResponse);
+    });
 
     return true;
   });

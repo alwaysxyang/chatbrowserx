@@ -3,6 +3,7 @@ import type {
   ChatCompletionProvider,
   ChatCompletionResult,
 } from '../model/chat';
+import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from './provider-response';
 import { readOpenAiCompatibleStream } from './openai-compatible-stream';
 import {
   parseOpenAiCompatibleResponse,
@@ -22,12 +23,9 @@ export class OpenAiCompatibleProvider implements ChatCompletionProvider {
     onChunk?: (chunk: string) => void,
     signal?: AbortSignal,
   ): Promise<ChatCompletionResult> {
-    if (!this.config.baseUrl || !input.model || !this.config.apiKey) {
-      // 使用稳定的错误代码，具体文案在 UI 层结合当前语言决定
-      throw new Error('MODEL_MISCONFIGURED');
-    }
+    throwIfProviderMisconfigured(this.config.baseUrl, input.model, this.config.apiKey);
 
-    const response = await fetch(`${this.config.baseUrl.replace(/\/$/, '')}/chat/completions`, {
+    const response = await fetch(getProviderEndpoint(this.config.baseUrl, '/chat/completions'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -53,21 +51,10 @@ export class OpenAiCompatibleProvider implements ChatCompletionProvider {
     }
 
     if (!response.body) {
-      return {
-        message: {
-          role: 'assistant',
-          content: '',
-        },
-      };
+      return buildAssistantMessageResult();
     }
     const assistantMessage = await readOpenAiCompatibleStream(response.body, onChunk);
 
-    return {
-      message: {
-        role: 'assistant',
-        content: assistantMessage.content,
-        ...(assistantMessage.toolCalls?.length ? { toolCalls: assistantMessage.toolCalls } : {}),
-      },
-    };
+    return buildAssistantMessageResult(assistantMessage);
   }
 }

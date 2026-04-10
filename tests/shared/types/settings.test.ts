@@ -3,6 +3,8 @@ import {
   getActiveProviderBaseUrl,
   getActiveProviderCredential,
   getActiveProviderModel,
+  isOpenAIProvider,
+  isCodexProvider,
   type ModelSettings,
 } from '../../../src/shared/types/settings';
 
@@ -40,5 +42,25 @@ describe('settings helpers', () => {
     expect(getActiveProviderBaseUrl(settings)).toBe('https://codex.example.com');
     expect(getActiveProviderCredential(settings)).toBe('codex-token');
     expect(getActiveProviderModel(settings)).toBe('codex-secondary');
+  });
+
+  it('identifies openai provider correctly', () => {
+    expect(isOpenAIProvider(baseSettings)).toBe(true);
+
+    const codexSettings: ModelSettings = {
+      ...baseSettings,
+      provider: 'codex',
+    };
+    expect(isOpenAIProvider(codexSettings)).toBe(false);
+  });
+
+  it('identifies codex provider correctly', () => {
+    expect(isCodexProvider(baseSettings)).toBe(false);
+
+    const codexSettings: ModelSettings = {
+      ...baseSettings,
+      provider: 'codex',
+    };
+    expect(isCodexProvider(codexSettings)).toBe(true);
   });
 });
