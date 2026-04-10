@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { CSSProperties, PointerEvent as ReactPointerEvent, WheelEvent as ReactWheelEvent } from 'react';
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from 'react';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import {
   captureSelectedViewport,
@@ -89,6 +89,55 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [onCancel]);
+
+  // 在长截图模式下监听页面滚动
+  useEffect(() => {
+    if (!isLongMode) {
+      return;
+    }
+
+    const handleScroll = (event: Event) => {
+      // 只处理选择框内的滚动
+      const scrollTarget = event.target;
+
+      // 如果是 window 或 document 滚动，总是处理
+      if (
+        scrollTarget === document ||
+        scrollTarget === window ||
+        scrollTarget === document.documentElement ||
+        scrollTarget instanceof Window ||
+        scrollTarget === document.body
+      ) {
+        queueWheelCapture(selection, 0, 0, window);
+        return;
+      }
+
+      // 对于其他元素，检查是否与选择框相交
+      if (scrollTarget instanceof Element) {
+        const rect = scrollTarget.getBoundingClientRect();
+        const selectionRect = new DOMRect(selection.left, selection.top, selection.width, selection.height);
+
+        // 检查滚动区域是否与选择框相交
+        const intersects = !(
+          rect.right < selectionRect.left ||
+          rect.left > selectionRect.right ||
+          rect.bottom < selectionRect.top ||
+          rect.top > selectionRect.bottom
+        );
+
+        if (intersects) {
+          queueWheelCapture(selection, 0, 0, window);
+        }
+      }
+    };
+
+    // 监听所有滚动事件（捕获阶段）
+    window.addEventListener('scroll', handleScroll, { capture: true, passive: true });
+
+    return () => {
+      window.removeEventListener('scroll', handleScroll, { capture: true });
+    };
+  }, [isLongMode, queueWheelCapture, selection]);
 
   const runWithHiddenOverlay = async <T,>(capture: () => Promise<T>): Promise<T | undefined> => {
     if (isCapturingRef.current) {
@@ -204,17 +253,6 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
     }
   };
 
-  const handleWheel = (event: ReactWheelEvent<HTMLDivElement>) => {
-    if (!isLongModeRef.current || !isLongMode || !isInsideSelection(event.clientX, event.clientY, selection)) {
-      return;
-    }
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    queueWheelCapture(selection, event.deltaX, event.deltaY);
-  };
-
   const completeLongScreenshotAndFinish = async () => {
     if (isLongModeRef.current) {
       stopLongModeQueue();
@@ -231,13 +269,12 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
 
   return (
     <div
-      className={`screenshot-overlay ${isCapturing ? 'screenshot-overlay-capturing' : ''}`}
+      className={`screenshot-overlay ${isCapturing ? 'screenshot-overlay-capturing' : ''} ${isLongMode ? 'screenshot-overlay-long-mode' : ''} ${interactionState ? 'screenshot-overlay-interacting' : ''}`}
       data-testid="screenshot-overlay"
       style={{ cursor, background: 'transparent' }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
-      onWheel={handleWheel}
     >
       <div
         className="screenshot-selection"

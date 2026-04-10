@@ -18,6 +18,7 @@ export function useLongScreenshotSession({ onCaptureVisibleTab }: UseLongScreens
   const longChunksRef = useRef<CapturedLongScreenshotChunk[]>([]);
   const longCapturePromiseRef = useRef<Promise<void>>(Promise.resolve());
   const longModeRunIdRef = useRef(0);
+  const captureTimeoutRef = useRef<number | null>(null);
 
   const queueLongCaptureTask = (task: () => Promise<void>) => {
     const nextCapture = longCapturePromiseRef.current.then(task, task);
@@ -79,23 +80,35 @@ export function useLongScreenshotSession({ onCaptureVisibleTab }: UseLongScreens
     setIsLongMode(false);
   };
 
-  const queueWheelCapture = (selection: ScreenshotRect, deltaX: number, deltaY: number) => {
+  const queueWheelCapture = (
+    selection: ScreenshotRect,
+    deltaX: number,
+    deltaY: number,
+    scrollTarget: Window | HTMLElement,
+  ) => {
     const runId = longModeRunIdRef.current;
 
-    queueLongCaptureTask(async () => {
-      if (longModeRunIdRef.current !== runId) {
-        return;
-      }
+    // 浏览器已经处理了滚动，我们不需要手动滚动
+    // 只需要在滚动后触发截图
 
-      if (typeof window.scrollBy === 'function') {
-        window.scrollBy({ left: deltaX, top: deltaY, behavior: 'auto' });
-      } else {
-        window.scrollTo(window.scrollX + deltaX, window.scrollY + deltaY);
-      }
+    // 防抖截图：清除之前的定时器，只在滚动停止后截图
+    if (captureTimeoutRef.current !== null) {
+      clearTimeout(captureTimeoutRef.current);
+    }
 
-      await waitForScreenshotFrame();
-      await captureMissingLongSelectionChunks(selection, runId);
-    });
+    captureTimeoutRef.current = window.setTimeout(() => {
+      captureTimeoutRef.current = null;
+
+      queueLongCaptureTask(async () => {
+        if (longModeRunIdRef.current !== runId) {
+          return;
+        }
+
+        // 使用快速等待，只等待2帧，不等待图片加载
+        await waitForScreenshotFrame();
+        await captureMissingLongSelectionChunks(selection, runId);
+      });
+    }, 100); // 100ms 防抖，滚动停止后才截图
   };
 
   const completeLongCapture = async (): Promise<string | undefined> => {

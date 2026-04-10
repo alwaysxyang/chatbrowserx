@@ -69,17 +69,58 @@ export function ChatComposer({
       return;
     }
 
+    // 首先尝试获取图片文件
     const imageFiles = getClipboardImageFiles(event.clipboardData);
-    if (!imageFiles.length) {
+    if (imageFiles.length) {
+      event.preventDefault();
+      void readClipboardImagesAsDataUrls(event.clipboardData)
+        .then((dataUrls) => {
+          onAddImages(dataUrls);
+        })
+        .catch(() => {});
       return;
     }
 
-    event.preventDefault();
-    void readClipboardImagesAsDataUrls(event.clipboardData)
-      .then((dataUrls) => {
-        onAddImages(dataUrls);
-      })
-      .catch(() => {});
+    // 如果没有图片文件，尝试从 HTML 中提取图片
+    const html = event.clipboardData.getData('text/html');
+    if (html) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const images = doc.querySelectorAll('img');
+
+      if (images.length > 0) {
+        event.preventDefault();
+
+        // 提取所有图片的 data URL
+        const dataUrls: string[] = [];
+        images.forEach((img) => {
+          const src = img.getAttribute('src');
+          if (src && src.startsWith('data:image/')) {
+            dataUrls.push(src);
+          }
+        });
+
+        if (dataUrls.length > 0) {
+          onAddImages(dataUrls);
+        }
+
+        // 提取文本内容
+        const textContent = doc.body.textContent?.trim();
+        if (textContent) {
+          // 将文本插入到当前光标位置
+          const textarea = event.currentTarget;
+          const start = textarea.selectionStart;
+          const end = textarea.selectionEnd;
+          const newValue = value.substring(0, start) + textContent + value.substring(end);
+          onChange(newValue);
+
+          // 设置光标位置到插入文本的末尾
+          setTimeout(() => {
+            textarea.selectionStart = textarea.selectionEnd = start + textContent.length;
+          }, 0);
+        }
+      }
+    }
   };
 
   useEffect(() => {

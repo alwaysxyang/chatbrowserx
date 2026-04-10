@@ -17,6 +17,8 @@
 
 - `docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md`
 
+并且在执行任何回复、澄清、设计、实现、调研之前，必须先检查并加载skill，再继续后续动作。禁止跳过 skill 检查直接开始分析、提问或实现。
+
 该文件是本项目当前阶段的主规范，定义了：
 
 - 目标目录结构

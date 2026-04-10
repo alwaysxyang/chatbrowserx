@@ -1,7 +1,28 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ScreenshotOverlay } from '../../../../src/ui/content/chat/ScreenshotOverlay';
+
+// Mock window.scrollTo and window.scrollBy globally for all tests
+let mockScrollY = 0;
+const mockScrollTo = vi.fn((_x: number, y: number) => {
+  mockScrollY = y;
+});
+
+beforeEach(() => {
+  mockScrollY = 0;
+  mockScrollTo.mockClear();
+  vi.stubGlobal('scrollTo', mockScrollTo);
+  vi.stubGlobal('scrollBy', undefined);
+  Object.defineProperty(window, 'scrollX', {
+    get: () => 0,
+    configurable: true,
+  });
+  Object.defineProperty(window, 'scrollY', {
+    get: () => mockScrollY,
+    configurable: true,
+  });
+});
 
 describe('ScreenshotOverlay', () => {
   it('renders screenshot controls and cancels with Escape', async () => {
@@ -170,10 +191,6 @@ describe('ScreenshotOverlay', () => {
 
   it('captures long screenshot chunks while wheeling inside the selection and stitches them on done without flashing or overlapping', async () => {
     const originalImage = globalThis.Image;
-    const originalScrollBy = window.scrollBy;
-    const originalScrollTo = window.scrollTo;
-    const originalScrollY = window.scrollY;
-    let scrollY = 0;
 
     class MockImage {
       naturalWidth = 1024;
@@ -189,22 +206,6 @@ describe('ScreenshotOverlay', () => {
 
     Object.defineProperty(globalThis, 'Image', {
       value: MockImage as unknown as typeof Image,
-      configurable: true,
-    });
-    Object.defineProperty(window, 'scrollY', {
-      get: () => scrollY,
-      configurable: true,
-    });
-    Object.defineProperty(window, 'scrollBy', {
-      value: vi.fn((options: ScrollToOptions) => {
-        scrollY += Number(options.top ?? 0);
-      }),
-      configurable: true,
-    });
-    Object.defineProperty(window, 'scrollTo', {
-      value: vi.fn((_x: number, y: number) => {
-        scrollY = y;
-      }),
       configurable: true,
     });
 
@@ -253,21 +254,26 @@ describe('ScreenshotOverlay', () => {
 
       expect(overlay).not.toHaveClass('screenshot-overlay-capturing');
 
-      fireEvent.wheel(overlay, {
-        clientX: selectionLeft + selectionWidth / 2,
-        clientY: selectionTop + selectionHeight / 2,
-        deltaY: 220,
+      // 触发滚动事件，模拟用户滚动页面
+      Object.defineProperty(window, 'scrollY', {
+        value: 220,
+        configurable: true,
       });
-      fireEvent.wheel(overlay, {
-        clientX: selectionLeft + selectionWidth / 2,
-        clientY: selectionTop + selectionHeight / 2,
-        deltaY: 180,
-      });
+      fireEvent.scroll(window);
 
-      await waitFor(() => {
-        expect(window.scrollBy).toHaveBeenCalledWith({ left: 0, top: 220, behavior: 'auto' });
-        expect(window.scrollBy).toHaveBeenCalledWith({ left: 0, top: 180, behavior: 'auto' });
+      // 等待防抖完成（100ms）
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      Object.defineProperty(window, 'scrollY', {
+        value: 400,
+        configurable: true,
       });
+      fireEvent.scroll(window);
+
+      // 等待防抖完成（100ms）
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      // 等待异步的截图任务完成（不再检查 scrollTo，因为浏览器自动处理滚动）
       expect(overlay).not.toHaveClass('screenshot-overlay-capturing');
 
       await waitFor(() => {
@@ -286,24 +292,12 @@ describe('ScreenshotOverlay', () => {
       expect(cropDrawCalls.reduce((sum, call) => sum + Number(call[4]), 0)).toBe(
         parseFloat(selection.style.height) + 400,
       );
-      expect(window.scrollTo).not.toHaveBeenCalled();
     } finally {
+      // Restore original state
       getContextSpy.mockRestore();
       toDataUrlSpy.mockRestore();
       Object.defineProperty(globalThis, 'Image', {
         value: originalImage,
-        configurable: true,
-      });
-      Object.defineProperty(window, 'scrollBy', {
-        value: originalScrollBy,
-        configurable: true,
-      });
-      Object.defineProperty(window, 'scrollTo', {
-        value: originalScrollTo,
-        configurable: true,
-      });
-      Object.defineProperty(window, 'scrollY', {
-        value: originalScrollY,
         configurable: true,
       });
     }

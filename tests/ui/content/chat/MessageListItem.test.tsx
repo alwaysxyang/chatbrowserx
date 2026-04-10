@@ -1,9 +1,21 @@
 import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { MessageListItem } from '../../../../src/ui/content/chat/MessageListItem';
 import type { ChatMessage } from '../../../../src/shared/types/chat';
+import userEvent from '@testing-library/user-event';
+
+// Mock the copy function
+vi.mock('../../../../src/ui/content/chat/copy-message-content', () => ({
+  copyMessageContent: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { copyMessageContent } from '../../../../src/ui/content/chat/copy-message-content';
 
 describe('MessageListItem', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('displays user message with image after page refresh', () => {
     const message: ChatMessage = {
       id: 'u1',
@@ -51,5 +63,42 @@ describe('MessageListItem', () => {
 
     expect(screen.getByText('页面已刷新，当前请求已中断。')).toBeInTheDocument();
     expect(screen.getByTestId('assistant-avatar-error')).toBeInTheDocument();
+  });
+
+  it('copies text and images when copy button is clicked', async () => {
+    const user = userEvent.setup();
+    const message: ChatMessage = {
+      id: 'u1',
+      role: 'user',
+      content: [
+        { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
+        { type: 'text', text: '分析这张图片' },
+      ],
+      createdAt: '10:30',
+    };
+
+    render(<MessageListItem message={message} isSending={false} />);
+
+    const copyButton = screen.getByRole('button', { name: /复制消息/i });
+    await user.click(copyButton);
+
+    expect(copyMessageContent).toHaveBeenCalledWith(message.content);
+  });
+
+  it('copies only text when message has no images', async () => {
+    const user = userEvent.setup();
+    const message: ChatMessage = {
+      id: 'u1',
+      role: 'user',
+      content: '这是纯文字消息',
+      createdAt: '10:30',
+    };
+
+    render(<MessageListItem message={message} isSending={false} />);
+
+    const copyButton = screen.getByRole('button', { name: /复制消息/i });
+    await user.click(copyButton);
+
+    expect(copyMessageContent).toHaveBeenCalledWith('这是纯文字消息');
   });
 });

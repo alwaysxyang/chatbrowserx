@@ -3,6 +3,7 @@ import { Bot, Check, CircleAlert, Copy, LoaderCircle, UserRound } from 'lucide-r
 import { getChatMessageContentParts, getChatMessageTextContent, type ChatMessage } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import { MessageMarkdown } from './message-markdown';
+import { copyMessageContent } from './copy-message-content';
 
 interface MessageListItemProps {
   message: ChatMessage;
@@ -95,7 +96,7 @@ export function MessageListItem({ message, isSending, onPreviewImage }: MessageL
                 data-tooltip={isCopied ? translateMessage('chat.message.copied') : translateMessage('chat.message.copy')}
                 onClick={async () => {
                   try {
-                    await navigator.clipboard.writeText(textContent);
+                    await copyMessageContent(message.content);
                     setIsCopied(true);
                   } catch {
                     // ignore clipboard errors in unsupported environments
