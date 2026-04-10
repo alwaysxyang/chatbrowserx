@@ -4,6 +4,7 @@ import type { ModelSettings, Settings, UiLanguage } from '../../../shared/types/
 import { translateMessage } from '../../../shared/i18n/i18n';
 import { ChatSettingsForm } from './ChatSettingsForm';
 import { GeneralSettingsForm } from './GeneralSettingsForm';
+import { VoiceSettingsForm } from './VoiceSettingsForm';
 
 interface SettingsPanelProps {
   onUiLanguageChange?: (next: UiLanguage) => void;
@@ -13,7 +14,7 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
   const hasUserInteractedRef = useRef(false);
-  const [activeTab, setActiveTab] = useState<'model' | 'general'>('model');
+  const [activeTab, setActiveTab] = useState<'model' | 'general' | 'voice'>('model');
   const [saveToast, setSaveToast] = useState<string | null>(null);
   const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
 
@@ -88,6 +89,13 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
         >
           {label('settings.tabs.general')}
         </button>
+        <button
+          className={`settings-tab ${activeTab === 'voice' ? 'settings-tab-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('voice')}
+        >
+          {label('settings.tabs.voice')}
+        </button>
       </nav>
 
       {saveToast ? (
@@ -105,7 +113,7 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
               updateSettings((current) => ({ ...current, model: nextModelSettings }));
             }}
           />
-        ) : (
+        ) : activeTab === 'general' ? (
           <GeneralSettingsForm
             disabled={isSaving}
             value={settings.general}
@@ -113,6 +121,8 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
               updateSettings((current) => ({ ...current, general: nextGeneralSettings }));
             }}
           />
+        ) : (
+          <VoiceSettingsForm />
         )}
       </div>
 

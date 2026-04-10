@@ -1,4 +1,4 @@
-import type { ChatCompletionResult, LlmAssistantMessage } from '../model/chat';
+import type { ChatCompletionResult, LlmAssistantMessage } from '../../model/chat';
 
 export function throwIfProviderMisconfigured(baseUrl: string, model: string, credential: string): void {
   if (!baseUrl || !model || !credential) {

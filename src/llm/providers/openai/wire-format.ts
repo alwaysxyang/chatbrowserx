@@ -1,5 +1,5 @@
-import type { ChatContentPart } from '../../shared/types/chat';
-import type { LlmChatMessage } from '../model/chat';
+import type { ChatContentPart } from '../../../shared/types/chat';
+import type { LlmChatMessage } from '../../model/chat';
 
 export interface OpenAiCompatibleResponse {
   choices?: Array<{

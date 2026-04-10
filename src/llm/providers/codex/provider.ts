@@ -2,10 +2,10 @@ import type {
   ChatCompletionInput,
   ChatCompletionProvider,
   ChatCompletionResult,
-} from '../model/chat';
-import { splitInstructionsAndInput, toCodexResponsesTools } from './codex-responses-format';
-import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from './provider-response';
-import { readCodexResponsesStream } from './codex-responses-stream';
+} from '../../model/chat';
+import { splitInstructionsAndInput, toCodexResponsesTools } from './wire-format';
+import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from '../shared/provider-response';
+import { readCodexResponsesStream } from './stream';
 
 /*
 https://developers.openai.com/api/reference/resources/responses/streaming-events
@@ -31,7 +31,6 @@ export class CodexProvider implements ChatCompletionProvider {
 
     const requestBody: Record<string, unknown> = {
       model: input.model,
-      // 按 Responses API 文档要求，启用 streaming，并关闭 store
       stream: true,
       store: false,
     };
@@ -66,8 +65,8 @@ export class CodexProvider implements ChatCompletionProvider {
     if (!response.body) {
       return buildAssistantMessageResult();
     }
-    const assistantMessage = await readCodexResponsesStream(response.body, input.tools, onChunk);
 
+    const assistantMessage = await readCodexResponsesStream(response.body, input.tools, onChunk);
     return buildAssistantMessageResult(assistantMessage);
   }
 }

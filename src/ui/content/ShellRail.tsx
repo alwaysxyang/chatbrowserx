@@ -1,12 +1,22 @@
-import { MessageCircleMore, Settings2 } from 'lucide-react';
+import { MessageCircleMore, Settings2, Mic, MicOff } from 'lucide-react';
 import { translateMessage } from '../../shared/i18n/i18n';
+import { useState } from 'react';
 
 interface ShellRailProps {
   activeView: 'chat' | 'settings';
   onSelectView: (view: 'chat' | 'settings') => void;
+  onVoiceToggle?: (isActive: boolean) => void;
 }
 
-export function ShellRail({ activeView, onSelectView }: ShellRailProps) {
+export function ShellRail({ activeView, onSelectView, onVoiceToggle }: ShellRailProps) {
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+
+  const handleVoiceClick = () => {
+    const nextState = !isVoiceActive;
+    setIsVoiceActive(nextState);
+    onVoiceToggle?.(nextState);
+  };
+
   return (
     <nav aria-label={translateMessage('shell.rail.navLabel')} className="shell-rail">
       <button
@@ -24,6 +34,24 @@ export function ShellRail({ activeView, onSelectView }: ShellRailProps) {
       </button>
 
       <div className="rail-spacer" />
+
+      <button
+        aria-label={translateMessage('shell.rail.voice')}
+        aria-pressed={isVoiceActive}
+        className={`rail-button ${isVoiceActive ? 'rail-button-active' : ''}`}
+        data-tooltip={translateMessage('shell.rail.voice')}
+        type="button"
+        onClick={handleVoiceClick}
+      >
+        <span className="rail-icon">
+          {isVoiceActive ? (
+            <MicOff className="h-3 w-3" strokeWidth={2.2} />
+          ) : (
+            <Mic className="h-3 w-3" strokeWidth={2.2} />
+          )}
+        </span>
+        <span>{translateMessage('shell.rail.voice')}</span>
+      </button>
 
       <button
         aria-label={translateMessage('shell.rail.settings')}

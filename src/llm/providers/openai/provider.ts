@@ -2,13 +2,13 @@ import type {
   ChatCompletionInput,
   ChatCompletionProvider,
   ChatCompletionResult,
-} from '../model/chat';
-import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from './provider-response';
-import { readOpenAiCompatibleStream } from './openai-compatible-stream';
+} from '../../model/chat';
+import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from '../shared/provider-response';
+import { readOpenAiCompatibleStream } from './stream';
 import {
   parseOpenAiCompatibleResponse,
   toOpenAiCompatibleWireMessage,
-} from './openai-compatible-wire-format';
+} from './wire-format';
 
 export interface OpenAiCompatibleProviderConfig {
   baseUrl: string;
@@ -35,8 +35,6 @@ export class OpenAiCompatibleProvider implements ChatCompletionProvider {
         model: input.model,
         messages: input.messages.map(toOpenAiCompatibleWireMessage),
         ...(input.tools?.length ? { tools: input.tools } : {}),
-        // Use streaming responses and explicitly disable thinking,
-        // following the chatplugins implementation.
         stream: true,
         thinking: { type: 'disabled' },
       }),
@@ -46,15 +44,14 @@ export class OpenAiCompatibleProvider implements ChatCompletionProvider {
     if (!response.ok) {
       const rawBody = await response.text();
       const data = rawBody ? parseOpenAiCompatibleResponse(rawBody) : undefined;
-      // 保留后端返回的错误信息，否则用通用的英文前缀，UI 层可以按需要再二次翻译
       throw new Error(data?.error?.message || `REQUEST_FAILED: ${response.status}`);
     }
 
     if (!response.body) {
       return buildAssistantMessageResult();
     }
-    const assistantMessage = await readOpenAiCompatibleStream(response.body, onChunk);
 
+    const assistantMessage = await readOpenAiCompatibleStream(response.body, onChunk);
     return buildAssistantMessageResult(assistantMessage);
   }
 }

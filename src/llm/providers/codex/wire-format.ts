@@ -5,9 +5,9 @@ import type {
   LlmToolCall,
   LlmToolMessage,
   LlmUserMessage,
-} from '../model/chat';
-import type { ChatContentPart, ChatRole } from '../../shared/types/chat';
-import type { ToolDefinition } from '../tools/tool-registry';
+} from '../../model/chat';
+import type { ChatContentPart, ChatRole } from '../../../shared/types/chat';
+import type { ToolDefinition } from '../../tools/tool-registry';
 
 interface ResponsesMessage {
   type: 'message';

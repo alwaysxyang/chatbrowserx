@@ -1,5 +1,5 @@
-import type { LlmToolCall } from '../model/chat';
-import type { ToolDefinition } from '../tools/tool-registry';
+import type { LlmToolCall } from '../../model/chat';
+import type { ToolDefinition } from '../../tools/tool-registry';
 
 interface ResponsesStreamingEvent {
   delta?: string;

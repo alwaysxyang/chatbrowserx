@@ -1,5 +1,5 @@
-import type { LlmToolCall } from '../model/chat';
-import { parseOpenAiCompatibleResponse } from './openai-compatible-wire-format';
+import type { LlmToolCall } from '../../model/chat';
+import { parseOpenAiCompatibleResponse } from './wire-format';
 
 export async function readOpenAiCompatibleStream(
   body: ReadableStream<Uint8Array>,

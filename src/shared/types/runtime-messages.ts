@@ -1,4 +1,5 @@
 import type { ChatRequestPayload, ChatResponsePayload } from './chat';
+import type { RecognitionResult } from './speech';
 
 /**
  * Message type identifier for chat requests sent to the background service.
@@ -34,6 +35,21 @@ export const panelCommandType = 'chatbrowserx.panel.command';
  * Message type identifier for page content extraction tool requests.
  */
 export const getPageContentToolRequestType = 'chatbrowserx.tool.get-page-content.request';
+
+/**
+ * Message type identifier for starting speech recognition.
+ */
+export const speechStartRequestType = 'chatbrowserx.speech.start';
+
+/**
+ * Message type identifier for stopping speech recognition.
+ */
+export const speechStopRequestType = 'chatbrowserx.speech.stop';
+
+/**
+ * Message type identifier for speech recognition result updates.
+ */
+export const speechResultType = 'chatbrowserx.speech.result';
 
 /**
  * Base interface for all runtime messages exchanged between extension components.
@@ -176,6 +192,52 @@ export interface GetPageContentToolPayload {
 }
 
 /**
+ * Message sent to start speech recognition.
+ */
+export interface SpeechStartRequestMessage {
+  type: typeof speechStartRequestType;
+  payload: {
+    tabId: number;
+  };
+}
+
+/**
+ * Message sent to stop speech recognition.
+ */
+export interface SpeechStopRequestMessage {
+  type: typeof speechStopRequestType;
+}
+
+/**
+ * Message sent when speech recognition produces a result.
+ */
+export interface SpeechResultMessage {
+  type: typeof speechResultType;
+  payload: RecognitionResult;
+}
+
+/**
+ * Represents a successful speech operation response.
+ */
+export interface SpeechSuccessResponse {
+  ok: true;
+  data: Record<string, never>;
+}
+
+/**
+ * Represents a failed speech operation response.
+ */
+export interface SpeechErrorResponse {
+  ok: false;
+  error: string;
+}
+
+/**
+ * Union type representing either a successful or failed speech operation response.
+ */
+export type SpeechRuntimeResponse = SpeechSuccessResponse | SpeechErrorResponse;
+
+/**
  * Type guard that checks if an unknown value is a RuntimeMessage with a specific type.
  * Provides type-safe narrowing for runtime message validation.
  *
@@ -250,6 +312,9 @@ const isPanelCommandMessageGuard = createRuntimeMessageGuard<PanelCommandMessage
 const isGetPageContentToolRequestMessageGuard = createRuntimeMessageGuard<GetPageContentToolRequestMessage>(
   getPageContentToolRequestType,
 );
+const isSpeechStartRequestMessageGuard = createRuntimeMessageGuard<SpeechStartRequestMessage>(speechStartRequestType);
+const isSpeechStopRequestMessageGuard = createRuntimeMessageGuard<SpeechStopRequestMessage>(speechStopRequestType);
+const isSpeechResultMessageGuard = createRuntimeMessageGuard<SpeechResultMessage>(speechResultType);
 
 
 /**
@@ -310,4 +375,34 @@ export function isPanelCommandMessage(message: unknown): message is PanelCommand
  */
 export function isGetPageContentToolRequestMessage(message: unknown): message is GetPageContentToolRequestMessage {
   return isGetPageContentToolRequestMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a SpeechStartRequestMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a SpeechStartRequestMessage
+ */
+export function isSpeechStartRequestMessage(message: unknown): message is SpeechStartRequestMessage {
+  return isSpeechStartRequestMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a SpeechStopRequestMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a SpeechStopRequestMessage
+ */
+export function isSpeechStopRequestMessage(message: unknown): message is SpeechStopRequestMessage {
+  return isSpeechStopRequestMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a SpeechResultMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a SpeechResultMessage
+ */
+export function isSpeechResultMessage(message: unknown): message is SpeechResultMessage {
+  return isSpeechResultMessageGuard(message);
 }

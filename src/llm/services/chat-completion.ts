@@ -1,8 +1,8 @@
 import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } from '../../shared/types/chat';
 import { getActiveProviderModel, type ModelSettings } from '../../shared/types/settings';
 import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
-import { OpenAiCompatibleProvider } from '../providers/openai-compatible-provider';
-import { CodexProvider } from '../providers/codex-provider';
+import { OpenAiCompatibleProvider } from '../providers/openai/provider';
+import { CodexProvider } from '../providers/codex/provider';
 import { getDefaultToolRegistry, type ToolRegistry } from '../tools/tool-registry';
 import { runToolCallOrchestrator } from './tool-call-orchestrator';
 

@@ -83,9 +83,9 @@
 **目标文件**：
 - `llm/providers/codex-provider.ts` (73行)
 - `llm/providers/openai-compatible-provider.ts` (60行)
-- `llm/providers/codex-responses-stream.ts` (213行) ⚠️
+- `llm/providers/codex-stream.ts` (213行) ⚠️
 - `llm/providers/openai-compatible-stream.ts` (73行)
-- `llm/providers/codex-responses-format.ts` (138行) ⚠️
+- `llm/providers/codex-wire-format.ts` (138行) ⚠️
 - `llm/providers/openai-compatible-wire-format.ts` (93行)
 
 **重构内容**：
@@ -98,17 +98,17 @@
 
 #### 4.1.2 拆分大文件
 
-**拆分 `codex-responses-stream.ts` (213行)**：
+**拆分 `codex-stream.ts` (213行)**：
 ```
 llm/providers/codex/
   ├── codex-provider.ts          # 主入口
   ├── codex-stream-parser.ts     # SSE 解析和 buffer 管理
   ├── codex-stream-assembler.ts  # 消息组装（文本/tool call）
   ├── codex-tool-call-handler.ts # Tool call 状态追踪
-  └── codex-message-formatter.ts # 消息格式转换（原 codex-responses-format.ts）
+  └── codex-message-formatter.ts # 消息格式转换（原 codex-wire-format.ts）
 ```
 
-**拆分 `codex-responses-format.ts` (138行)**：
+**拆分 `codex-wire-format.ts` (138行)**：
 ```
 llm/providers/codex/
   ├── codex-message-formatter.ts # 消息格式转换
@@ -126,8 +126,8 @@ llm/providers/codex/
 ```
 llm/providers/
   ├── codex-provider.ts
-  ├── codex-responses-stream.ts
-  ├── codex-responses-format.ts
+  ├── codex-stream.ts
+  ├── codex-wire-format.ts
   ├── openai-compatible-provider.ts
   ├── openai-compatible-stream.ts
   └── openai-compatible-wire-format.ts
@@ -494,8 +494,8 @@ src/
   ├── llm/
   │   ├── providers/
   │   │   ├── codex-provider.ts (73行)
-  │   │   ├── codex-responses-stream.ts (213行) ⚠️
-  │   │   ├── codex-responses-format.ts (138行) ⚠️
+  │   │   ├── codex-stream.ts (213行) ⚠️
+  │   │   ├── codex-wire-format.ts (138行) ⚠️
   │   │   └── ...
   │   └── services/
   │       ├── tool-call-orchestrator.ts (83行)

@@ -5,6 +5,7 @@ export type Locale = 'zh' | 'en' | 'ja';
 export type MessageKey =
   | 'settings.tabs.model'
   | 'settings.tabs.general'
+  | 'settings.tabs.voice'
   | 'settings.actions.save'
   | 'settings.actions.saving'
   | 'settings.actions.reset'
@@ -23,8 +24,18 @@ export type MessageKey =
   | 'settings.language.zh'
   | 'settings.language.en'
   | 'settings.language.ja'
+  | 'settings.voice.sourceLanguage'
+  | 'settings.voice.targetLanguage'
+  | 'settings.voice.appKey'
+  | 'settings.voice.accessKey'
+  | 'settings.voice.language.auto'
+  | 'settings.voice.language.zh'
+  | 'settings.voice.language.en'
+  | 'settings.voice.language.ja'
+  | 'settings.voice.language.none'
   | 'shell.rail.chat'
   | 'shell.rail.settings'
+  | 'shell.rail.voice'
   | 'shell.rail.navLabel'
   | 'shell.header.pin'
   | 'shell.header.unpin'
@@ -74,6 +85,7 @@ export type MessageKey =
 export const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.tabs.model': { zh: '模型', en: 'Model', ja: 'モデル' },
   'settings.tabs.general': { zh: '通用', en: 'General', ja: '一般' },
+  'settings.tabs.voice': { zh: '语音', en: 'Voice', ja: '音声' },
   'settings.actions.save': { zh: '保存设置', en: 'Save settings', ja: '設定を保存' },
   'settings.actions.saving': { zh: '保存中…', en: 'Saving…', ja: '保存中…' },
   'settings.actions.reset': { zh: '恢复默认', en: 'Reset to default', ja: 'デフォルトに戻す' },
@@ -88,12 +100,22 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.fields.maxHistory': { zh: 'Max History', en: 'Max History', ja: '履歴上限' },
   'settings.tabs.navLabel': { zh: '设置分类', en: 'Settings sections', ja: '設定のカテゴリ' },
   'settings.fields.language': { zh: '语言', en: 'Language', ja: '言語' },
+  'settings.voice.sourceLanguage': { zh: '原语言', en: 'Source Language', ja: '元言語' },
+  'settings.voice.targetLanguage': { zh: '翻译目标语言', en: 'Target Language', ja: '翻訳先言語' },
+  'settings.voice.appKey': { zh: 'App Key', en: 'App Key', ja: 'App Key' },
+  'settings.voice.accessKey': { zh: 'Access Key', en: 'Access Key', ja: 'Access Key' },
+  'settings.voice.language.auto': { zh: '自动', en: 'Auto', ja: '自動' },
+  'settings.voice.language.zh': { zh: '中文', en: 'Chinese', ja: '中国語' },
+  'settings.voice.language.en': { zh: '英文', en: 'English', ja: '英語' },
+  'settings.voice.language.ja': { zh: '日文', en: 'Japanese', ja: '日本語' },
+  'settings.voice.language.none': { zh: '无', en: 'None', ja: 'なし' },
   'settings.language.system': { zh: '跟随系统', en: 'Follow system', ja: 'システムに合わせる' },
   'settings.language.zh': { zh: '中文', en: 'Chinese', ja: '中国語' },
   'settings.language.en': { zh: '英文', en: 'English', ja: '英語' },
   'settings.language.ja': { zh: '日文', en: 'Japanese', ja: '日本語' },
   'shell.rail.chat': { zh: '聊天', en: 'Chat', ja: 'チャット' },
   'shell.rail.settings': { zh: '设置', en: 'Settings', ja: '設定' },
+  'shell.rail.voice': { zh: '语音', en: 'Voice', ja: '音声' },
   'shell.rail.navLabel': { zh: '功能导航', en: 'Navigation', ja: 'ナビゲーション' },
   'shell.header.pin': { zh: '固定面板', en: 'Pin panel', ja: 'パネルを固定' },
   'shell.header.unpin': { zh: '取消固定面板', en: 'Unpin panel', ja: '固定を解除' },

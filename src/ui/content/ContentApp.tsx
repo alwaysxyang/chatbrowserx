@@ -6,6 +6,8 @@ import { ScreenshotOverlay } from './chat/ScreenshotOverlay';
 import { useChatController } from './chat/use-chat-controller';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { ShellRail } from './ShellRail';
+import { SubtitleOverlay } from './speech/SubtitleOverlay';
+import { useSubtitleController } from './speech/use-subtitle-controller';
 import { translateMessage } from '../../shared/i18n/i18n';
 import { normalizeHostnameForStorage } from './content-panel-state';
 import { requestVisibleTabScreenshot } from './content-screenshot-bridge';
@@ -15,6 +17,7 @@ export function ContentApp() {
   const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
   const buildLabel = useMemo(() => `Build ${__CHATBROWSERX_BUILD_TIME__}`, []);
   const { messages, isSending, sendMessage, clearHistory, stop } = useChatController(hostname);
+  const { subtitle, startRecognition, stopRecognition } = useSubtitleController();
   const {
     isOpen,
     activeView,
@@ -34,6 +37,18 @@ export function ContentApp() {
     closeScreenshotSession,
     handleScreenshotComplete,
   } = useContentShell(hostname);
+
+  const handleVoiceToggle = async (isActive: boolean) => {
+    try {
+      if (isActive) {
+        await startRecognition();
+      } else {
+        await stopRecognition();
+      }
+    } catch (error) {
+      console.error('Voice toggle error:', error);
+    }
+  };
 
   if (!isOpen || !hasHydratedLanguage) {
     return null;
@@ -104,10 +119,15 @@ export function ContentApp() {
               )}
             </div>
 
-            <ShellRail activeView={activeView} onSelectView={setActiveView} />
+            <ShellRail activeView={activeView} onSelectView={setActiveView} onVoiceToggle={handleVoiceToggle} />
           </div>
         </div>
       </aside>
+      <SubtitleOverlay
+        sourceText={subtitle.sourceText}
+        translationText={subtitle.translationText}
+        isVisible={subtitle.isActive}
+      />
       {screenshotSession ? (
         <ScreenshotOverlay
           onCaptureVisibleTab={requestVisibleTabScreenshot}

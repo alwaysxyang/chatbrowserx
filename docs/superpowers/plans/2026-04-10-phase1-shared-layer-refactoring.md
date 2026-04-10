@@ -1023,6 +1023,6 @@ After Phase 1 completion:
 
 **Phase 2 Preview:**
 - Extract common provider logic
-- Split large provider files (codex-responses-stream.ts, codex-responses-format.ts)
+- Split large provider files (codex-stream.ts, codex-wire-format.ts)
 - Reorganize provider directory structure
 - Optimize services layer

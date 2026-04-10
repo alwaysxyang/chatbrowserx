@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { CodexProvider } from '../../../src/llm/providers/codex-provider';
+import { CodexProvider } from '../../../src/llm/providers/codex/provider';
 import type { ToolDefinition } from '../../../src/llm/tools/tool-registry';
 
 describe('CodexProvider', () => {

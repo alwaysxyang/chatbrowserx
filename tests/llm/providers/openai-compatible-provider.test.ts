@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { OpenAiCompatibleProvider } from '../../../src/llm/providers/openai-compatible-provider';
+import { OpenAiCompatibleProvider } from '../../../src/llm/providers/openai/provider';
 import { defaultSettings } from '../../../src/shared/storage/settings-repository';
 import type { ToolDefinition } from '../../../src/llm/tools/tool-registry';
 

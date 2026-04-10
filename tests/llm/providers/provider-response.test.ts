@@ -3,7 +3,7 @@ import {
   buildAssistantMessageResult,
   getProviderEndpoint,
   throwIfProviderMisconfigured,
-} from '../../../src/llm/providers/provider-response';
+} from '../../../src/llm/providers/shared/provider-response';
 
 describe('provider response helpers', () => {
   it('normalizes provider endpoints and rejects incomplete config', () => {
