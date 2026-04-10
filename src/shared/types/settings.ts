@@ -1,57 +1,108 @@
+/**
+ * Supported chat provider identifiers.
+ * - 'openai': OpenAI-compatible API providers
+ * - 'codex': Codex-specific API providers
+ */
 export type ChatProviderId = 'openai' | 'codex';
 
-// UI 语言设置：跟随系统 / 中文 / 英文 / 日文
+/**
+ * UI language options.
+ * - 'system': Follow browser/system language
+ * - 'zh': Chinese
+ * - 'en': English
+ * - 'ja': Japanese
+ */
 export type UiLanguage = 'system' | 'zh' | 'en' | 'ja';
 
-// OpenAI 专属配置
+/**
+ * OpenAI provider-specific configuration.
+ */
 export interface OpenAIModelSettings {
+  /** API key for authentication */
   apiKey: string;
+  /** Model identifier (e.g., 'gpt-4', 'gpt-3.5-turbo') */
   model: string;
+  /** Base URL for the OpenAI-compatible API endpoint */
   baseUrl: string;
 }
 
-// Codex 专属配置
+/**
+ * Codex provider-specific configuration.
+ */
 export interface CodexModelSettings {
+  /** Access token for authentication */
   accessToken: string;
+  /** Model identifier */
   model: string;
+  /** Base URL for the Codex API endpoint */
   baseUrl: string;
 }
 
-// 模型相关设置：公共字段 + 各 provider 独立配置
+/**
+ * Model-related settings including provider configuration.
+ * Each provider maintains its own independent configuration.
+ */
 export interface ModelSettings {
-  // 当前激活的 provider
+  /** Currently active provider */
   provider: ChatProviderId;
-  // 兼容字段：始终镜像当前激活 provider 的 model，避免旧数据结构直接失效。
+  /**
+   * Compatibility field: mirrors the active provider's model.
+   * Used for backward compatibility with older data structures.
+   */
   model: string;
 
-  // 公共配置（系统提示、上下文窗口大小）
+  /** System prompt sent with every chat request */
   systemPrompt: string;
+  /** Maximum number of historical messages to include in context */
   maxHistory: number;
 
-  // 各自 provider 的独立配置，切换时不会相互覆盖
+  /** OpenAI provider configuration */
   openai: OpenAIModelSettings;
+  /** Codex provider configuration */
   codex: CodexModelSettings;
 }
 
-// 通用设置：提供给「通用」Tab 使用
+/**
+ * General application settings.
+ */
 export interface GeneralSettings {
+  /** UI language preference */
   uiLanguage: UiLanguage;
 }
 
-// 整体设置：模型设置 + 通用设置
+/**
+ * Complete application settings structure.
+ */
 export interface Settings {
+  /** Model and provider configuration */
   model: ModelSettings;
+  /** General UI and behavior settings */
   general: GeneralSettings;
 }
 
+/**
+ * Get the base URL of the currently active provider.
+ * @param settings - The model settings
+ * @returns The base URL for the active provider
+ */
 export function getActiveProviderBaseUrl(settings: ModelSettings): string {
   return settings.provider === 'openai' ? settings.openai.baseUrl : settings.codex.baseUrl;
 }
 
+/**
+ * Get the authentication credential of the currently active provider.
+ * @param settings - The model settings
+ * @returns API key for OpenAI or access token for Codex
+ */
 export function getActiveProviderCredential(settings: ModelSettings): string {
   return settings.provider === 'openai' ? settings.openai.apiKey : settings.codex.accessToken;
 }
 
+/**
+ * Get the model identifier of the currently active provider.
+ * @param settings - The model settings
+ * @returns The model identifier for the active provider
+ */
 export function getActiveProviderModel(settings: ModelSettings): string {
   return settings.provider === 'openai' ? settings.openai.model : settings.codex.model;
 }
