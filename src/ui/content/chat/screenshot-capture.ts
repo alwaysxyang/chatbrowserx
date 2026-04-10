@@ -1,3 +1,5 @@
+import { clamp, getViewportSize } from './screenshot-selection-geometry';
+
 export interface ScreenshotRect {
   left: number;
   top: number;
@@ -12,13 +14,6 @@ export interface ScreenshotDocumentRange {
 
 export interface CapturedLongScreenshotChunk extends ScreenshotDocumentRange {
   dataUrl: string;
-}
-
-function getViewportSize() {
-  return {
-    width: Math.max(1, window.innerWidth || document.documentElement.clientWidth || 1),
-    height: Math.max(1, window.innerHeight || document.documentElement.clientHeight || 1),
-  };
 }
 
 function waitForFrame(): Promise<void> {
@@ -36,10 +31,6 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
     image.onerror = () => reject(new Error('Failed to load screenshot image.'));
     image.src = dataUrl;
   });
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(Math.max(value, min), max);
 }
 
 function normalizeRect(rect: ScreenshotRect, viewport = getViewportSize()): ScreenshotRect {

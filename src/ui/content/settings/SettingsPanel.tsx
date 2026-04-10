@@ -15,6 +15,7 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
   const hasUserInteractedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'model' | 'general'>('model');
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
 
   useEffect(() => {
     loadSettings().then((storedSettings) => {
@@ -23,6 +24,12 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
       }
     });
   }, []);
+
+  const updateSettings = (updater: (current: Settings) => Settings) => {
+    hasUserInteractedRef.current = true;
+    setSettings((current) => updater(current));
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     setSaveToast(null);
@@ -66,78 +73,68 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
 
   return (
     <section className="settings-page">
-      {(() => {
-        const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
+      <nav aria-label={label('settings.tabs.navLabel')} className="settings-tabs">
+        <button
+          className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('model')}
+        >
+          {label('settings.tabs.model')}
+        </button>
+        <button
+          className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('general')}
+        >
+          {label('settings.tabs.general')}
+        </button>
+      </nav>
 
-        return (
-          <>
-            <nav aria-label={label('settings.tabs.navLabel')} className="settings-tabs">
-              <button
-                className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
-                type="button"
-                onClick={() => setActiveTab('model')}
-              >
-                {label('settings.tabs.model')}
-              </button>
-              <button
-                className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
-                type="button"
-                onClick={() => setActiveTab('general')}
-              >
-                {label('settings.tabs.general')}
-              </button>
-            </nav>
+      {saveToast ? (
+        <div className="settings-toast" role="status" aria-live="polite">
+          {saveToast}
+        </div>
+      ) : null}
 
-            {saveToast ? (
-              <div className="settings-toast" role="status" aria-live="polite">
-                {saveToast}
-              </div>
-            ) : null}
+      <div className="settings-body">
+        {activeTab === 'model' ? (
+          <ChatSettingsForm
+            disabled={isSaving}
+            value={settings.model}
+            onChange={(nextModelSettings: ModelSettings) => {
+              updateSettings((current) => ({ ...current, model: nextModelSettings }));
+            }}
+          />
+        ) : (
+          <GeneralSettingsForm
+            disabled={isSaving}
+            value={settings.general}
+            onChange={(nextGeneralSettings) => {
+              updateSettings((current) => ({ ...current, general: nextGeneralSettings }));
+            }}
+          />
+        )}
+      </div>
 
-            <div className="settings-body">
-              {activeTab === 'model' ? (
-                <ChatSettingsForm
-                  disabled={isSaving}
-                  value={settings.model}
-                  onChange={(nextModelSettings: ModelSettings) => {
-                    hasUserInteractedRef.current = true;
-                    setSettings((prev) => ({ ...prev, model: nextModelSettings }));
-                  }}
-                />
-              ) : (
-                <GeneralSettingsForm
-                  disabled={isSaving}
-                  value={settings.general}
-                  onChange={(nextGeneralSettings) => {
-                    hasUserInteractedRef.current = true;
-                    setSettings((prev) => ({ ...prev, general: nextGeneralSettings }));
-                  }}
-                />
-              )}
-            </div>
-
-            <footer className="settings-footer">
-              <button
-                className="primary-button"
-                data-tooltip={isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
-                disabled={isSaving}
-                type="button"
-                onClick={handleSave}
-              >
-                {isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
-              </button>
-              <button
-                className="secondary-button"
-                data-tooltip={label('settings.actions.reset')}
-                type="button"
-                onClick={handleResetToDefault}
-              >
-                {label('settings.actions.reset')}
-              </button>
-            </footer>
-          </>
-        );
-      })()}
+      <footer className="settings-footer">
+        <button
+          className="primary-button"
+          data-tooltip={isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
+          disabled={isSaving}
+          type="button"
+          onClick={handleSave}
+        >
+          {isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
+        </button>
+        <button
+          className="secondary-button"
+          data-tooltip={label('settings.actions.reset')}
+          type="button"
+          onClick={handleResetToDefault}
+        >
+          {label('settings.actions.reset')}
+        </button>
+      </footer>
     </section>
   );
 }

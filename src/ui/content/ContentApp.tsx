@@ -3,8 +3,6 @@ import type { MouseEvent as ReactMouseEvent } from 'react';
 import { Pin, Sparkles } from 'lucide-react';
 import {
   isPanelCommandMessage,
-  screenshotCaptureRequestType,
-  type ScreenshotCaptureRuntimeResponse,
 } from '../../shared/types/runtime-messages';
 import { ChatPanel } from './chat/ChatPanel';
 import { ImagePreviewOverlay } from './chat/ImagePreviewOverlay';
@@ -16,27 +14,8 @@ import type { UiLanguage } from '../../shared/types/settings';
 import { defaultSettings, loadSettings } from '../../shared/storage/settings-repository';
 import { setCurrentUiLanguage } from '../../shared/i18n/current-language';
 import { translateMessage } from '../../shared/i18n/i18n';
-
-const getPanelStateStorageKey = (hostname: string) => `chatbrowserx.panel.${hostname || 'default'}`;
-
-// 将完整 hostname 归一化为“二级域名”级别的标识，用于缓存键：
-// - www.baidu.com   -> baidu.com
-// - news.qq.com     -> qq.com
-// - baidu.com       -> baidu.com
-// - localhost / IP  -> 原样返回
-function normalizeHostnameForStorage(hostname: string): string {
-  const raw = (hostname || '').trim().toLowerCase();
-  if (!raw) return 'default';
-
-  const parts = raw.split('.');
-  if (parts.length <= 2) {
-    return raw;
-  }
-
-  const secondLevel = parts[parts.length - 2];
-  const topLevel = parts[parts.length - 1];
-  return `${secondLevel}.${topLevel}`;
-}
+import { getPanelStateStorageKey, normalizeHostnameForStorage } from './content-panel-state';
+import { requestVisibleTabScreenshot } from './content-screenshot-bridge';
 
 export function ContentApp() {
   const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
@@ -263,17 +242,7 @@ export function ContentApp() {
       </aside>
       {screenshotSession ? (
         <ScreenshotOverlay
-          onCaptureVisibleTab={async () => {
-            const response = (await chrome.runtime.sendMessage({
-              type: screenshotCaptureRequestType,
-            })) as ScreenshotCaptureRuntimeResponse;
-
-            if (!response?.ok) {
-              throw new Error(response?.error || translateMessage('error.request.failed'));
-            }
-
-            return response.data.dataUrl;
-          }}
+          onCaptureVisibleTab={requestVisibleTabScreenshot}
           onComplete={(dataUrl) => {
             screenshotSession.onCaptured(dataUrl);
             setScreenshotSession(null);

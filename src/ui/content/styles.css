@@ -314,6 +314,17 @@ button:disabled {
   transform: translate(-50%, -2px);
 }
 
+[data-tooltip-placement="bottom"]::after {
+  top: calc(100% + 8px);
+  bottom: auto;
+}
+
+[data-tooltip-placement="bottom"]:hover::after,
+[data-tooltip-placement="bottom"]:focus-visible::after {
+  opacity: 1;
+  transform: translate(-50%, 2px);
+}
+
 /* 聊天气泡错误提示不再使用通用 data-tooltip 方案，改为在 JSX 中渲染可选中的浮层 */
 
 /* 顶部 header 内的按钮：提示框改为出现在元素下方，避免溢出视口 */

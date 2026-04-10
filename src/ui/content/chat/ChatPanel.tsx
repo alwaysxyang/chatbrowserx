@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import type { ChatContentPart, ChatMessage, ChatMessageContent } from '../../../shared/types/chat';
+import type { ChatMessage, ChatMessageContent } from '../../../shared/types/chat';
 import { ChatComposer } from './ChatComposer';
 import { MessageList } from './MessageList';
+import { buildComposerContent } from './chat-composer-content';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatPanelProps {
@@ -14,23 +15,6 @@ interface ChatPanelProps {
   onPreviewImage?: (src: string) => void;
 }
 
-function buildComposerContent(text: string, screenshotUrls: string[]): ChatMessageContent {
-  if (!screenshotUrls.length) {
-    return text;
-  }
-
-  const parts: ChatContentPart[] = screenshotUrls.map((url) => ({
-    type: 'image_url',
-    image_url: { url },
-  }));
-
-  if (text) {
-    parts.push({ type: 'text', text });
-  }
-
-  return parts;
-}
-
 export function ChatPanel({
   messages,
   isSending,
@@ -41,24 +25,24 @@ export function ChatPanel({
   onPreviewImage,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('');
-  const [screenshotUrls, setScreenshotUrls] = useState<string[]>([]);
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
   const hasHistory = messages.length > 0;
 
-  const submitMessage = async (input: string, screenshots: string[] = []) => {
+  const submitMessage = async (input: string, pendingImages: string[] = []) => {
     const trimmed = input.trim();
-    if ((!trimmed && !screenshots.length) || isSending) {
+    if ((!trimmed && !pendingImages.length) || isSending) {
       return;
     }
 
     try {
       setDraft('');
-      setScreenshotUrls([]);
-      await onSendMessage(buildComposerContent(trimmed, screenshots));
+      setImageUrls([]);
+      await onSendMessage(buildComposerContent(trimmed, pendingImages));
     } catch {}
   };
 
   const handleSubmit = async () => {
-    await submitMessage(draft, screenshotUrls);
+    await submitMessage(draft, imageUrls);
   };
 
   return (
@@ -90,19 +74,19 @@ export function ChatPanel({
         <ChatComposer
           disabled={isSending}
           value={draft}
-          screenshotUrls={screenshotUrls}
+          imageUrls={imageUrls}
           onChange={setDraft}
           onSubmit={handleSubmit}
           onClear={() => {
             setDraft('');
-            setScreenshotUrls([]);
+            setImageUrls([]);
             onClearHistory();
           }}
-          onRemoveScreenshot={(index) => {
-            setScreenshotUrls((current) => current.filter((_, currentIndex) => currentIndex !== index));
+          onRemoveImage={(index) => {
+            setImageUrls((current) => current.filter((_, currentIndex) => currentIndex !== index));
           }}
-          onAddScreenshots={(dataUrls) => {
-            setScreenshotUrls((current) => [...current, ...dataUrls]);
+          onAddImages={(dataUrls) => {
+            setImageUrls((current) => [...current, ...dataUrls]);
           }}
           isSending={isSending}
           onStop={onStop ?? (() => {})}
@@ -110,7 +94,7 @@ export function ChatPanel({
             onStartScreenshot
               ? () => {
                   onStartScreenshot((dataUrl) => {
-                    setScreenshotUrls((current) => [...current, dataUrl]);
+                    setImageUrls((current) => [...current, dataUrl]);
                   });
                 }
               : undefined

@@ -97,4 +97,15 @@ describe('SettingsPanel', () => {
     expect(bodyElement).not.toContainElement(screen.getByRole('button', { name: '保存设置' }));
     expect(bodyElement).not.toContainElement(screen.getByRole('button', { name: '恢复默认' }));
   });
+
+  it('shows provider switch tooltips below the buttons to avoid clipping at the top edge', async () => {
+    render(<SettingsPanel />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'OpenAI' })).toBeInTheDocument();
+    });
+
+    expect(screen.getByRole('button', { name: 'OpenAI' })).toHaveAttribute('data-tooltip-placement', 'bottom');
+    expect(screen.getByRole('button', { name: 'Codex' })).toHaveAttribute('data-tooltip-placement', 'bottom');
+  });
 });

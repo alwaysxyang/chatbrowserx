@@ -1,61 +1,33 @@
 import { FormEvent, type ClipboardEvent as ReactClipboardEvent, useEffect, useRef } from 'react';
 import { ChatToolbar } from './ChatToolbar';
+import { ChatImageList } from './ChatImageList';
+import { getClipboardImageFiles, readClipboardImagesAsDataUrls } from './chat-image-clipboard';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatComposerProps {
   value: string;
   disabled: boolean;
-  screenshotUrls: string[];
+  imageUrls: string[];
   onChange: (value: string) => void;
   onSubmit: () => void;
   onClear: () => void;
-  onRemoveScreenshot: (index: number) => void;
-  onAddScreenshots: (dataUrls: string[]) => void;
+  onRemoveImage: (index: number) => void;
+  onAddImages: (dataUrls: string[]) => void;
   isSending: boolean;
   onStop: () => void;
   onScreenshot?: () => void;
   onPreviewImage?: (src: string) => void;
 }
 
-function readImageAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-
-    reader.onload = () => {
-      if (typeof reader.result === 'string') {
-        resolve(reader.result);
-        return;
-      }
-
-      reject(new Error('Pasted image could not be read as a data URL.'));
-    };
-    reader.onerror = () => reject(new Error('Pasted image could not be read.'));
-    reader.readAsDataURL(file);
-  });
-}
-
-function getPastedImageFiles(clipboardData: DataTransfer): File[] {
-  const itemFiles = Array.from(clipboardData.items ?? [])
-    .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
-    .map((item) => item.getAsFile())
-    .filter((file): file is File => file instanceof File);
-
-  if (itemFiles.length) {
-    return itemFiles;
-  }
-
-  return Array.from(clipboardData.files ?? []).filter((file) => file.type.startsWith('image/'));
-}
-
 export function ChatComposer({
   value,
   disabled,
-  screenshotUrls,
+  imageUrls,
   onChange,
   onSubmit,
   onClear,
-  onRemoveScreenshot,
-  onAddScreenshots,
+  onRemoveImage,
+  onAddImages,
   isSending,
   onStop,
   onScreenshot,
@@ -93,16 +65,21 @@ export function ChatComposer({
       return;
     }
 
-    const imageFiles = getPastedImageFiles(event.clipboardData);
+    if (!event.clipboardData) {
+      return;
+    }
 
+    const imageFiles = getClipboardImageFiles(event.clipboardData);
     if (!imageFiles.length) {
       return;
     }
 
     event.preventDefault();
-    void Promise.all(imageFiles.map(readImageAsDataUrl)).then((dataUrls) => {
-      onAddScreenshots(dataUrls);
-    }).catch(() => {});
+    void readClipboardImagesAsDataUrls(event.clipboardData)
+      .then((dataUrls) => {
+        onAddImages(dataUrls);
+      })
+      .catch(() => {});
   };
 
   useEffect(() => {
@@ -111,32 +88,12 @@ export function ChatComposer({
 
   return (
     <form className="chat-composer" onSubmit={handleSubmit}>
-      {screenshotUrls.length ? (
-        <div className="chat-screenshot-preview-list">
-          {screenshotUrls.map((screenshotUrl, index) => (
-            <div className="chat-screenshot-preview" key={`${screenshotUrl}-${index}`}>
-              <img
-                className="chat-screenshot-preview-image"
-                src={screenshotUrl}
-                alt={translateMessage('chat.screenshot.previewAlt')}
-                onDoubleClick={() => {
-                  onPreviewImage?.(screenshotUrl);
-                }}
-              />
-              <button
-                className="chat-screenshot-remove"
-                type="button"
-                aria-label={translateMessage('chat.screenshot.remove')}
-                onMouseDown={(event) => event.preventDefault()}
-                onClick={() => onRemoveScreenshot(index)}
-                disabled={disabled}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <ChatImageList
+        imageUrls={imageUrls}
+        disabled={disabled}
+        onRemoveImage={onRemoveImage}
+        onPreviewImage={onPreviewImage}
+      />
 
       <textarea
         aria-label={translateMessage('chat.composer.placeholder')}
@@ -152,15 +109,15 @@ export function ChatComposer({
         }}
         onPaste={handlePaste}
         onKeyDown={(event) => {
-          if ((event.key === 'Backspace' || event.key === 'Delete') && !value && screenshotUrls.length) {
+          if ((event.key === 'Backspace' || event.key === 'Delete') && !value && imageUrls.length) {
             event.preventDefault();
-            onRemoveScreenshot(screenshotUrls.length - 1);
+            onRemoveImage(imageUrls.length - 1);
             return;
           }
 
           if (event.key === 'Enter' && event.metaKey) {
             event.preventDefault();
-            if (!disabled && (value.trim() || screenshotUrls.length)) {
+            if (!disabled && (value.trim() || imageUrls.length)) {
               onSubmit();
             }
           }
@@ -169,7 +126,7 @@ export function ChatComposer({
 
       <ChatToolbar
         disabled={disabled}
-        canSend={!!value.trim() || screenshotUrls.length > 0}
+        canSend={!!value.trim() || imageUrls.length > 0}
         isSending={isSending}
         onClear={onClear}
         onStop={onStop}

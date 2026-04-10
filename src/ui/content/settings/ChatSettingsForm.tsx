@@ -11,10 +11,23 @@ interface ChatSettingsFormProps {
 
 export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsFormProps) {
   const [showApiKey, setShowApiKey] = useState(false);
+  const isOpenAi = value.provider === 'openai';
   const updateField = <K extends keyof ModelSettings>(field: K, nextValue: ModelSettings[K]) => {
     onChange({
       ...value,
       [field]: nextValue,
+    });
+  };
+  const updateOpenAiSettings = (nextValue: Partial<ModelSettings['openai']>) => {
+    onChange({
+      ...value,
+      openai: { ...value.openai, ...nextValue },
+    });
+  };
+  const updateCodexSettings = (nextValue: Partial<ModelSettings['codex']>) => {
+    onChange({
+      ...value,
+      codex: { ...value.codex, ...nextValue },
     });
   };
 
@@ -26,20 +39,18 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
       <div className="settings-provider-switch" aria-label={label('settings.provider.switchLabel')}>
         <button
           type="button"
-          className={`settings-provider-button ${
-            value.provider === 'openai' ? 'settings-provider-button-active' : ''
-          }`}
+          className={`settings-provider-button ${isOpenAi ? 'settings-provider-button-active' : ''}`}
           data-tooltip={label('settings.provider.openaiTooltip')}
+          data-tooltip-placement="bottom"
           onClick={() => updateField('provider', 'openai' satisfies ChatProviderId)}
         >
           OpenAI
         </button>
         <button
           type="button"
-          className={`settings-provider-button ${
-            value.provider === 'codex' ? 'settings-provider-button-active' : ''
-          }`}
+          className={`settings-provider-button ${!isOpenAi ? 'settings-provider-button-active' : ''}`}
           data-tooltip={label('settings.provider.codexTooltip')}
+          data-tooltip-placement="bottom"
           onClick={() => updateField('provider', 'codex' satisfies ChatProviderId)}
         >
           Codex
@@ -50,40 +61,31 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <span>{label('settings.fields.apiBaseUrl')}</span>
         <input
           aria-label={label('settings.fields.apiBaseUrl')}
-          value={value.provider === 'openai' ? value.openai.baseUrl : value.codex.baseUrl}
+          value={isOpenAi ? value.openai.baseUrl : value.codex.baseUrl}
           onChange={(event) => {
             const next = event.target.value;
-            if (value.provider === 'openai') {
-              onChange({
-                ...value,
-                openai: { ...value.openai, baseUrl: next },
-              });
-            } else {
-              onChange({
-                ...value,
-                codex: { ...value.codex, baseUrl: next },
-              });
+            if (isOpenAi) {
+              updateOpenAiSettings({ baseUrl: next });
+              return;
             }
+
+            updateCodexSettings({ baseUrl: next });
           }}
         />
       </label>
 
       <label>
         <span>
-          {value.provider === 'openai'
-            ? label('settings.fields.apiKey')
-            : label('settings.codex.fields.accessToken')}
+          {isOpenAi ? label('settings.fields.apiKey') : label('settings.codex.fields.accessToken')}
         </span>
 
         <div className="settings-input-with-icon">
-          {value.provider === 'openai' ? (
+          {isOpenAi ? (
             <input
               aria-label={label('settings.fields.apiKey')}
               type={showApiKey ? 'text' : 'password'}
               value={value.openai.apiKey}
-              onChange={(event) =>
-                onChange({ ...value, openai: { ...value.openai, apiKey: event.target.value } })
-              }
+              onChange={(event) => updateOpenAiSettings({ apiKey: event.target.value })}
             />
           ) : (
             <textarea
@@ -97,9 +99,8 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
               onChange={
                 showApiKey
                   ? (event) =>
-                      onChange({
-                        ...value,
-                        codex: { ...value.codex, accessToken: event.target.value },
+                      updateCodexSettings({
+                        accessToken: event.target.value,
                       })
                   : undefined
               }
@@ -125,11 +126,11 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <span>{label('settings.fields.model')}</span>
         <input
           aria-label={label('settings.fields.model')}
-          value={value.provider === 'openai' ? value.openai.model : value.codex.model}
+          value={isOpenAi ? value.openai.model : value.codex.model}
           onChange={(event) =>
-            value.provider === 'openai'
-              ? onChange({ ...value, openai: { ...value.openai, model: event.target.value } })
-              : onChange({ ...value, codex: { ...value.codex, model: event.target.value } })
+            isOpenAi
+              ? updateOpenAiSettings({ model: event.target.value })
+              : updateCodexSettings({ model: event.target.value })
           }
         />
       </label>
