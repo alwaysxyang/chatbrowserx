@@ -4,6 +4,7 @@ import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent, t
 import {
   chatRequestType,
   chatCancelType,
+  getRuntimeResponseData,
   type ChatRuntimeResponse,
   isChatStreamChunkMessage,
 } from '../../../shared/types/runtime-messages';
@@ -13,7 +14,7 @@ import {
   buildChatRequestHistory,
   createChatMessage,
   updateChatMessageById,
-} from './chat-message-helpers';
+} from './message/chat-message-state';
 
 export function useChatController(hostname: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -99,11 +100,7 @@ export function useChatController(hostname: string) {
         } satisfies ChatRequestPayload,
       })) as ChatRuntimeResponse;
 
-      if (!response?.ok) {
-        throw new Error(response?.error || translateMessage('error.message.sendFailed'));
-      }
-
-      const reply = response.data.reply;
+      const reply = getRuntimeResponseData(response, translateMessage('error.message.sendFailed')).reply;
       setMessages((prevMessages) => {
         return updateChatMessageById(prevMessages, currentId, (message) => ({
           ...message,

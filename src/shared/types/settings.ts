@@ -21,6 +21,7 @@ export interface CodexModelSettings {
 export interface ModelSettings {
   // 当前激活的 provider
   provider: ChatProviderId;
+  // 兼容字段：始终镜像当前激活 provider 的 model，避免旧数据结构直接失效。
   model: string;
 
   // 公共配置（系统提示、上下文窗口大小）
@@ -41,4 +42,16 @@ export interface GeneralSettings {
 export interface Settings {
   model: ModelSettings;
   general: GeneralSettings;
+}
+
+export function getActiveProviderBaseUrl(settings: ModelSettings): string {
+  return settings.provider === 'openai' ? settings.openai.baseUrl : settings.codex.baseUrl;
+}
+
+export function getActiveProviderCredential(settings: ModelSettings): string {
+  return settings.provider === 'openai' ? settings.openai.apiKey : settings.codex.accessToken;
+}
+
+export function getActiveProviderModel(settings: ModelSettings): string {
+  return settings.provider === 'openai' ? settings.openai.model : settings.codex.model;
 }

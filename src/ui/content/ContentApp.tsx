@@ -1,165 +1,39 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { MouseEvent as ReactMouseEvent } from 'react';
+import { useMemo } from 'react';
 import { Pin, Sparkles } from 'lucide-react';
-import {
-  isPanelCommandMessage,
-} from '../../shared/types/runtime-messages';
 import { ChatPanel } from './chat/ChatPanel';
 import { ImagePreviewOverlay } from './chat/ImagePreviewOverlay';
 import { ScreenshotOverlay } from './chat/ScreenshotOverlay';
 import { useChatController } from './chat/use-chat-controller';
 import { SettingsPanel } from './settings/SettingsPanel';
 import { ShellRail } from './ShellRail';
-import type { UiLanguage } from '../../shared/types/settings';
-import { defaultSettings, loadSettings } from '../../shared/storage/settings-repository';
-import { setCurrentUiLanguage } from '../../shared/i18n/current-language';
 import { translateMessage } from '../../shared/i18n/i18n';
-import { getPanelStateStorageKey, normalizeHostnameForStorage } from './content-panel-state';
+import { normalizeHostnameForStorage } from './content-panel-state';
 import { requestVisibleTabScreenshot } from './content-screenshot-bridge';
+import { useContentShell } from './use-content-shell';
 
 export function ContentApp() {
   const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
-  const panelStateStorageKey = useMemo(() => getPanelStateStorageKey(hostname), [hostname]);
-  const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
   const buildLabel = useMemo(() => `Build ${__CHATBROWSERX_BUILD_TIME__}`, []);
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeView, setActiveView] = useState<'chat' | 'settings'>('chat');
-  const [isPinned, setIsPinned] = useState(false);
-  const [hasHydratedPinned, setHasHydratedPinned] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(460);
-  const [hasHydratedLanguage, setHasHydratedLanguage] = useState(false);
-  const [screenshotSession, setScreenshotSession] = useState<{
-    onCaptured: (dataUrl: string) => void;
-  } | null>(null);
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const { messages, isSending, sendMessage, clearHistory, stop } = useChatController(hostname);
-  const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  const asideRef = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    chrome.storage.local.get(panelStateStorageKey).then((result) => {
-      const persistedState = result[panelStateStorageKey] as { pinned?: boolean; open?: boolean } | undefined;
-      const persistedPinned = persistedState?.pinned === true;
-      const persistedOpen = persistedState?.open === true;
-
-      setIsPinned(persistedPinned);
-      if (persistedPinned && persistedOpen) {
-        setIsOpen(true);
-      }
-      setHasHydratedPinned(true);
-    });
-  }, [panelStateStorageKey]);
-
-  // 加载用户保存的 UI 语言设置
-  useEffect(() => {
-    loadSettings()
-      .then((settings) => {
-        // 先同步当前语言缓存，再更新本地 state，确保首次渲染就使用用户配置的语言
-        setCurrentUiLanguage(settings.general.uiLanguage);
-        setUiLanguage(settings.general.uiLanguage);
-        setHasHydratedLanguage(true);
-      })
-      .catch(() => {
-        // 读取失败时保持默认语言，不打断主流程
-        setHasHydratedLanguage(true);
-      });
-  }, []);
-
-  useEffect(() => {
-    setCurrentUiLanguage(uiLanguage);
-  }, [uiLanguage]);
-
-  useEffect(() => {
-    if (!hasHydratedPinned) {
-      return;
-    }
-
-    void chrome.storage.local.set({
-      [panelStateStorageKey]: {
-        pinned: isPinned,
-        open: isOpen,
-      },
-    });
-  }, [hasHydratedPinned, isOpen, isPinned, panelStateStorageKey]);
-
-  useEffect(() => {
-    const listener: typeof chrome.runtime.onMessage.addListener extends (callback: infer T) => unknown ? T : never = (message) => {
-      if (!isPanelCommandMessage(message)) {
-        return undefined;
-      }
-
-      if (message.payload.command === 'toggle-chat') {
-        setIsOpen((current) => !current);
-        setActiveView('chat');
-        return undefined;
-      }
-
-      setIsOpen(true);
-      setActiveView(message.payload.command === 'open-settings' ? 'settings' : 'chat');
-      return undefined;
-    };
-
-    chrome.runtime.onMessage.addListener(listener);
-    return () => {
-      chrome.runtime.onMessage.removeListener(listener);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!isOpen || isPinned || screenshotSession || previewImageUrl) {
-      return;
-    }
-
-    const handlePointerDownOutside = (event: MouseEvent) => {
-      const asideElement = asideRef.current;
-      if (!asideElement) {
-        return;
-      }
-
-      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-      if (path.includes(asideElement)) {
-        return;
-      }
-
-      setIsOpen(false);
-    };
-
-    document.addEventListener('mousedown', handlePointerDownOutside);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDownOutside);
-    };
-  }, [isOpen, isPinned, previewImageUrl, screenshotSession]);
-
-  useEffect(() => {
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!resizeStateRef.current) {
-        return;
-      }
-
-      const nextWidth = resizeStateRef.current.startWidth + (resizeStateRef.current.startX - event.clientX);
-      const clampedWidth = Math.max(380, Math.min(640, nextWidth));
-      setSidebarWidth(clampedWidth);
-    };
-
-    const handleMouseUp = () => {
-      resizeStateRef.current = null;
-    };
-
-    window.addEventListener('mousemove', handleMouseMove);
-    window.addEventListener('mouseup', handleMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handleMouseMove);
-      window.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, []);
-
-  const handleResizeStart = (event: ReactMouseEvent<HTMLDivElement>) => {
-    resizeStateRef.current = {
-      startX: event.clientX,
-      startWidth: sidebarWidth,
-    };
-  };
+  const {
+    isOpen,
+    activeView,
+    isPinned,
+    sidebarWidth,
+    hasHydratedLanguage,
+    screenshotSession,
+    previewImageUrl,
+    asideRef,
+    setIsOpen,
+    setActiveView,
+    setIsPinned,
+    setPreviewImageUrl,
+    handleResizeStart,
+    handleUiLanguageChange,
+    startScreenshotSession,
+    closeScreenshotSession,
+    handleScreenshotComplete,
+  } = useContentShell(hostname);
 
   if (!isOpen || !hasHydratedLanguage) {
     return null;
@@ -221,18 +95,12 @@ export function ContentApp() {
                   }}
                   onStop={stop}
                   onStartScreenshot={(onCaptured) => {
-                    setScreenshotSession({ onCaptured });
+                    startScreenshotSession({ onCaptured });
                   }}
                   onPreviewImage={setPreviewImageUrl}
                 />
               ) : (
-                <SettingsPanel
-                  onUiLanguageChange={(next) => {
-                    setUiLanguage(next);
-                    // 语言在设置页变更时同步更新当前语言缓存，以便 ShellRail 等使用默认语言的模块立即生效
-                    setCurrentUiLanguage(next);
-                  }}
-                />
+                <SettingsPanel onUiLanguageChange={handleUiLanguageChange} />
               )}
             </div>
 
@@ -243,21 +111,14 @@ export function ContentApp() {
       {screenshotSession ? (
         <ScreenshotOverlay
           onCaptureVisibleTab={requestVisibleTabScreenshot}
-          onComplete={(dataUrl) => {
-            screenshotSession.onCaptured(dataUrl);
-            setScreenshotSession(null);
-          }}
-          onCancel={() => {
-            setScreenshotSession(null);
-          }}
+          onComplete={handleScreenshotComplete}
+          onCancel={closeScreenshotSession}
         />
       ) : null}
       {previewImageUrl ? (
         <ImagePreviewOverlay
           src={previewImageUrl}
-          onClose={() => {
-            setPreviewImageUrl(null);
-          }}
+          onClose={() => setPreviewImageUrl(null)}
         />
       ) : null}
     </>

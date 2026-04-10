@@ -94,6 +94,26 @@ describe('useChatController', () => {
     expect(assistantErrors).toHaveLength(2);
   });
 
+  it('uses runtime error payloads when the background resolves with ok false', async () => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    sendMessageMock.mockResolvedValue({
+      ok: false,
+      error: '后台报错',
+    });
+
+    const { result } = renderHook(() => useChatController('example.com'));
+
+    await act(async () => {
+      await expect(result.current.sendMessage('first')).rejects.toThrow('后台报错');
+    });
+
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: 'assistant',
+      status: 'error',
+      errorMessage: '后台报错',
+    });
+  });
+
   it('strips images from history before sending the next request', async () => {
     const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
     sendMessageMock.mockResolvedValue({

@@ -50,4 +50,25 @@ describe('settings repository', () => {
     expect(settings.model.model).toBe('bad-model');
     expect(settings.model.openai.model).toBe('bad-model');
   });
+
+  it('normalizes legacy codex aliases into provider-specific fields', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.settings': {
+        model: {
+          provider: 'codex',
+          apiKey: 'legacy-token',
+          baseUrl: 'https://legacy-codex.example.com',
+          model: 'codex-legacy',
+        },
+      },
+    });
+
+    const settings = await loadSettings();
+
+    expect(settings.model.provider).toBe('codex');
+    expect(settings.model.model).toBe('codex-legacy');
+    expect(settings.model.codex.accessToken).toBe('legacy-token');
+    expect(settings.model.codex.baseUrl).toBe('https://legacy-codex.example.com');
+    expect(settings.model.codex.model).toBe('codex-legacy');
+  });
 });

@@ -4,9 +4,8 @@ import { translateMessage } from '../../../shared/i18n/i18n';
 import {
   captureSelectedViewport,
   createDefaultScreenshotSelection,
-  waitForScreenshotFrame,
-  type ScreenshotRect,
-} from './screenshot-capture';
+} from './screenshot/screenshot-capture';
+import { waitForScreenshotFrame } from './screenshot/screenshot-frame';
 import {
   cursorForEdge,
   getResizeEdge,
@@ -15,8 +14,9 @@ import {
   resizeSelection,
   toSelection,
   type ResizeEdge,
-} from './screenshot-selection-geometry';
-import { useLongScreenshotSession } from './use-long-screenshot-session';
+} from './screenshot/screenshot-selection-geometry';
+import type { ScreenshotRect } from './screenshot/screenshot-types';
+import { useLongScreenshotSession } from './screenshot/use-long-screenshot-session';
 
 interface ScreenshotOverlayProps {
   onCaptureVisibleTab: () => Promise<string>;

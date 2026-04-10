@@ -1,14 +1,12 @@
 import type { Settings } from '../types/settings';
 import { defaultSettings, normalizeSettings } from './settings-normalizer';
+import { loadStoredValue, saveStoredValue } from './chrome-local-storage';
 
 const settingsStorageKey = 'chatbrowserx.settings';
 export { defaultSettings };
 
 export async function loadSettings(): Promise<Settings> {
-  const result = await chrome.storage.local.get(settingsStorageKey);
-  const storedSettings = result[settingsStorageKey] as Partial<Settings> | undefined;
-
-  return normalizeSettings(storedSettings);
+  return normalizeSettings(await loadStoredValue<Partial<Settings> | undefined>(settingsStorageKey, undefined));
 }
 
 export async function saveSettings(nextSettings: Partial<Settings>): Promise<Settings> {
@@ -17,9 +15,7 @@ export async function saveSettings(nextSettings: Partial<Settings>): Promise<Set
     ...nextSettings,
   });
 
-  await chrome.storage.local.set({
-    [settingsStorageKey]: mergedSettings,
-  });
+  await saveStoredValue(settingsStorageKey, mergedSettings);
 
   return mergedSettings;
 }

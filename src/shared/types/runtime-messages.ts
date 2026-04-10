@@ -8,6 +8,22 @@ export const screenshotCaptureRequestType = 'chatbrowserx.chat.screenshot.captur
 export const panelCommandType = 'chatbrowserx.panel.command';
 export const getPageContentToolRequestType = 'chatbrowserx.tool.get-page-content.request';
 
+export interface RuntimeMessage<TType extends string = string> {
+  type: TType;
+}
+
+export interface RuntimeSuccessResponse<TData> {
+  ok: true;
+  data: TData;
+}
+
+export interface RuntimeErrorResponse {
+  ok: false;
+  error: string;
+}
+
+export type RuntimeResponse<TData> = RuntimeSuccessResponse<TData> | RuntimeErrorResponse;
+
 export interface ChatRequestMessage {
   type: typeof chatRequestType;
   payload: ChatRequestPayload;
@@ -73,57 +89,54 @@ export interface GetPageContentToolPayload {
   content: string;
 }
 
+export function hasRuntimeMessageType<TType extends string>(message: unknown, type: TType): message is RuntimeMessage<TType> {
+  return Boolean(message && typeof message === 'object' && 'type' in message && (message as RuntimeMessage<TType>).type === type);
+}
+
+export function createRuntimeMessageGuard<TMessage extends RuntimeMessage<string>>(type: TMessage['type']) {
+  return (message: unknown): message is TMessage => hasRuntimeMessageType(message, type);
+}
+
+export function getRuntimeResponseData<TData>(response: RuntimeResponse<TData> | undefined, fallbackError: string): TData {
+  if (!response?.ok) {
+    throw new Error(response?.error || fallbackError);
+  }
+
+  return response.data;
+}
+
+const isChatRequestMessageGuard = createRuntimeMessageGuard<ChatRequestMessage>(chatRequestType);
+const isChatStreamChunkMessageGuard = createRuntimeMessageGuard<ChatStreamChunkMessage>(chatStreamChunkType);
+const isChatCancelMessageGuard = createRuntimeMessageGuard<ChatCancelMessage>(chatCancelType);
+const isScreenshotCaptureRequestMessageGuard = createRuntimeMessageGuard<ScreenshotCaptureRequestMessage>(
+  screenshotCaptureRequestType,
+);
+const isPanelCommandMessageGuard = createRuntimeMessageGuard<PanelCommandMessage>(panelCommandType);
+const isGetPageContentToolRequestMessageGuard = createRuntimeMessageGuard<GetPageContentToolRequestMessage>(
+  getPageContentToolRequestType,
+);
+
 
 export function isChatRequestMessage(message: unknown): message is ChatRequestMessage {
-  return Boolean(
-    message &&
-      typeof message === 'object' &&
-      'type' in message &&
-      (message as ChatRequestMessage).type === chatRequestType,
-  );
+  return isChatRequestMessageGuard(message);
 }
 
 export function isChatStreamChunkMessage(message: unknown): message is ChatStreamChunkMessage {
-  return Boolean(
-    message &&
-      typeof message === 'object' &&
-      'type' in message &&
-      (message as ChatStreamChunkMessage).type === chatStreamChunkType,
-  );
+  return isChatStreamChunkMessageGuard(message);
 }
 
 export function isChatCancelMessage(message: unknown): message is ChatCancelMessage {
-  return Boolean(
-    message &&
-      typeof message === 'object' &&
-      'type' in message &&
-      (message as ChatCancelMessage).type === chatCancelType,
-  );
+  return isChatCancelMessageGuard(message);
 }
 
 export function isScreenshotCaptureRequestMessage(message: unknown): message is ScreenshotCaptureRequestMessage {
-  return Boolean(
-    message &&
-      typeof message === 'object' &&
-      'type' in message &&
-      (message as ScreenshotCaptureRequestMessage).type === screenshotCaptureRequestType,
-  );
+  return isScreenshotCaptureRequestMessageGuard(message);
 }
 
 export function isPanelCommandMessage(message: unknown): message is PanelCommandMessage {
-  return Boolean(
-    message &&
-      typeof message === 'object' &&
-      'type' in message &&
-      (message as PanelCommandMessage).type === panelCommandType,
-  );
+  return isPanelCommandMessageGuard(message);
 }
 
 export function isGetPageContentToolRequestMessage(message: unknown): message is GetPageContentToolRequestMessage {
-  return Boolean(
-    message &&
-      typeof message === 'object' &&
-      'type' in message &&
-      (message as GetPageContentToolRequestMessage).type === getPageContentToolRequestType,
-  );
+  return isGetPageContentToolRequestMessageGuard(message);
 }

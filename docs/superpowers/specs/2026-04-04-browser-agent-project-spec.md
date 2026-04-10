@@ -59,6 +59,9 @@ src/
   ui/
     content/
       chat/
+        clipboard/
+        message/
+        screenshot/
       settings/
     tools/
     popup/
@@ -73,6 +76,7 @@ src/
     tools/
   shared/
     browser/
+    i18n/
     storage/
     types/
     utils/
@@ -88,6 +92,7 @@ src/
 
 - 内容脚本场景下的 UI 入口。
 - 负责创建 Shadow Root、挂载 React 应用、组织聊天与设置界面。
+- `ContentApp.tsx` 应保持为视图装配层；与面板开关、持久化、语言 hydration、overlay 会话、宽度拖拽相关的副作用与状态组织，可收敛到独立 hook（如 `use-content-shell`）中。
 - 不直接实现 provider 请求逻辑。
 - 不直接承担流式解析、tool loop、Chrome 后台任务。
 - 允许在轻量控制器（如 `use-chat-controller`）中维护聊天 UI 状态、调用 background 消息接口，以及处理滚动跟随、输入态、流式输出文本展示等交互细节，但不得直接依赖 provider 实现或 Chrome API。
@@ -98,6 +103,10 @@ src/
 - 包含聊天面板、消息列表、输入框、加载态、错误态、侧边栏壳等 UI 组件。
 - 包含聊天输入图片交互：截图遮罩、选区框、可视窗口截图、选区截图、选区长截图、输入框内直接粘贴图片、截图/图片预览与删除。
 - 包含聊天内图片预览交互：用户消息图片与输入框截图缩略图可在聊天 UI 内预览。
+- 允许按职责拆分为更小的子模块，例如：
+  - `clipboard/`：图片读写剪贴板能力；
+  - `message/`：聊天消息构造、历史裁剪与局部更新；
+  - `screenshot/`：截图选区几何、截图裁剪/拼接、长截图会话。
 - 通过 `use-chat-controller` 这类 hook，与后台交换消息，并在前端维护：
   - 用户输入草稿、消息历史展示；
   - 聊天请求进行中的流式文本（在 loading 气泡中展示）；
@@ -112,6 +121,7 @@ src/
 - 包含配置表单、基础校验、保存交互反馈（包括“保存成功/失败”提示）。
 - 通过 `shared/storage/settings-repository` 读写设置（如 `API Base URL`、`API Key`、`Model`、`System Prompt`、`Max History`、`UI Language`）。
 - 语言选择变更只有在“保存设置”成功后才会同步到全局 UI 语言与 i18n 缓存。
+- provider 专属配置（如 `openai` / `codex`）是设置结构中的主语义；顶层 `model` 可作为兼容旧结构的镜像字段保留，但不应成为新的主要数据来源。
 - 不直接触达 provider 实现。
 
 #### `src/ui/popup`
@@ -211,12 +221,14 @@ src/
 
 - 配置、聊天历史等持久化访问层。
 - `settings-repository`：负责设置的读写与归一化，提供默认值与键名管理。
+- 设置归一化应优先以 provider 专属字段为准，并只在兼容旧数据时回填顶层别名字段。
 - `chat-history-repository`：按“归一化 hostname”（例如 `www.baidu.com` → `baidu.com`）维度存储与读取聊天历史，保证同一站点下多页面共享历史。
 
 #### `src/shared/types`
 
 - 跨模块共享类型（包括聊天消息结构、runtime 消息协议、设置类型、语言枚举等）。
 - 聊天消息类型需要承载图文混排输入协议，供 UI / background / llm 在不引入 provider 细节的前提下共享。
+- 设置类型允许提供少量只读 selector/helper，用于统一读取当前激活 provider 的 `baseUrl`、凭证与 `model`，避免在各层重复分支判断。
 
 #### `src/shared/utils`
 
@@ -225,6 +237,7 @@ src/
 #### `src/shared/i18n`
 
 - i18n 文本与语言解析逻辑。
+- 推荐拆分为“文案目录（message catalog）”与“解析/翻译函数”，避免单文件同时承载所有 key、所有文案与运行时逻辑。
 - 负责根据 `UiLanguage` 与浏览器语言选择具体 locale。
 - 提供 `translateMessage` 等方法，供 UI 与错误提示统一使用。
 - 不直接依赖 UI 层组件，只暴露纯函数与配置。

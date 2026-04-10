@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import type { ScreenshotRect } from './screenshot-capture';
+import type { ScreenshotRect } from './screenshot-types';
 
 export type ResizeEdge = 'n' | 's' | 'e' | 'w' | 'nw' | 'ne' | 'sw' | 'se';
 

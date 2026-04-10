@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cropScreenshotDataUrl } from '../../../../src/ui/content/chat/screenshot-capture';
+import { cropScreenshotDataUrl } from '../../../../src/ui/content/chat/screenshot/screenshot-capture';
 
 describe('ui screenshot capture', () => {
   const originalImage = globalThis.Image;

@@ -1,4 +1,5 @@
 import {
+  getRuntimeResponseData,
   screenshotCaptureRequestType,
   type ScreenshotCaptureRuntimeResponse,
 } from '../../shared/types/runtime-messages';
@@ -9,9 +10,5 @@ export async function requestVisibleTabScreenshot(): Promise<string> {
     type: screenshotCaptureRequestType,
   })) as ScreenshotCaptureRuntimeResponse;
 
-  if (!response?.ok) {
-    throw new Error(response?.error || translateMessage('error.request.failed'));
-  }
-
-  return response.data.dataUrl;
+  return getRuntimeResponseData(response, translateMessage('error.request.failed')).dataUrl;
 }

@@ -1,5 +1,5 @@
 import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } from '../../shared/types/chat';
-import type { ModelSettings } from '../../shared/types/settings';
+import { getActiveProviderModel, type ModelSettings } from '../../shared/types/settings';
 import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai-compatible-provider';
 import { CodexProvider } from '../providers/codex-provider';
@@ -50,9 +50,8 @@ export async function completeChat(
           baseUrl: settings.codex.baseUrl,
           accessToken: settings.codex.accessToken,
         }));
-  const modelName = settings.provider === 'openai' ? settings.openai.model : settings.codex.model;
   const request: ChatCompletionInput = {
-    model: modelName,
+    model: getActiveProviderModel(settings),
     messages: toLlmMessages(settings, history, input),
   };
 

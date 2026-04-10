@@ -4,10 +4,9 @@ import {
   getScreenshotDocumentRange,
   getUncapturedLongScreenshotSegments,
   stitchLongScreenshotChunks,
-  waitForScreenshotFrame,
-  type CapturedLongScreenshotChunk,
-  type ScreenshotRect,
 } from './screenshot-capture';
+import { waitForScreenshotFrame } from './screenshot-frame';
+import type { CapturedLongScreenshotChunk, ScreenshotRect } from './screenshot-types';
 
 interface UseLongScreenshotSessionOptions {
   onCaptureVisibleTab: () => Promise<string>;

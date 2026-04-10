@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import type { ChatProviderId, ModelSettings } from '../../../shared/types/settings';
+import type { ModelSettings } from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
+import {
+  getActiveProviderFormValues,
+  updateCodexSettings,
+  updateOpenAiSettings,
+  updateProvider,
+  updateSharedModelSettings,
+} from './model-settings-helpers';
 
 interface ChatSettingsFormProps {
   value: ModelSettings;
@@ -11,24 +18,14 @@ interface ChatSettingsFormProps {
 
 export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsFormProps) {
   const [showApiKey, setShowApiKey] = useState(false);
-  const isOpenAi = value.provider === 'openai';
-  const updateField = <K extends keyof ModelSettings>(field: K, nextValue: ModelSettings[K]) => {
-    onChange({
-      ...value,
-      [field]: nextValue,
-    });
-  };
-  const updateOpenAiSettings = (nextValue: Partial<ModelSettings['openai']>) => {
-    onChange({
-      ...value,
-      openai: { ...value.openai, ...nextValue },
-    });
-  };
-  const updateCodexSettings = (nextValue: Partial<ModelSettings['codex']>) => {
-    onChange({
-      ...value,
-      codex: { ...value.codex, ...nextValue },
-    });
+  const activeProvider = getActiveProviderFormValues(value);
+  const updateProviderConnection = (nextValue: Partial<ModelSettings['openai']> | Partial<ModelSettings['codex']>) => {
+    if (activeProvider.isOpenAi) {
+      onChange(updateOpenAiSettings(value, nextValue as Partial<ModelSettings['openai']>));
+      return;
+    }
+
+    onChange(updateCodexSettings(value, nextValue as Partial<ModelSettings['codex']>));
   };
 
   const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
@@ -39,19 +36,19 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
       <div className="settings-provider-switch" aria-label={label('settings.provider.switchLabel')}>
         <button
           type="button"
-          className={`settings-provider-button ${isOpenAi ? 'settings-provider-button-active' : ''}`}
+          className={`settings-provider-button ${activeProvider.isOpenAi ? 'settings-provider-button-active' : ''}`}
           data-tooltip={label('settings.provider.openaiTooltip')}
           data-tooltip-placement="bottom"
-          onClick={() => updateField('provider', 'openai' satisfies ChatProviderId)}
+          onClick={() => onChange(updateProvider(value, 'openai'))}
         >
           OpenAI
         </button>
         <button
           type="button"
-          className={`settings-provider-button ${!isOpenAi ? 'settings-provider-button-active' : ''}`}
+          className={`settings-provider-button ${!activeProvider.isOpenAi ? 'settings-provider-button-active' : ''}`}
           data-tooltip={label('settings.provider.codexTooltip')}
           data-tooltip-placement="bottom"
-          onClick={() => updateField('provider', 'codex' satisfies ChatProviderId)}
+          onClick={() => onChange(updateProvider(value, 'codex'))}
         >
           Codex
         </button>
@@ -61,47 +58,32 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <span>{label('settings.fields.apiBaseUrl')}</span>
         <input
           aria-label={label('settings.fields.apiBaseUrl')}
-          value={isOpenAi ? value.openai.baseUrl : value.codex.baseUrl}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (isOpenAi) {
-              updateOpenAiSettings({ baseUrl: next });
-              return;
-            }
-
-            updateCodexSettings({ baseUrl: next });
-          }}
+          value={activeProvider.baseUrl}
+          onChange={(event) => updateProviderConnection({ baseUrl: event.target.value })}
         />
       </label>
 
       <label>
         <span>
-          {isOpenAi ? label('settings.fields.apiKey') : label('settings.codex.fields.accessToken')}
+          {activeProvider.isOpenAi ? label('settings.fields.apiKey') : label('settings.codex.fields.accessToken')}
         </span>
 
         <div className="settings-input-with-icon">
-          {isOpenAi ? (
+          {activeProvider.isOpenAi ? (
             <input
               aria-label={label('settings.fields.apiKey')}
               type={showApiKey ? 'text' : 'password'}
-              value={value.openai.apiKey}
-              onChange={(event) => updateOpenAiSettings({ apiKey: event.target.value })}
+              value={activeProvider.credential}
+              onChange={(event) => onChange(updateOpenAiSettings(value, { apiKey: event.target.value }))}
             />
           ) : (
             <textarea
               aria-label={label('settings.codex.fields.accessToken')}
               rows={5}
-              value={
-                showApiKey
-                  ? value.codex.accessToken
-                  : '•'.repeat(value.codex.accessToken ? value.codex.accessToken.length : 8)
-              }
+              value={showApiKey ? activeProvider.credential : '•'.repeat(activeProvider.credential ? activeProvider.credential.length : 8)}
               onChange={
                 showApiKey
-                  ? (event) =>
-                      updateCodexSettings({
-                        accessToken: event.target.value,
-                      })
+                  ? (event) => onChange(updateCodexSettings(value, { accessToken: event.target.value }))
                   : undefined
               }
               readOnly={!showApiKey}
@@ -126,12 +108,8 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <span>{label('settings.fields.model')}</span>
         <input
           aria-label={label('settings.fields.model')}
-          value={isOpenAi ? value.openai.model : value.codex.model}
-          onChange={(event) =>
-            isOpenAi
-              ? updateOpenAiSettings({ model: event.target.value })
-              : updateCodexSettings({ model: event.target.value })
-          }
+          value={activeProvider.model}
+          onChange={(event) => updateProviderConnection({ model: event.target.value })}
         />
       </label>
 
@@ -141,7 +119,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           aria-label={label('settings.fields.systemPrompt')}
           rows={4}
           value={value.systemPrompt}
-          onChange={(event) => updateField('systemPrompt', event.target.value)}
+          onChange={(event) => onChange(updateSharedModelSettings(value, 'systemPrompt', event.target.value))}
         />
       </label>
 
@@ -152,7 +130,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           min={1}
           type="number"
           value={value.maxHistory}
-          onChange={(event) => updateField('maxHistory', Number(event.target.value) || 1)}
+          onChange={(event) => onChange(updateSharedModelSettings(value, 'maxHistory', Number(event.target.value) || 1))}
         />
       </label>
 

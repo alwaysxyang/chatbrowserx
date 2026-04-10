@@ -1,4 +1,4 @@
-import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } from '../../../shared/types/chat';
+import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent } from '../../../../shared/types/chat';
 
 const chatMessageTimeFormatter = new Intl.DateTimeFormat('zh-CN', {
   hour: '2-digit',

@@ -1,7 +1,8 @@
 import type { ChatMessage } from '../types/chat';
+import { buildScopedStorageKey, loadStoredValue, removeStoredValue, saveStoredValue } from './chrome-local-storage';
 
-const getStorageKey = (hostname: string) => `chatbrowserx.history.${hostname}`;
-const getPendingStorageKey = (scope: string) => `chatbrowserx.pending.${scope}`;
+const getStorageKey = (hostname: string) => buildScopedStorageKey('chatbrowserx.history', hostname);
+const getPendingStorageKey = (scope: string) => buildScopedStorageKey('chatbrowserx.pending', scope);
 
 export interface PendingChatReply {
   content: string;
@@ -21,33 +22,25 @@ export function buildPendingChatScope(locationObject: Location): string {
 }
 
 export async function loadChatHistory(hostname: string): Promise<ChatMessage[]> {
-  const result = await chrome.storage.local.get(getStorageKey(hostname));
-  const history = result[getStorageKey(hostname)] as ChatMessage[] | undefined;
-  return history ?? [];
+  return loadStoredValue(getStorageKey(hostname), [] as ChatMessage[]);
 }
 
 export async function saveChatHistory(hostname: string, messages: ChatMessage[]): Promise<void> {
-  await chrome.storage.local.set({
-    [getStorageKey(hostname)]: messages,
-  });
+  await saveStoredValue(getStorageKey(hostname), messages);
 }
 
 export async function clearChatHistory(hostname: string): Promise<void> {
-  await chrome.storage.local.remove(getStorageKey(hostname));
+  await removeStoredValue(getStorageKey(hostname));
 }
 
 export async function loadPendingChatReply(scope: string): Promise<PendingChatReply | null> {
-  const result = await chrome.storage.local.get(getPendingStorageKey(scope));
-  const pending = result[getPendingStorageKey(scope)] as PendingChatReply | undefined;
-  return pending ?? null;
+  return loadStoredValue<PendingChatReply | null>(getPendingStorageKey(scope), null);
 }
 
 export async function savePendingChatReply(scope: string, pending: PendingChatReply): Promise<void> {
-  await chrome.storage.local.set({
-    [getPendingStorageKey(scope)]: pending,
-  });
+  await saveStoredValue(getPendingStorageKey(scope), pending);
 }
 
 export async function clearPendingChatReply(scope: string): Promise<void> {
-  await chrome.storage.local.remove(getPendingStorageKey(scope));
+  await removeStoredValue(getPendingStorageKey(scope));
 }

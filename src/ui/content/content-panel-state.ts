@@ -1,3 +1,5 @@
+import { buildScopedStorageKey } from '../../shared/storage/chrome-local-storage';
+
 export function normalizeHostnameForStorage(hostname: string): string {
   const raw = (hostname || '').trim().toLowerCase();
   if (!raw) {
@@ -15,5 +17,5 @@ export function normalizeHostnameForStorage(hostname: string): string {
 }
 
 export function getPanelStateStorageKey(hostname: string): string {
-  return `chatbrowserx.panel.${hostname || 'default'}`;
+  return buildScopedStorageKey('chatbrowserx.panel', hostname);
 }

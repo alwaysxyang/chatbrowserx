@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { copyImageToClipboard } from './image-preview-clipboard';
+import { copyImageToClipboard } from './clipboard/image-clipboard';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ImagePreviewOverlayProps {

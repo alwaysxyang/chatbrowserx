@@ -1,28 +1,5 @@
 import { clamp, getViewportSize } from './screenshot-selection-geometry';
-
-export interface ScreenshotRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-export interface ScreenshotDocumentRange {
-  startY: number;
-  endY: number;
-}
-
-export interface CapturedLongScreenshotChunk extends ScreenshotDocumentRange {
-  dataUrl: string;
-}
-
-function waitForFrame(): Promise<void> {
-  return new Promise((resolve) => {
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => resolve());
-    });
-  });
-}
+import type { CapturedLongScreenshotChunk, ScreenshotDocumentRange, ScreenshotRect } from './screenshot-types';
 
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -211,5 +188,3 @@ export function createDefaultScreenshotSelection(): ScreenshotRect {
     height,
   };
 }
-
-export { waitForFrame as waitForScreenshotFrame };

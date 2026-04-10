@@ -22,58 +22,49 @@ export const defaultSettings: Settings = {
   },
 };
 
+function readString(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function readNonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value : undefined;
+}
+
+function readPositiveNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function resolveProvider(value: unknown): ChatProviderId {
+  return value === 'openai' || value === 'codex' ? value : defaultSettings.model.provider;
+}
+
 function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
   const model = raw ?? {};
-  const provider: ChatProviderId =
-    model.provider === 'openai' || model.provider === 'codex'
-      ? (model.provider as ChatProviderId)
-      : defaultSettings.model.provider;
+  const provider = resolveProvider(model.provider);
   const openaiBaseUrl =
-    typeof model.openai?.baseUrl === 'string' && model.openai.baseUrl.trim()
-      ? model.openai.baseUrl
-      : provider === 'openai' && typeof model.baseUrl === 'string' && model.baseUrl.trim()
-      ? model.baseUrl
-      : defaultSettings.model.openai.baseUrl;
+    readNonEmptyString(model.openai?.baseUrl) ??
+    (provider === 'openai' ? readNonEmptyString(model.baseUrl) : undefined) ??
+    defaultSettings.model.openai.baseUrl;
   const codexBaseUrl =
-    typeof model.codex?.baseUrl === 'string' && model.codex.baseUrl.trim()
-      ? model.codex.baseUrl
-      : provider === 'codex' && typeof model.baseUrl === 'string' && model.baseUrl.trim()
-      ? model.baseUrl
-      : defaultSettings.model.codex.baseUrl;
-  const systemPrompt =
-    typeof model.systemPrompt === 'string' && model.systemPrompt.trim()
-      ? model.systemPrompt
-      : defaultSettings.model.systemPrompt;
-  const maxHistory =
-    typeof model.maxHistory === 'number' && Number.isFinite(model.maxHistory) && model.maxHistory > 0
-      ? model.maxHistory
-      : defaultSettings.model.maxHistory;
-  const openaiApiKey =
-    typeof model.openai?.apiKey === 'string'
-      ? model.openai.apiKey
-      : typeof model.apiKey === 'string'
-      ? model.apiKey
-      : defaultSettings.model.openai.apiKey;
+    readNonEmptyString(model.codex?.baseUrl) ??
+    (provider === 'codex' ? readNonEmptyString(model.baseUrl) : undefined) ??
+    defaultSettings.model.codex.baseUrl;
+  const systemPrompt = readNonEmptyString(model.systemPrompt) ?? defaultSettings.model.systemPrompt;
+  const maxHistory = readPositiveNumber(model.maxHistory) ?? defaultSettings.model.maxHistory;
+  const openaiApiKey = readString(model.openai?.apiKey) ?? readString(model.apiKey) ?? defaultSettings.model.openai.apiKey;
   const openaiModelName =
-    typeof model.openai?.model === 'string'
-      ? model.openai.model
-      : provider === 'openai' && typeof model.model === 'string'
-      ? model.model
-      : defaultSettings.model.openai.model;
+    readString(model.openai?.model) ??
+    (provider === 'openai' ? readString(model.model) : undefined) ??
+    defaultSettings.model.openai.model;
   const codexAccessToken =
-    typeof model.codex?.accessToken === 'string'
-      ? model.codex.accessToken
-      : typeof model.accessToken === 'string'
-      ? model.accessToken
-      : typeof model.apiKey === 'string' && provider === 'codex'
-      ? model.apiKey
-      : defaultSettings.model.codex.accessToken;
+    readString(model.codex?.accessToken) ??
+    readString(model.accessToken) ??
+    (provider === 'codex' ? readString(model.apiKey) : undefined) ??
+    defaultSettings.model.codex.accessToken;
   const codexModelName =
-    typeof model.codex?.model === 'string'
-      ? model.codex.model
-      : provider === 'codex' && typeof model.model === 'string'
-      ? model.model
-      : defaultSettings.model.codex.model;
+    readString(model.codex?.model) ??
+    (provider === 'codex' ? readString(model.model) : undefined) ??
+    defaultSettings.model.codex.model;
   const aliasModelName = provider === 'openai' ? openaiModelName : codexModelName;
 
   return {

@@ -1,7 +1,7 @@
 import { FormEvent, type ClipboardEvent as ReactClipboardEvent, useEffect, useRef } from 'react';
 import { ChatToolbar } from './ChatToolbar';
 import { ChatImageList } from './ChatImageList';
-import { getClipboardImageFiles, readClipboardImagesAsDataUrls } from './chat-image-clipboard';
+import { getClipboardImageFiles, readClipboardImagesAsDataUrls } from './clipboard/image-clipboard';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface ChatComposerProps {
