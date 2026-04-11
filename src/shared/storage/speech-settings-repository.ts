@@ -8,8 +8,8 @@ export const defaultSpeechSettings: SpeechSettings = {
   sourceLanguage: 'auto',
   targetLanguage: 'none',
   volcengine: {
-    appKey: '',
-    accessKey: '',
+    accessKeyId: '',
+    secretAccessKey: '',
   },
 };
 
@@ -19,8 +19,8 @@ function normalizeSpeechSettings(partial: Partial<SpeechSettings> | undefined): 
     sourceLanguage: partial?.sourceLanguage || defaultSpeechSettings.sourceLanguage,
     targetLanguage: partial?.targetLanguage || defaultSpeechSettings.targetLanguage,
     volcengine: {
-      appKey: partial?.volcengine?.appKey || defaultSpeechSettings.volcengine.appKey,
-      accessKey: partial?.volcengine?.accessKey || defaultSpeechSettings.volcengine.accessKey,
+      accessKeyId: partial?.volcengine?.accessKeyId || defaultSpeechSettings.volcengine.accessKeyId,
+      secretAccessKey: partial?.volcengine?.secretAccessKey || defaultSpeechSettings.volcengine.secretAccessKey,
     },
   };
 }

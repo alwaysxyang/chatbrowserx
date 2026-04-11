@@ -1,4 +1,5 @@
 import type { ChatProviderId, ModelSettings, Settings, UiLanguage } from '../types/settings';
+import type { SpeechSettings, SourceLanguage, TargetLanguage } from '../types/speech';
 
 export const defaultSettings: Settings = {
   model: {
@@ -19,6 +20,15 @@ export const defaultSettings: Settings = {
   },
   general: {
     uiLanguage: 'zh',
+  },
+  speech: {
+    provider: 'volcengine',
+    sourceLanguage: 'auto',
+    targetLanguage: 'none',
+    volcengine: {
+      accessKeyId: '',
+      secretAccessKey: '',
+    },
   },
 };
 
@@ -85,6 +95,34 @@ function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
   };
 }
 
+function normalizeSpeechSettings(raw: Partial<any> | undefined): SpeechSettings {
+  const speech = raw ?? {};
+  const sourceLanguage: SourceLanguage =
+    speech.sourceLanguage === 'auto' ||
+    speech.sourceLanguage === 'zh' ||
+    speech.sourceLanguage === 'en' ||
+    speech.sourceLanguage === 'ja'
+      ? speech.sourceLanguage
+      : defaultSettings.speech.sourceLanguage;
+  const targetLanguage: TargetLanguage =
+    speech.targetLanguage === 'none' ||
+    speech.targetLanguage === 'zh' ||
+    speech.targetLanguage === 'en' ||
+    speech.targetLanguage === 'ja'
+      ? speech.targetLanguage
+      : defaultSettings.speech.targetLanguage;
+
+  return {
+    provider: 'volcengine',
+    sourceLanguage,
+    targetLanguage,
+    volcengine: {
+      accessKeyId: readString(speech.volcengine?.accessKeyId) ?? defaultSettings.speech.volcengine.accessKeyId,
+      secretAccessKey: readString(speech.volcengine?.secretAccessKey) ?? defaultSettings.speech.volcengine.secretAccessKey,
+    },
+  };
+}
+
 export function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
   return {
     model: normalizeModelSettings(settings?.model),
@@ -97,5 +135,6 @@ export function normalizeSettings(settings: Partial<Settings> | undefined): Sett
           ? (settings.general.uiLanguage as UiLanguage)
           : defaultSettings.general.uiLanguage,
     },
+    speech: normalizeSpeechSettings(settings?.speech),
   };
 }

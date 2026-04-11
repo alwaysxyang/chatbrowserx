@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultSettings, loadSettings, saveSettings } from '../../../shared/storage/settings-repository';
 import type { ModelSettings, Settings, UiLanguage } from '../../../shared/types/settings';
+import type { SpeechSettings } from '../../../shared/types/speech';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import { ChatSettingsForm } from './ChatSettingsForm';
 import { GeneralSettingsForm } from './GeneralSettingsForm';
@@ -83,18 +84,18 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
           {label('settings.tabs.model')}
         </button>
         <button
-          className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
-          type="button"
-          onClick={() => setActiveTab('general')}
-        >
-          {label('settings.tabs.general')}
-        </button>
-        <button
           className={`settings-tab ${activeTab === 'voice' ? 'settings-tab-active' : ''}`}
           type="button"
           onClick={() => setActiveTab('voice')}
         >
           {label('settings.tabs.voice')}
+        </button>
+        <button
+          className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
+          type="button"
+          onClick={() => setActiveTab('general')}
+        >
+          {label('settings.tabs.general')}
         </button>
       </nav>
 
@@ -113,7 +114,15 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
               updateSettings((current) => ({ ...current, model: nextModelSettings }));
             }}
           />
-        ) : activeTab === 'general' ? (
+        ) : activeTab === 'voice' ? (
+          <VoiceSettingsForm
+            disabled={isSaving}
+            value={settings.speech}
+            onChange={(nextSpeechSettings: SpeechSettings) => {
+              updateSettings((current) => ({ ...current, speech: nextSpeechSettings }));
+            }}
+          />
+        ) : (
           <GeneralSettingsForm
             disabled={isSaving}
             value={settings.general}
@@ -121,8 +130,6 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
               updateSettings((current) => ({ ...current, general: nextGeneralSettings }));
             }}
           />
-        ) : (
-          <VoiceSettingsForm />
         )}
       </div>
 

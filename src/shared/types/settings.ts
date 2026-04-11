@@ -1,3 +1,5 @@
+import type { SpeechSettings } from './speech';
+
 /**
  * Supported chat provider identifiers.
  * - 'openai': OpenAI-compatible API providers
@@ -78,6 +80,8 @@ export interface Settings {
   model: ModelSettings;
   /** General UI and behavior settings */
   general: GeneralSettings;
+  /** Speech recognition and translation settings */
+  speech: SpeechSettings;
 }
 
 /**

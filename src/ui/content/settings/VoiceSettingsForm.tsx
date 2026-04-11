@@ -1,118 +1,109 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 import type { SpeechSettings, SourceLanguage, TargetLanguage } from '../../../shared/types/speech';
-import { loadSpeechSettings, saveSpeechSettings } from '../../../shared/storage/speech-settings-repository';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
-export function VoiceSettingsForm() {
-  const [settings, setSettings] = useState<SpeechSettings | null>(null);
-  const [isSaving, setIsSaving] = useState(false);
+interface VoiceSettingsFormProps {
+  value: SpeechSettings;
+  disabled: boolean;
+  onChange: (nextValue: SpeechSettings) => void;
+}
 
-  useEffect(() => {
-    loadSpeechSettings().then(setSettings);
-  }, []);
-
-  const handleSave = async () => {
-    if (!settings) return;
-
-    setIsSaving(true);
-    try {
-      await saveSpeechSettings(settings);
-    } catch (error) {
-      console.error('Failed to save speech settings:', error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  if (!settings) {
-    return <div>Loading...</div>;
-  }
+export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFormProps) {
+  const [showSecretKey, setShowSecretKey] = useState(false);
+  const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
 
   return (
     <div className="settings-form">
-      <div className="settings-form__field">
-        <label htmlFor="sourceLanguage" className="settings-form__label">
-          {translateMessage('settings.voice.sourceLanguage')}
-        </label>
-        <select
-          id="sourceLanguage"
-          className="settings-form__select"
-          value={settings.sourceLanguage}
-          onChange={(e) =>
-            setSettings({ ...settings, sourceLanguage: e.target.value as SourceLanguage })
-          }
-        >
-          <option value="auto">{translateMessage('settings.voice.language.auto')}</option>
-          <option value="zh">{translateMessage('settings.voice.language.zh')}</option>
-          <option value="en">{translateMessage('settings.voice.language.en')}</option>
-          <option value="ja">{translateMessage('settings.voice.language.ja')}</option>
-        </select>
-      </div>
-
-      <div className="settings-form__field">
-        <label htmlFor="targetLanguage" className="settings-form__label">
-          {translateMessage('settings.voice.targetLanguage')}
-        </label>
-        <select
-          id="targetLanguage"
-          className="settings-form__select"
-          value={settings.targetLanguage}
-          onChange={(e) =>
-            setSettings({ ...settings, targetLanguage: e.target.value as TargetLanguage })
-          }
-        >
-          <option value="none">{translateMessage('settings.voice.language.none')}</option>
-          <option value="zh">{translateMessage('settings.voice.language.zh')}</option>
-          <option value="en">{translateMessage('settings.voice.language.en')}</option>
-          <option value="ja">{translateMessage('settings.voice.language.ja')}</option>
-        </select>
-      </div>
-
-      <div className="settings-form__field">
-        <label htmlFor="appKey" className="settings-form__label">
-          {translateMessage('settings.voice.appKey')}
-        </label>
-        <input
-          id="appKey"
-          type="text"
-          className="settings-form__input"
-          value={settings.volcengine.appKey}
-          onChange={(e) =>
-            setSettings({
-              ...settings,
-              volcengine: { ...settings.volcengine, appKey: e.target.value },
-            })
-          }
-        />
-      </div>
-
-      <div className="settings-form__field">
-        <label htmlFor="accessKey" className="settings-form__label">
-          {translateMessage('settings.voice.accessKey')}
-        </label>
-        <input
-          id="accessKey"
-          type="password"
-          className="settings-form__input"
-          value={settings.volcengine.accessKey}
-          onChange={(e) =>
-            setSettings({
-              ...settings,
-              volcengine: { ...settings.volcengine, accessKey: e.target.value },
-            })
-          }
-        />
-      </div>
-
-      <div className="settings-form__actions">
+      <span className="settings-provider-title">{label('settings.voice.provider')}</span>
+      <div className="settings-provider-switch" aria-label={label('settings.voice.provider')}>
         <button
-          className="settings-form__button settings-form__button--primary"
-          onClick={handleSave}
-          disabled={isSaving}
+          type="button"
+          className="settings-provider-button settings-provider-button-active"
+          data-tooltip={label('settings.voice.provider.volcengine')}
+          data-tooltip-placement="bottom"
+          disabled={disabled}
         >
-          {isSaving ? translateMessage('settings.actions.saving') : translateMessage('settings.actions.save')}
+          Volcengine
         </button>
       </div>
+
+      <label>
+        <span>{label('settings.voice.sourceLanguage')}</span>
+        <select
+          aria-label={label('settings.voice.sourceLanguage')}
+          value={value.sourceLanguage}
+          onChange={(e) => onChange({ ...value, sourceLanguage: e.target.value as SourceLanguage })}
+          disabled={disabled}
+        >
+          <option value="auto">{label('settings.voice.language.auto')}</option>
+          <option value="zh">{label('settings.voice.language.zh')}</option>
+          <option value="en">{label('settings.voice.language.en')}</option>
+          <option value="ja">{label('settings.voice.language.ja')}</option>
+        </select>
+      </label>
+
+      <label>
+        <span>{label('settings.voice.targetLanguage')}</span>
+        <select
+          aria-label={label('settings.voice.targetLanguage')}
+          value={value.targetLanguage}
+          onChange={(e) => onChange({ ...value, targetLanguage: e.target.value as TargetLanguage })}
+          disabled={disabled}
+        >
+          <option value="none">{label('settings.voice.language.none')}</option>
+          <option value="zh">{label('settings.voice.language.zh')}</option>
+          <option value="en">{label('settings.voice.language.en')}</option>
+          <option value="ja">{label('settings.voice.language.ja')}</option>
+        </select>
+      </label>
+
+      <label>
+        <span>{label('settings.voice.accessKeyId')}</span>
+        <input
+          aria-label={label('settings.voice.accessKeyId')}
+          type="text"
+          value={value.volcengine.accessKeyId}
+          onChange={(e) =>
+            onChange({
+              ...value,
+              volcengine: { ...value.volcengine, accessKeyId: e.target.value },
+            })
+          }
+          disabled={disabled}
+        />
+      </label>
+
+      <label>
+        <span>{label('settings.voice.secretAccessKey')}</span>
+        <div className="settings-input-with-icon">
+          <input
+            aria-label={label('settings.voice.secretAccessKey')}
+            type={showSecretKey ? 'text' : 'password'}
+            value={value.volcengine.secretAccessKey}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                volcengine: { ...value.volcengine, secretAccessKey: e.target.value },
+              })
+            }
+            disabled={disabled}
+          />
+          <button
+            type="button"
+            className="settings-input-icon-button"
+            aria-label={showSecretKey ? label('settings.apiKey.hide') : label('settings.apiKey.show')}
+            onClick={() => setShowSecretKey((current) => !current)}
+            disabled={disabled}
+          >
+            {showSecretKey ? (
+              <EyeOff className="settings-input-icon" strokeWidth={2.1} />
+            ) : (
+              <Eye className="settings-input-icon" strokeWidth={2.1} />
+            )}
+          </button>
+        </div>
+      </label>
     </div>
   );
 }

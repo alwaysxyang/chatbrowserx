@@ -4,35 +4,39 @@ import { SpeechRecognitionService } from '../../speech/services/speech-recogniti
 import { AudioCapture } from './audio-capture';
 import { speechResultType } from '../../shared/types/runtime-messages';
 
+interface TabSession {
+  audioCapture: AudioCapture;
+  recognitionService: SpeechRecognitionService;
+}
+
 /**
  * Orchestrates speech recognition by coordinating audio capture and recognition service
+ * Supports multiple tabs simultaneously
  */
 export class SpeechOrchestrator {
-  private audioCapture: AudioCapture | null = null;
-  private recognitionService: SpeechRecognitionService | null = null;
-  private isRunning = false;
+  private sessions = new Map<number, TabSession>();
 
   /**
    * Starts speech recognition for the specified tab
    */
   async start(tabId: number): Promise<void> {
-    if (this.isRunning) {
-      throw new Error('Speech recognition already running');
+    if (this.sessions.has(tabId)) {
+      throw new Error(`Speech recognition already running for tab ${tabId}`);
     }
 
     // Load settings
     const settings = await loadSpeechSettings();
 
     // Validate settings
-    if (!settings.volcengine.appKey || !settings.volcengine.accessKey) {
+    if (!settings.volcengine.accessKeyId || !settings.volcengine.secretAccessKey) {
       throw new Error('Volcengine credentials not configured');
     }
 
     // Initialize audio capture
-    this.audioCapture = new AudioCapture();
+    const audioCapture = new AudioCapture();
 
     // Initialize recognition service
-    this.recognitionService = new SpeechRecognitionService({
+    const recognitionService = new SpeechRecognitionService({
       settings,
       onResult: (result: RecognitionResult) => {
         this.handleRecognitionResult(tabId, result);
@@ -43,37 +47,39 @@ export class SpeechOrchestrator {
     });
 
     // Start recognition service
-    await this.recognitionService.start();
+    await recognitionService.start();
 
     // Start audio capture
-    await this.audioCapture.start(tabId, (audioData: ArrayBuffer) => {
-      if (this.recognitionService) {
-        this.recognitionService.sendAudio(audioData);
-      }
+    await audioCapture.start(tabId, (audioData: ArrayBuffer) => {
+      recognitionService.sendAudio(audioData);
     });
 
-    this.isRunning = true;
+    // Store session
+    this.sessions.set(tabId, { audioCapture, recognitionService });
   }
 
   /**
-   * Stops speech recognition
+   * Stops speech recognition for the specified tab
    */
-  stop(): void {
-    if (!this.isRunning) {
+  stop(tabId: number): void {
+    const session = this.sessions.get(tabId);
+    if (!session) {
       return;
     }
 
-    if (this.recognitionService) {
-      this.recognitionService.stop();
-      this.recognitionService = null;
-    }
+    session.recognitionService.stop();
+    session.audioCapture.stop();
 
-    if (this.audioCapture) {
-      this.audioCapture.stop();
-      this.audioCapture = null;
-    }
+    this.sessions.delete(tabId);
+  }
 
-    this.isRunning = false;
+  /**
+   * Stops all active speech recognition sessions
+   */
+  stopAll(): void {
+    for (const tabId of this.sessions.keys()) {
+      this.stop(tabId);
+    }
   }
 
   /**
@@ -90,7 +96,7 @@ export class SpeechOrchestrator {
    * Handles recognition errors
    */
   private handleRecognitionError(tabId: number, error: Error): void {
-    console.error('Speech recognition error:', error);
-    this.stop();
+    console.error(`Speech recognition error for tab ${tabId}:`, error);
+    this.stop(tabId);
   }
 }

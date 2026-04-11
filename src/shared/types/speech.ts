@@ -4,8 +4,8 @@ export type SourceLanguage = 'auto' | 'zh' | 'en' | 'ja';
 export type TargetLanguage = 'none' | 'zh' | 'en' | 'ja';
 
 export interface VolcengineSettings {
-  appKey: string;
-  accessKey: string;
+  accessKeyId: string;
+  secretAccessKey: string;
 }
 
 export interface SpeechSettings {

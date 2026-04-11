@@ -39,10 +39,13 @@ export function ContentApp() {
   } = useContentShell(hostname);
 
   const handleVoiceToggle = async (isActive: boolean) => {
+    console.log('[ContentApp] Voice toggle:', isActive);
     try {
       if (isActive) {
+        console.log('[ContentApp] Starting recognition...');
         await startRecognition();
       } else {
+        console.log('[ContentApp] Stopping recognition...');
         await stopRecognition();
       }
     } catch (error) {
@@ -119,7 +122,12 @@ export function ContentApp() {
               )}
             </div>
 
-            <ShellRail activeView={activeView} onSelectView={setActiveView} onVoiceToggle={handleVoiceToggle} />
+            <ShellRail
+              activeView={activeView}
+              onSelectView={setActiveView}
+              onVoiceToggle={handleVoiceToggle}
+              isVoiceActive={subtitle.isActive}
+            />
           </div>
         </div>
       </aside>
