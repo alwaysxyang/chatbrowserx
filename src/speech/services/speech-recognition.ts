@@ -1,4 +1,5 @@
 import type { RecognitionResult, SpeechSettings } from '../../shared/types/speech';
+import {SpeechRecognitionProvider} from "../model/recognition";
 
 interface SpeechRecognitionServiceConfig {
   settings: SpeechSettings;
@@ -9,7 +10,7 @@ interface SpeechRecognitionServiceConfig {
 /**
  * Speech recognition service that manages provider lifecycle
  */
-export class SpeechRecognitionService {
+export class SpeechRecognitionService implements SpeechRecognitionProvider {
   private isRunning = false;
 
   constructor(private readonly config: SpeechRecognitionServiceConfig) {}
