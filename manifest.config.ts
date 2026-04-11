@@ -10,7 +10,7 @@ export default defineManifest({
     48: 'src/assets/icon-48.png',
     128: 'src/assets/icon-128.png',
   },
-  permissions: ['storage', 'unlimitedStorage', 'activeTab', 'tabCapture'],
+  permissions: ['storage', 'unlimitedStorage', 'activeTab', 'tabCapture', 'offscreen'],
   host_permissions: ['<all_urls>'],
   action: {
     default_icon: {
@@ -28,6 +28,12 @@ export default defineManifest({
       matches: ['<all_urls>'],
       js: ['src/ui/content/index.tsx'],
       run_at: 'document_idle',
+    },
+  ],
+  web_accessible_resources: [
+    {
+      resources: ['src/background/speech/offscreen.html'],
+      matches: ['<all_urls>'],
     },
   ],
 });

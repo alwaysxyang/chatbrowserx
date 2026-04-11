@@ -1,5 +1,5 @@
 import type { ChatRequestPayload, ChatResponsePayload, ScreenshotCaptureResponsePayload } from './chat';
-import type { RecognitionResult } from './speech';
+import type {RecognitionResult, SpeechStateQueryResponsePayload} from './speech';
 
 /**
  * Message type identifier for chat requests sent to the background service.
@@ -50,6 +50,11 @@ export const speechStopRequestType = 'chatbrowserx.speech.stop';
  * Message type identifier for speech recognition result updates.
  */
 export const speechResultType = 'chatbrowserx.speech.result';
+
+/**
+ * Message type identifier for querying speech state.
+ */
+export const speechStateQueryType = 'chatbrowserx.speech.state.query';
 
 /**
  * Base interface for all runtime messages exchanged between extension components.
@@ -213,9 +218,21 @@ export interface SpeechResultMessage {
 }
 
 /**
+ * Message sent to query current speech state.
+ */
+export interface SpeechStateQueryMessage {
+  type: typeof speechStateQueryType;
+}
+
+/**
  * Represents a successful speech operation response.
  */
 export type SpeechRuntimeResponse = RuntimeResponse<null>;
+
+/**
+ * Represents a successful speech state query response.
+ */
+export type SpeechStateQueryResponse = RuntimeResponse<SpeechStateQueryResponsePayload>;
 
 /**
  * Type guard that checks if an unknown value is a RuntimeMessage with a specific type.
@@ -297,6 +314,7 @@ const isGetPageContentToolRequestMessageGuard = createRuntimeMessageGuard<GetPag
 const isSpeechStartRequestMessageGuard = createRuntimeMessageGuard<SpeechStartRequestMessage>(speechStartRequestType);
 const isSpeechStopRequestMessageGuard = createRuntimeMessageGuard<SpeechStopRequestMessage>(speechStopRequestType);
 const isSpeechResultMessageGuard = createRuntimeMessageGuard<SpeechResultMessage>(speechResultType);
+const isSpeechStateQueryMessageGuard = createRuntimeMessageGuard<SpeechStateQueryMessage>(speechStateQueryType);
 
 
 /**
@@ -387,4 +405,14 @@ export function isSpeechStopRequestMessage(message: unknown): message is SpeechS
  */
 export function isSpeechResultMessage(message: unknown): message is SpeechResultMessage {
   return isSpeechResultMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a SpeechStateQueryMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a SpeechStateQueryMessage
+ */
+export function isSpeechStateQueryMessage(message: unknown): message is SpeechStateQueryMessage {
+  return isSpeechStateQueryMessageGuard(message);
 }

@@ -2,9 +2,11 @@ import { SpeechOrchestrator } from './speech-orchestrator';
 import {
   isSpeechStartRequestMessage,
   isSpeechStopRequestMessage,
+  isSpeechStateQueryMessage,
   runtimeErrorResponse,
   runtimeSuccessResponse,
   toRuntimeResponse,
+  type SpeechStateQueryResponse,
 } from '../../shared/types/runtime-messages';
 
 const speechOrchestrator = new SpeechOrchestrator();
@@ -39,18 +41,42 @@ export function initSpeechModule(): void {
 
     const tabId = sender.tab?.id;
     if (tabId != null) {
-      speechOrchestrator.stop(tabId);
+      void speechOrchestrator.stop(tabId).then(() => {
+        sendResponse(runtimeSuccessResponse());
+      });
+    } else {
+      sendResponse(runtimeSuccessResponse());
     }
 
-    sendResponse(runtimeSuccessResponse());
+    return true;
+  });
+
+  // Handle speech state query requests
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (!isSpeechStateQueryMessage(message)) {
+      return undefined;
+    }
+
+    const tabId = sender.tab?.id;
+    if (tabId == null) {
+      sendResponse(runtimeErrorResponse('No tab ID'));
+      return true;
+    }
+
+    // Return in-memory state (true source of truth)
+    const isRecording = speechOrchestrator.isRecording(tabId);
+    const response: SpeechStateQueryResponse = runtimeSuccessResponse({
+      isRecording,
+    });
+    sendResponse(response);
 
     return true;
   });
 
   // Clean up speech state when tab is closed
   chrome.tabs.onRemoved.addListener((tabId) => {
-    // Stop speech recognition if running for this tab
-    speechOrchestrator.stop(tabId);
+    // Stop speech recognition and clean up storage
+    void speechOrchestrator.cleanup(tabId);
   });
 
   // Clean up all sessions when extension is suspended or reloaded

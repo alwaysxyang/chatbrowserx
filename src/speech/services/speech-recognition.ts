@@ -3,8 +3,6 @@ import {SpeechRecognitionProvider} from "../model/recognition";
 
 interface SpeechRecognitionServiceConfig {
   settings: SpeechSettings;
-  onResult: (result: RecognitionResult) => void;
-  onError: (error: Error) => void;
 }
 
 /**
@@ -18,7 +16,7 @@ export class SpeechRecognitionService implements SpeechRecognitionProvider {
   /**
    * Starts speech recognition
    */
-  async start(): Promise<void> {
+  async start(onResult: (result: RecognitionResult) => void, onError: (error: Error) => void): Promise<void> {
     if (this.isRunning) {
       throw new Error('Speech recognition already running');
     }

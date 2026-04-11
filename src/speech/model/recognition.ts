@@ -1,3 +1,5 @@
+import type {RecognitionResult} from "../../shared/types/speech";
+
 export interface SpeechRecognitionProvider {
   /**
    * Starts speech recognition session.
@@ -6,7 +8,7 @@ export interface SpeechRecognitionProvider {
    * @returns Promise that resolves when the session is ready
    * @throws Error if connection fails or provider is misconfigured
    */
-  start(): Promise<void>;
+  start(onResult: (result: RecognitionResult) => void, onError: (error: Error) => void): Promise<void>;
 
   /**
    * Sends audio data to the recognition service for processing.

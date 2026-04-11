@@ -1,100 +1,119 @@
+const OFFSCREEN_DOCUMENT_PATH = '/src/background/speech/offscreen.html';
+
 /**
  * Captures audio from a browser tab using Chrome's tabCapture API.
- * Provides audio chunks via callback for provider-specific processing.
+ * Uses offscreen document to handle getUserMedia since it's not available in service worker.
+ * Each instance manages audio capture for a single tab.
  */
 export class AudioCapture {
-  private mediaStream: MediaStream | null = null;
-  private audioContext: AudioContext | null = null;
-  private sourceNode: MediaStreamAudioSourceNode | null = null;
-  private recorder: MediaRecorder | null = null;
+  private isCapturing = false;
+  private messageListener: ((message: any) => void) | null = null;
+
+  constructor(private readonly tabId: number) {}
 
   /**
-   * Starts capturing audio from the current tab.
-   * @param tabId
+   * Ensures offscreen document exists for audio capture
+   */
+  private async ensureOffscreenDocument(): Promise<void> {
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT' as chrome.runtime.ContextType],
+    });
+
+    if (existingContexts.length > 0) {
+      return;
+    }
+
+    await chrome.offscreen.createDocument({
+      url: OFFSCREEN_DOCUMENT_PATH,
+      reasons: ['USER_MEDIA' as chrome.offscreen.Reason],
+      justification: 'Audio capture for speech recognition',
+    });
+  }
+
+  /**
+   * Starts capturing audio from the tab.
    * @param onAudioData - Callback that receives audio data chunks as ArrayBuffer
    * @param chunkInterval - Interval in milliseconds for audio chunks (default: 250ms)
    */
   async start(
-    tabId: number,
     onAudioData: (data: ArrayBuffer) => void,
     chunkInterval: number = 250,
   ): Promise<void> {
-    if (this.mediaStream) {
+    if (this.isCapturing) {
       throw new Error('Audio capture already started');
     }
 
+    // Get stream ID from tabCapture
     const streamId = await new Promise<string>((resolve, reject) => {
-      chrome.tabCapture.getMediaStreamId({
-        targetTabId: tabId,
-      }, (streamId) => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError?.message || 'Failed to capture tab audio'));
-        } else {
-          resolve(streamId);
-        }
-      });
+      chrome.tabCapture.getMediaStreamId(
+        {
+          targetTabId: this.tabId,
+        },
+        (streamId) => {
+          if (chrome.runtime.lastError) {
+            reject(
+              new Error(chrome.runtime.lastError?.message || 'Failed to capture tab audio'),
+            );
+          } else {
+            resolve(streamId);
+          }
+        },
+      );
     });
 
-    this.mediaStream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        mandatory: {
-          chromeMediaSource: 'tab',
-          chromeMediaSourceId: streamId
-        }
-      } as any,
-      video: false
-    });
+    // Ensure offscreen document exists
+    await this.ensureOffscreenDocument();
 
-    // Create audio context to keep the stream active
-    this.audioContext = new AudioContext();
-    this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
-    this.sourceNode.connect(this.audioContext.destination);
+    // Set up message listener for audio data from offscreen document
+    this.messageListener = (message: any) => {
+      // Only handle messages for this tab
+      if (message.tabId !== this.tabId) {
+        return;
+      }
 
-    // Use MediaRecorder to capture audio chunks
-    this.recorder = new MediaRecorder(this.mediaStream, { mimeType: 'audio/webm' });
-
-    this.recorder.ondataavailable = async (event: BlobEvent) => {
-      if (event.data.size > 0) {
-        const buffer = await event.data.arrayBuffer();
-        onAudioData(buffer);
+      if (message.type === 'audio-data') {
+        onAudioData(message.data);
+      } else if (message.type === 'audio-error') {
+        console.error(`Audio capture error from offscreen for tab ${this.tabId}:`, message.error);
+        this.stop();
+      } else if (message.type === 'capture-started') {
+        this.isCapturing = true;
       }
     };
 
-    this.recorder.start(chunkInterval);
+    chrome.runtime.onMessage.addListener(this.messageListener);
+
+    // Send message to offscreen document to start capture
+    await chrome.runtime.sendMessage({
+      type: 'start-capture',
+      tabId: this.tabId,
+      streamId,
+      chunkInterval,
+    });
   }
 
   /**
    * Stops capturing audio and cleans up resources.
    */
   stop(): void {
-    if (this.recorder) {
-      this.recorder.ondataavailable = null;
-      if (this.recorder.state !== 'inactive') {
-        this.recorder.stop();
-      }
-      this.recorder = null;
+    if (!this.isCapturing) {
+      return;
     }
 
-    if (this.sourceNode) {
-      this.sourceNode.disconnect();
-      this.sourceNode = null;
+    // Send stop message to offscreen document
+    chrome.runtime.sendMessage({
+      type: 'stop-capture',
+      tabId: this.tabId,
+    }).catch(() => {
+      // Ignore errors if offscreen document is already closed
+    });
+
+    // Clean up message listener
+    if (this.messageListener) {
+      chrome.runtime.onMessage.removeListener(this.messageListener);
+      this.messageListener = null;
     }
 
-    if (this.audioContext) {
-      void this.audioContext.close();
-      this.audioContext = null;
-    }
-
-    if (this.mediaStream) {
-      this.mediaStream.getTracks().forEach((track) => track.stop());
-      this.mediaStream = null;
-    }
-  }
-
-  /**
-   * Checks if audio capture is currently active.
-   */
-  isActive(): boolean {
-    return this.mediaStream !== null && this.recorder !== null;
+    this.isCapturing = false;
   }
 }

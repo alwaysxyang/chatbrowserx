@@ -46,84 +46,82 @@ export function ContentApp() {
     }
   };
 
-  if (!isOpen || !hasHydratedLanguage) {
-    return null;
-  }
-
   return (
     <>
-      <aside
-        ref={asideRef}
-        className={`sidebar-shell ${screenshotSession ? 'sidebar-shell-hidden-for-screenshot' : ''}`}
-        data-testid="sidebar-shell"
-        style={{ width: `${sidebarWidth}px` }}
-      >
-        <div className="app-frame">
-          <div className="sidebar-resize-handle" data-testid="sidebar-resize-handle" onMouseDown={handleResizeStart} />
-          <header className="shell-header">
-            <div className="brand-block">
-              <div className="brand-mark" aria-hidden="true">
-                <Sparkles className="h-3.5 w-3.5" strokeWidth={2.2} />
+      {isOpen && hasHydratedLanguage && (
+        <aside
+          ref={asideRef}
+          className={`sidebar-shell ${screenshotSession ? 'sidebar-shell-hidden-for-screenshot' : ''}`}
+          data-testid="sidebar-shell"
+          style={{ width: `${sidebarWidth}px` }}
+        >
+          <div className="app-frame">
+            <div className="sidebar-resize-handle" data-testid="sidebar-resize-handle" onMouseDown={handleResizeStart} />
+            <header className="shell-header">
+              <div className="brand-block">
+                <div className="brand-mark" aria-hidden="true">
+                  <Sparkles className="h-3.5 w-3.5" strokeWidth={2.2} />
+                </div>
+                <div>
+                  <div className="brand-title">ChatBrowserX</div>
+                  <div className="brand-subtitle">{buildLabel}</div>
+                </div>
               </div>
-              <div>
-                <div className="brand-title">ChatBrowserX</div>
-                <div className="brand-subtitle">{buildLabel}</div>
+              <header className="header-actions">
+                <button
+                  aria-label={isPinned ? translateMessage('shell.header.unpin') : translateMessage('shell.header.pin')}
+                  aria-pressed={isPinned}
+                  className={`icon-button ${isPinned ? 'icon-button-active' : ''}`}
+                  data-tooltip={isPinned ? translateMessage('shell.header.unpin') : translateMessage('shell.header.pin')}
+                  type="button"
+                  onClick={() => setIsPinned((current) => !current)}
+                >
+                  <Pin className={`h-3.5 w-3.5 ${isPinned ? 'pin-icon-rotated' : ''}`} strokeWidth={2.2} />
+                </button>
+                <span aria-hidden="true" className="header-divider" />
+                <button
+                  aria-label={translateMessage('shell.header.close')}
+                  className="icon-button"
+                  data-tooltip={translateMessage('shell.header.close')}
+                  type="button"
+                  onClick={() => setIsOpen(false)}
+                >
+                  ×
+                </button>
+              </header>
+            </header>
+
+            <div className="shell-content">
+              <div className="shell-main">
+                {activeView === 'chat' ? (
+                  <ChatPanel
+                    isSending={isSending}
+                    messages={messages}
+                    onSendMessage={sendMessage}
+                    onClearHistory={() => {
+                      void clearHistory();
+                    }}
+                    onStop={stop}
+                    onStartScreenshot={(onCaptured) => {
+                      startScreenshotSession({ onCaptured });
+                    }}
+                    onPreviewImage={setPreviewImageUrl}
+                  />
+                ) : (
+                  <SettingsPanel onUiLanguageChange={handleUiLanguageChange} />
+                )}
               </div>
-            </div>
-            <div className="header-actions">
-              <button
-                aria-label={isPinned ? translateMessage('shell.header.unpin') : translateMessage('shell.header.pin')}
-                aria-pressed={isPinned}
-                className={`icon-button ${isPinned ? 'icon-button-active' : ''}`}
-                data-tooltip={isPinned ? translateMessage('shell.header.unpin') : translateMessage('shell.header.pin')}
-                type="button"
-                onClick={() => setIsPinned((current) => !current)}
-              >
-                <Pin className={`h-3.5 w-3.5 ${isPinned ? 'pin-icon-rotated' : ''}`} strokeWidth={2.2} />
-              </button>
-              <span aria-hidden="true" className="header-divider" />
-              <button
-                aria-label={translateMessage('shell.header.close')}
-                className="icon-button"
-                data-tooltip={translateMessage('shell.header.close')}
-                type="button"
-                onClick={() => setIsOpen(false)}
-              >
-                ×
-              </button>
-            </div>
-          </header>
 
-          <div className="shell-content">
-            <div className="shell-main">
-              {activeView === 'chat' ? (
-                <ChatPanel
-                  isSending={isSending}
-                  messages={messages}
-                  onSendMessage={sendMessage}
-                  onClearHistory={() => {
-                    void clearHistory();
-                  }}
-                  onStop={stop}
-                  onStartScreenshot={(onCaptured) => {
-                    startScreenshotSession({ onCaptured });
-                  }}
-                  onPreviewImage={setPreviewImageUrl}
-                />
-              ) : (
-                <SettingsPanel onUiLanguageChange={handleUiLanguageChange} />
-              )}
+              <ShellRail
+                activeView={activeView}
+                onSelectView={setActiveView}
+                onVoiceToggle={handleVoiceToggle}
+                isVoiceActive={subtitle.isActive}
+              />
             </div>
-
-            <ShellRail
-              activeView={activeView}
-              onSelectView={setActiveView}
-              onVoiceToggle={handleVoiceToggle}
-              isVoiceActive={subtitle.isActive}
-            />
           </div>
-        </div>
-      </aside>
+        </aside>
+      )}
       <SubtitleOverlay
         sourceText={subtitle.sourceText}
         translationText={subtitle.translationText}

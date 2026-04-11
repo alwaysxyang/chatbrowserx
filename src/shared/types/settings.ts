@@ -1,5 +1,3 @@
-import type { SpeechSettings } from './speech';
-
 /**
  * Supported chat provider identifiers.
  * - 'openai': OpenAI-compatible API providers
@@ -70,6 +68,23 @@ export interface ModelSettings {
 export interface GeneralSettings {
   /** UI language preference */
   uiLanguage: UiLanguage;
+}
+
+export type SpeechProviderId = 'volcengine';
+
+export type SourceLanguage = 'auto' | 'zh' | 'en' | 'ja';
+export type TargetLanguage = 'none' | 'zh' | 'en' | 'ja';
+
+export interface VolcengineSettings {
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+export interface SpeechSettings {
+  provider: SpeechProviderId;
+  sourceLanguage: SourceLanguage;
+  targetLanguage: TargetLanguage;
+  volcengine: VolcengineSettings;
 }
 
 /**

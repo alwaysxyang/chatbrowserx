@@ -1,8 +1,8 @@
 import type { RecognitionResult } from '../../shared/types/speech';
-import { loadSpeechSettings } from '../../shared/storage/speech-settings-repository';
 import { SpeechRecognitionService } from '../../speech/services/speech-recognition';
 import { AudioCapture } from './audio-capture';
 import { speechResultType } from '../../shared/types/runtime-messages';
+import {loadSettings} from "../../shared/storage/settings-repository";
 
 interface TabSession {
   audioCapture: AudioCapture;
@@ -25,26 +25,24 @@ export class SpeechOrchestrator {
     }
 
     // Load settings
-    const settings = await loadSpeechSettings();
-    // Initialize audio capture
-    const audioCapture = new AudioCapture();
+    const settings = await loadSettings();
+    // Initialize audio capture for this tab
+    const audioCapture = new AudioCapture(tabId);
 
     // Initialize recognition service
     const recognitionService = new SpeechRecognitionService({
-      settings,
-      onResult: (result: RecognitionResult) => {
-        this.handleRecognitionResult(tabId, result);
-      },
-      onError: (error: Error) => {
-        this.handleRecognitionError(tabId, error);
-      },
+      settings: settings.speech,
     });
 
     // Start recognition service
-    await recognitionService.start();
+    await recognitionService.start((result: RecognitionResult) => {
+      this.handleRecognitionResult(tabId, result);
+    }, (error: Error) => {
+      this.handleRecognitionError(tabId, error);
+    });
 
     // Start audio capture
-    await audioCapture.start(tabId, (audioData: ArrayBuffer) => {
+    await audioCapture.start((audioData: ArrayBuffer) => {
       recognitionService.sendAudio(audioData);
     });
 
@@ -55,7 +53,7 @@ export class SpeechOrchestrator {
   /**
    * Stops speech recognition for the specified tab
    */
-  stop(tabId: number): void {
+  async stop(tabId: number): Promise<void> {
     const session = this.sessions.get(tabId);
     if (!session) {
       return;
@@ -68,11 +66,30 @@ export class SpeechOrchestrator {
   }
 
   /**
+   * Checks if a tab has an active recording session
+   */
+  isRecording(tabId: number): boolean {
+    return this.sessions.has(tabId);
+  }
+
+  /**
    * Stops all active speech recognition sessions
    */
   stopAll(): void {
     for (const tabId of this.sessions.keys()) {
       this.stop(tabId);
+    }
+  }
+
+  /**
+   * Cleans up session (called when tab closes)
+   */
+  cleanup(tabId: number): void {
+    const session = this.sessions.get(tabId);
+    if (session) {
+      session.recognitionService.stop();
+      session.audioCapture.stop();
+      this.sessions.delete(tabId);
     }
   }
 
@@ -91,6 +108,6 @@ export class SpeechOrchestrator {
    */
   private handleRecognitionError(tabId: number, error: Error): void {
     console.error(`Speech recognition error for tab ${tabId}:`, error);
-    this.stop(tabId);
+    void this.stop(tabId);
   }
 }

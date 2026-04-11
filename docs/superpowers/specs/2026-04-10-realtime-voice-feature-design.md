@@ -48,7 +48,14 @@
   - 负责 speech 结果转发
 - `audio-capture.ts`
   - 负责 tab 音频采集
+  - 通过 offscreen document 处理 `getUserMedia` 调用
   - 负责把音频分片以 `ArrayBuffer` 形式交给 orchestrator
+- `offscreen.html`
+  - offscreen document 的 HTML 入口
+- `offscreen.ts`
+  - 在 offscreen context 中执行 `getUserMedia`
+  - 接收来自 service worker 的 `start-capture` / `stop-capture` 消息
+  - 通过 `MediaRecorder` 采集音频并回传给 service worker
 
 #### `src/speech/services`
 
@@ -133,10 +140,18 @@ interface RecognitionResult {
 4. `SpeechOrchestrator` 读取 `speech-settings-repository`。
 5. `SpeechOrchestrator` 创建 `AudioCapture` 与 `SpeechRecognitionService`。
 6. `SpeechRecognitionService.start()` 启动 service 生命周期。
-7. `AudioCapture.start(tabId, onAudioData, chunkInterval?)` 开始 tab 音频采集。
-8. 音频分片以 `ArrayBuffer` 形式交给 `SpeechRecognitionService.sendAudio(...)`。
-9. 当前 service 尚未连接真实 provider，因此默认不保证产出真实识别结果。
-10. 一旦未来产出 `RecognitionResult`，background 再通过 `speechResult` 回推给 UI。
+7. `AudioCapture.start(tabId, onAudioData, chunkInterval?)` 执行以下步骤：
+   - 通过 `chrome.tabCapture.getMediaStreamId` 获取 stream ID
+   - 确保 offscreen document 存在（如不存在则创建）
+   - 向 offscreen document 发送 `start-capture` 消息
+8. offscreen document 接收消息后：
+   - 使用 stream ID 调用 `navigator.mediaDevices.getUserMedia`
+   - 创建 `AudioContext` 和 `MediaRecorder`
+   - 开始录制音频
+9. 音频分片通过 `audio-data` 消息从 offscreen document 发送回 service worker。
+10. `AudioCapture` 接收 `audio-data` 消息并调用回调，将 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
+11. 当前 service 尚未连接真实 provider，因此默认不保证产出真实识别结果。
+12. 一旦未来产出 `RecognitionResult`，background 再通过 `speechResult` 回推给 UI。
 
 ### 2.6 当前实现边界
 
@@ -144,7 +159,8 @@ interface RecognitionResult {
 
 - 语音按钮与字幕 overlay UI
 - tab 维度的 speech 会话管理
-- tab 音频采集启动与停止
+- tab 音频采集启动与停止（通过 offscreen document）
+- offscreen document 用于在 service worker 环境中处理 `getUserMedia`
 - speech 设置存储
 - speech runtime message 协议
 - speech service 占位层
@@ -162,6 +178,8 @@ interface RecognitionResult {
 - `speechStart` 启动失败时，通过 `SpeechRuntimeResponse` 返回错误。
 - `speechStop` 当前总是返回成功响应；若无会话，background 静默结束。
 - `AudioCapture.start(...)` 重复启动时抛出 `Audio capture already started`。
+- offscreen document 中的 `getUserMedia` 失败时，通过 `audio-error` 消息通知 service worker。
+- offscreen document 中的 `MediaRecorder` 错误通过 `audio-error` 消息通知 service worker。
 - `SpeechRecognitionService.start()` 重复启动时抛出 `Speech recognition already running`。
 - `SpeechRecognitionService.sendAudio(...)` 在 service 未运行时只记录 warning，不抛错。
 - UI 在启动失败时回滚 listening 状态；停止时无论成功或失败都会清空本地字幕状态。
@@ -217,6 +235,7 @@ interface RecognitionResult {
 
 - `src/ui/content/speech` 目录结构
 - `src/background/speech` 目录结构
+- offscreen document 的实现或消息协议
 - `src/speech/services/speech-recognition.ts` 的职责或接口
 - `SpeechSettings` 结构
 - `RecognitionResult` 结构

@@ -24,4 +24,11 @@ export default defineConfig({
     __CHATBROWSERX_BUILD_TIME__: JSON.stringify(buildTime),
   },
   plugins: [react(), tailwindcss(), crx({ manifest })],
+  build: {
+    rollupOptions: {
+      input: {
+        offscreen: 'src/background/speech/offscreen.html',
+      },
+    },
+  },
 });

@@ -1,18 +1,10 @@
-export type SpeechProviderId = 'volcengine';
 
-export type SourceLanguage = 'auto' | 'zh' | 'en' | 'ja';
-export type TargetLanguage = 'none' | 'zh' | 'en' | 'ja';
 
-export interface VolcengineSettings {
-  accessKeyId: string;
-  secretAccessKey: string;
-}
-
-export interface SpeechSettings {
-  provider: SpeechProviderId;
-  sourceLanguage: SourceLanguage;
-  targetLanguage: TargetLanguage;
-  volcengine: VolcengineSettings;
+/**
+ * Response payload for speech state query.
+ */
+export interface SpeechStateQueryResponsePayload {
+  isRecording: boolean;
 }
 
 export interface RecognitionResult {
