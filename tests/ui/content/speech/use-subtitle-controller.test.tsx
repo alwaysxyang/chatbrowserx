@@ -1,16 +1,23 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { speechResultType, speechStartRequestType, speechStopRequestType } from '../../../../src/shared/types/runtime-messages';
+import { describe, expect, it, beforeEach } from 'vitest';
+import { speechResultType, speechStartRequestType, speechStopRequestType, speechStateQueryType } from '../../../../src/shared/types/speech';
 import { useSubtitleController } from '../../../../src/ui/content/speech/use-subtitle-controller';
 
 describe('useSubtitleController', () => {
+  beforeEach(() => {
+    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    // Mock the initial state query to return not recording
+    sendMessageMock.mockResolvedValue({ ok: true, data: { isRecording: false } });
+  });
+
   it('keeps subtitle state local instead of syncing through runtime messages', async () => {
     const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
 
     renderHook(() => useSubtitleController());
 
     await waitFor(() => {
-      expect(sendMessageMock).not.toHaveBeenCalled();
+      // Should only call once for initial state query
+      expect(sendMessageMock).toHaveBeenCalledWith({ type: speechStateQueryType });
     });
 
     act(() => {
@@ -27,7 +34,8 @@ describe('useSubtitleController', () => {
     });
 
     await waitFor(() => {
-      expect(sendMessageMock).not.toHaveBeenCalled();
+      // Should still only have the initial query call
+      expect(sendMessageMock).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -36,6 +44,11 @@ describe('useSubtitleController', () => {
     sendMessageMock.mockResolvedValue({ ok: true, data: null });
 
     const { result } = renderHook(() => useSubtitleController());
+
+    // Wait for initial query
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith({ type: speechStateQueryType });
+    });
 
     sendMessageMock.mockClear();
 
@@ -76,7 +89,10 @@ describe('useSubtitleController', () => {
 
   it('rolls subtitle state back when starting recognition fails', async () => {
     const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    sendMessageMock.mockRejectedValue(new Error('start failed'));
+    // First call is state query, second is start request
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
+      .mockRejectedValueOnce(new Error('start failed'));
 
     const { result } = renderHook(() => useSubtitleController());
 
@@ -93,7 +109,10 @@ describe('useSubtitleController', () => {
 
   it('rolls subtitle state back when background returns a failed start response', async () => {
     const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    sendMessageMock.mockResolvedValue({ ok: false, error: 'No tab ID' });
+    // First call is state query, second is start request
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
+      .mockResolvedValueOnce({ ok: false, error: 'No tab ID' });
 
     const { result } = renderHook(() => useSubtitleController());
 
@@ -110,7 +129,11 @@ describe('useSubtitleController', () => {
 
   it('clears subtitle state even when stopping recognition throws', async () => {
     const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    sendMessageMock.mockResolvedValueOnce({ ok: true, data: null }).mockRejectedValueOnce(new Error('stop failed'));
+    // First: state query, second: start, third: stop
+    sendMessageMock
+      .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
+      .mockResolvedValueOnce({ ok: true, data: null })
+      .mockRejectedValueOnce(new Error('stop failed'));
 
     const { result } = renderHook(() => useSubtitleController());
 
@@ -131,7 +154,9 @@ describe('useSubtitleController', () => {
 
   it('clears subtitle state even when background returns a failed stop response', async () => {
     const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    // First: state query, second: start, third: stop
     sendMessageMock
+      .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
       .mockResolvedValueOnce({ ok: true, data: null })
       .mockResolvedValueOnce({ ok: false, error: 'already stopped' });
 

@@ -1,4 +1,5 @@
-import type { RecognitionResult, SpeechSettings } from '../../shared/types/speech';
+import type { RecognitionResult } from '../../shared/types/speech';
+import type { SpeechSettings } from '../../shared/types/settings';
 import {SpeechRecognitionProvider} from "../model/recognition";
 
 interface SpeechRecognitionServiceConfig {
@@ -46,7 +47,7 @@ export class SpeechRecognitionService implements SpeechRecognitionProvider {
       console.warn('[SpeechRecognitionService] Cannot send audio: service not running');
       return;
     }
-
+    console.log(`[SpeechRecognitionService] Sending audio`);
     // TODO: Send audio to provider
   }
 

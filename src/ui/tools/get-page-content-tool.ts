@@ -1,7 +1,7 @@
 import {
   isGetPageContentToolRequestMessage,
   type GetPageContentToolPayload,
-} from '../../shared/types/runtime-messages';
+} from '../../shared/types/tool';
 import { readPageContent } from './shared';
 
 export async function readCurrentPageContent(

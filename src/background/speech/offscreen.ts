@@ -1,6 +1,7 @@
 /**
  * Offscreen document for audio capture.
  * Handles getUserMedia calls that cannot be made in service worker context.
+ * 需要保持足够轻量，因为是单独渲染，所以风格会跟项目其他地方有不一致
  */
 
 interface StartCaptureMessage {
@@ -53,12 +54,11 @@ async function startCapture(tabId: number, streamId: string, chunkInterval: numb
 
   // Use MediaRecorder to capture audio chunks
   const recorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
-
   recorder.ondataavailable = async (event: BlobEvent) => {
     if (event.data.size > 0) {
       const buffer = await event.data.arrayBuffer();
       // Send audio data back to service worker with tabId
-      chrome.runtime.sendMessage({
+      void chrome.runtime.sendMessage({
         type: 'audio-data',
         tabId,
         data: buffer,
@@ -81,7 +81,7 @@ async function startCapture(tabId: number, streamId: string, chunkInterval: numb
   sessions.set(tabId, { mediaStream, audioContext, sourceNode, recorder });
 
   // Notify service worker that capture started successfully
-  chrome.runtime.sendMessage({
+  void chrome.runtime.sendMessage({
     type: 'capture-started',
     tabId,
   });
@@ -143,4 +143,9 @@ chrome.runtime.onMessage.addListener((message: OffscreenMessage) => {
   } else if (message.type === 'stop-capture') {
     stopCapture(message.tabId);
   }
+});
+
+// Notify background that offscreen document is ready
+chrome.runtime.sendMessage({ type: 'offscreen-ready' }).catch(() => {
+  // Ignore error if background script is not ready yet
 });

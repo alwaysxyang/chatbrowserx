@@ -1,8 +1,10 @@
 import {
-  isScreenshotCaptureRequestMessage,
-  type ScreenshotCaptureRuntimeResponse,
   toRuntimeResponse,
 } from '../../shared/types/runtime-messages';
+import {
+  isScreenshotCaptureRequestMessage,
+  type ScreenshotCaptureRuntimeResponse,
+} from '../../shared/types/chat';
 import type { ScreenshotCaptureResponsePayload } from '../../shared/types/chat';
 
 async function captureVisibleTab(sender: chrome.runtime.MessageSender): Promise<string> {

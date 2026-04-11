@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import type { RecognitionResult } from '../../../shared/types/speech';
 import {
   getRuntimeResponseData,
+} from '../../../shared/types/runtime-messages';
+import {
   isSpeechResultMessage,
   type SpeechRuntimeResponse,
   type SpeechStateQueryResponse,
   speechStartRequestType,
   speechStopRequestType,
   speechStateQueryType,
-} from '../../../shared/types/runtime-messages';
+} from '../../../shared/types/speech';
 
 interface SubtitleState {
   sourceText: string;
@@ -51,7 +53,10 @@ export function useSubtitleController() {
           console.log('[Subtitle] Restored recording state after page refresh');
         }
       } catch (error) {
-        console.error('[Subtitle] Error querying speech state:', error);
+        // Silently ignore errors during initial query (extension might be reloading)
+        if (error instanceof Error && !error.message.includes('Extension context invalidated')) {
+          console.error('[Subtitle] Error querying speech state:', error);
+        }
       }
     };
 
@@ -91,6 +96,12 @@ export function useSubtitleController() {
       getRuntimeResponseData(response, 'Failed to start recognition');
     } catch (error) {
       console.error('[Subtitle] Error starting recognition:', error);
+
+      // Check if extension context was invalidated (extension reloaded)
+      if (error instanceof Error && error.message.includes('Extension context invalidated')) {
+        alert('Extension was reloaded. Please refresh the page to continue.');
+      }
+
       resetSubtitle();
     }
   }, [resetSubtitle]);
@@ -104,6 +115,11 @@ export function useSubtitleController() {
       getRuntimeResponseData(response, 'Failed to stop recognition');
     } catch (error) {
       console.error('[Subtitle] Error stopping recognition:', error);
+
+      // Check if extension context was invalidated
+      if (error instanceof Error && error.message.includes('Extension context invalidated')) {
+        alert('Extension was reloaded. Please refresh the page to continue.');
+      }
     } finally {
       resetSubtitle();
     }

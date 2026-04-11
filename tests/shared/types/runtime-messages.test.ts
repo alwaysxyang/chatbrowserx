@@ -1,6 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
-  chatRequestType,
   createRuntimeMessageGuard,
   getRuntimeResponseData,
   hasRuntimeMessageType,
@@ -10,6 +9,7 @@ import {
   runtimeSuccessResponse,
   toRuntimeResponse,
 } from '../../../src/shared/types/runtime-messages';
+import { chatRequestType } from '../../../src/shared/types/chat';
 
 describe('runtime message helpers', () => {
   it('matches runtime messages by type through shared helpers', () => {

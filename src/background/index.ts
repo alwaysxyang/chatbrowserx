@@ -1,4 +1,4 @@
-import { panelCommandType } from '../shared/types/runtime-messages';
+import { panelCommandType } from '../shared/types/ui';
 import { initChatModule } from './chat';
 import { initSpeechModule } from './speech';
 

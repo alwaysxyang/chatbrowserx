@@ -1,7 +1,7 @@
 import {
   getPageContentToolRequestType,
   type GetPageContentToolPayload,
-} from '../../shared/types/runtime-messages';
+} from '../../shared/types/tool';
 import { registerTool, type LlmToolModule } from './tool-registry';
 
 async function getActiveTabId(): Promise<number> {

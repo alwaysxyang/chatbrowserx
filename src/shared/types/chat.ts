@@ -1,3 +1,6 @@
+import type { RuntimeMessage, RuntimeResponse } from './runtime-messages';
+import { createRuntimeMessageGuard } from './runtime-messages';
+
 /**
  * Role identifier for chat participants.
  * - 'user': Messages from the end user
@@ -112,6 +115,121 @@ export interface ChatResponsePayload {
   reply: string;
 }
 
+/**
+ * Payload for screenshot capture responses.
+ */
 export interface ScreenshotCaptureResponsePayload {
   dataUrl: string;
+}
+
+// ============================================================================
+// Runtime Messages
+// ============================================================================
+
+/**
+ * Message type identifier for chat requests sent to the background service.
+ */
+export const chatRequestType = 'chatbrowserx.chat.request';
+
+/**
+ * Message type identifier for streaming chat response chunks.
+ */
+export const chatStreamChunkType = 'chatbrowserx.chat.stream.chunk';
+
+/**
+ * Message type identifier for canceling an ongoing chat request.
+ */
+export const chatCancelType = 'chatbrowserx.chat.cancel';
+
+/**
+ * Port name used for establishing long-lived connections for chat sessions.
+ */
+export const chatSessionPortName = 'chatbrowserx.chat.session';
+
+/**
+ * Message type identifier for screenshot capture requests.
+ */
+export const screenshotCaptureRequestType = 'chatbrowserx.chat.screenshot.capture';
+
+/**
+ * Message sent to initiate a chat request with the LLM provider.
+ */
+export interface ChatRequestMessage extends RuntimeMessage<typeof chatRequestType> {
+  payload: ChatRequestPayload;
+}
+
+/**
+ * Runtime response envelope for chat operations.
+ */
+export type ChatRuntimeResponse = RuntimeResponse<ChatResponsePayload>;
+
+/**
+ * Message sent during streaming chat responses containing a chunk of content.
+ */
+export interface ChatStreamChunkMessage extends RuntimeMessage<typeof chatStreamChunkType> {
+  payload: {
+    content: string;
+  };
+}
+
+/**
+ * Message sent to cancel an ongoing chat request.
+ */
+export interface ChatCancelMessage extends RuntimeMessage<typeof chatCancelType> {}
+
+/**
+ * Message sent to request a screenshot capture of the current page.
+ */
+export interface ScreenshotCaptureRequestMessage extends RuntimeMessage<typeof screenshotCaptureRequestType> {}
+
+/**
+ * Union type representing either a successful or failed screenshot capture response.
+ */
+export type ScreenshotCaptureRuntimeResponse = RuntimeResponse<ScreenshotCaptureResponsePayload>;
+
+const isChatRequestMessageGuard = createRuntimeMessageGuard<ChatRequestMessage>(chatRequestType);
+const isChatStreamChunkMessageGuard = createRuntimeMessageGuard<ChatStreamChunkMessage>(chatStreamChunkType);
+const isChatCancelMessageGuard = createRuntimeMessageGuard<ChatCancelMessage>(chatCancelType);
+const isScreenshotCaptureRequestMessageGuard = createRuntimeMessageGuard<ScreenshotCaptureRequestMessage>(
+  screenshotCaptureRequestType,
+);
+
+/**
+ * Type guard that checks if an unknown value is a ChatRequestMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ChatRequestMessage
+ */
+export function isChatRequestMessage(message: unknown): message is ChatRequestMessage {
+  return isChatRequestMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a ChatStreamChunkMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ChatStreamChunkMessage
+ */
+export function isChatStreamChunkMessage(message: unknown): message is ChatStreamChunkMessage {
+  return isChatStreamChunkMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a ChatCancelMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ChatCancelMessage
+ */
+export function isChatCancelMessage(message: unknown): message is ChatCancelMessage {
+  return isChatCancelMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a ScreenshotCaptureRequestMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ScreenshotCaptureRequestMessage
+ */
+export function isScreenshotCaptureRequestMessage(message: unknown): message is ScreenshotCaptureRequestMessage {
+  return isScreenshotCaptureRequestMessageGuard(message);
 }

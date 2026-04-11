@@ -2,7 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { ContentApp } from './ContentApp';
 import styles from './styles.css?inline';
 import { registerTools } from '../tools';
-import { chatSessionPortName } from '../../shared/types/runtime-messages';
+import { chatSessionPortName } from '../../shared/types/chat';
 
 const hostId = 'chatbrowserx-root';
 const sessionPort = chrome.runtime.connect({ name: chatSessionPortName });

@@ -23,11 +23,25 @@ export class AudioCapture {
       return;
     }
 
+    // Wait for offscreen document to be ready
+    const readyPromise = new Promise<void>((resolve) => {
+      const listener = (message: any) => {
+        if (message.type === 'offscreen-ready') {
+          chrome.runtime.onMessage.removeListener(listener);
+          resolve();
+        }
+      };
+      chrome.runtime.onMessage.addListener(listener);
+    });
+
     await chrome.offscreen.createDocument({
       url: OFFSCREEN_DOCUMENT_PATH,
       reasons: ['USER_MEDIA' as chrome.offscreen.Reason],
       justification: 'Audio capture for speech recognition',
     });
+
+    // Wait for ready signal from offscreen document
+    await readyPromise;
   }
 
   /**

@@ -1,7 +1,7 @@
 import { ChatCompletionService } from '../../llm/services/chat-completion';
 import { loadSettings } from '../../shared/storage/settings-repository';
 import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types/chat';
-import { chatStreamChunkType } from '../../shared/types/runtime-messages';
+import { chatStreamChunkType } from '../../shared/types/chat';
 
 interface ChatSession {
   service: ChatCompletionService;

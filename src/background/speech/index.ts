@@ -1,13 +1,15 @@
 import { SpeechOrchestrator } from './speech-orchestrator';
 import {
-  isSpeechStartRequestMessage,
-  isSpeechStopRequestMessage,
-  isSpeechStateQueryMessage,
   runtimeErrorResponse,
   runtimeSuccessResponse,
   toRuntimeResponse,
-  type SpeechStateQueryResponse,
 } from '../../shared/types/runtime-messages';
+import {
+  isSpeechStartRequestMessage,
+  isSpeechStopRequestMessage,
+  isSpeechStateQueryMessage,
+  type SpeechStateQueryResponse,
+} from '../../shared/types/speech';
 
 const speechOrchestrator = new SpeechOrchestrator();
 

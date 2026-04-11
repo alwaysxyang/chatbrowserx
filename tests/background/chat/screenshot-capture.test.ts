@@ -1,7 +1,7 @@
 import { waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { registerScreenshotCaptureHandler } from '../../../src/background/chat/screenshot-capture';
-import { screenshotCaptureRequestType } from '../../../src/shared/types/runtime-messages';
+import { screenshotCaptureRequestType } from '../../../src/shared/types/chat';
 
 describe('background screenshot capture', () => {
   it('captures the visible tab for screenshot requests', async () => {

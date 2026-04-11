@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { isPanelCommandMessage } from '../../shared/types/runtime-messages';
+import { isPanelCommandMessage } from '../../shared/types/ui';
 import { setCurrentUiLanguage } from '../../shared/i18n/current-language';
 import type { UiLanguage } from '../../shared/types/settings';
 import { defaultSettings, loadSettings } from '../../shared/storage/settings-repository';

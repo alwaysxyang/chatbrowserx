@@ -2,12 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../shared/storage/chat-history-repository';
 import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent, type ChatRequestPayload } from '../../../shared/types/chat';
 import {
+  getRuntimeResponseData,
+} from '../../../shared/types/runtime-messages';
+import {
   chatRequestType,
   chatCancelType,
-  getRuntimeResponseData,
   type ChatRuntimeResponse,
   isChatStreamChunkMessage,
-} from '../../../shared/types/runtime-messages';
+} from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import {
   buildChatErrorMessage,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import type { SpeechSettings, SourceLanguage, TargetLanguage } from '../../../shared/types/speech';
+import type { SpeechSettings, SourceLanguage, TargetLanguage } from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface VoiceSettingsFormProps {

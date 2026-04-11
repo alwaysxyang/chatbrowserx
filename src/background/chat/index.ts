@@ -1,12 +1,14 @@
 import { ChatOrchestrator } from './chat-orchestrator';
 import { registerScreenshotCaptureHandler } from './screenshot-capture';
 import {
-  chatSessionPortName,
-  isChatCancelMessage,
-  isChatRequestMessage,
   runtimeErrorResponse,
   toRuntimeResponse,
 } from '../../shared/types/runtime-messages';
+import {
+  chatSessionPortName,
+  isChatCancelMessage,
+  isChatRequestMessage,
+} from '../../shared/types/chat';
 
 const chatOrchestrator = new ChatOrchestrator();
 

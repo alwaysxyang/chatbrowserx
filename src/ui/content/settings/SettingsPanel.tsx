@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { defaultSettings, loadSettings, saveSettings } from '../../../shared/storage/settings-repository';
-import type { ModelSettings, Settings, UiLanguage } from '../../../shared/types/settings';
-import type { SpeechSettings } from '../../../shared/types/speech';
+import type { ModelSettings, Settings, UiLanguage, SpeechSettings } from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import { ChatSettingsForm } from './ChatSettingsForm';
 import { GeneralSettingsForm } from './GeneralSettingsForm';

@@ -1,7 +1,7 @@
 import type { RecognitionResult } from '../../shared/types/speech';
 import { SpeechRecognitionService } from '../../speech/services/speech-recognition';
 import { AudioCapture } from './audio-capture';
-import { speechResultType } from '../../shared/types/runtime-messages';
+import { speechResultType } from '../../shared/types/speech';
 import {loadSettings} from "../../shared/storage/settings-repository";
 
 interface TabSession {

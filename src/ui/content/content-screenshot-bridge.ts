@@ -1,8 +1,10 @@
 import {
   getRuntimeResponseData,
+} from '../../shared/types/runtime-messages';
+import {
   screenshotCaptureRequestType,
   type ScreenshotCaptureRuntimeResponse,
-} from '../../shared/types/runtime-messages';
+} from '../../shared/types/chat';
 import { translateMessage } from '../../shared/i18n/i18n';
 
 export async function requestVisibleTabScreenshot(): Promise<string> {
