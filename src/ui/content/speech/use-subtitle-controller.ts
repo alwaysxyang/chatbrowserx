@@ -8,25 +8,29 @@ import {
   speechStopRequestType,
 } from '../../../shared/types/runtime-messages';
 
-export interface SubtitleState {
+interface SubtitleState {
   sourceText: string;
   translationText: string;
   isActive: boolean;
 }
 
+const emptySubtitleState: SubtitleState = {
+  sourceText: '',
+  translationText: '',
+  isActive: false,
+};
+
+const listeningSubtitleState: SubtitleState = {
+  sourceText: '',
+  translationText: '',
+  isActive: true,
+};
+
 export function useSubtitleController() {
-  const [subtitle, setSubtitle] = useState<SubtitleState>({
-    sourceText: '',
-    translationText: '',
-    isActive: false,
-  });
+  const [subtitle, setSubtitle] = useState<SubtitleState>(emptySubtitleState);
 
   const resetSubtitle = useCallback(() => {
-    setSubtitle({
-      sourceText: '',
-      translationText: '',
-      isActive: false,
-    });
+    setSubtitle(emptySubtitleState);
   }, []);
 
   useEffect(() => {
@@ -52,16 +56,9 @@ export function useSubtitleController() {
   }, []);
 
   const startRecognition = useCallback(async () => {
-    console.log('[Subtitle] Starting recognition...');
-
-    setSubtitle({
-      sourceText: '',
-      translationText: '',
-      isActive: true,
-    });
+    setSubtitle(listeningSubtitleState);
 
     try {
-      // The background script will get the tab ID from sender
       const response = (await chrome.runtime.sendMessage({
         type: speechStartRequestType,
       })) as SpeechRuntimeResponse;
@@ -74,8 +71,6 @@ export function useSubtitleController() {
   }, [resetSubtitle]);
 
   const stopRecognition = useCallback(async () => {
-    console.log('[Subtitle] Stopping recognition...');
-
     try {
       const response = (await chrome.runtime.sendMessage({
         type: speechStopRequestType,

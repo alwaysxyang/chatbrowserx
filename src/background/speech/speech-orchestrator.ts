@@ -26,12 +26,6 @@ export class SpeechOrchestrator {
 
     // Load settings
     const settings = await loadSpeechSettings();
-
-    // Validate settings
-    if (!settings.volcengine.accessKeyId || !settings.volcengine.secretAccessKey) {
-      throw new Error('Volcengine credentials not configured');
-    }
-
     // Initialize audio capture
     const audioCapture = new AudioCapture();
 
@@ -50,7 +44,7 @@ export class SpeechOrchestrator {
     await recognitionService.start();
 
     // Start audio capture
-    await audioCapture.start((audioData: ArrayBuffer) => {
+    await audioCapture.start(tabId, (audioData: ArrayBuffer) => {
       recognitionService.sendAudio(audioData);
     });
 

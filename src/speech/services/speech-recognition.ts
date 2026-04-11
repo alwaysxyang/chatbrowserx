@@ -1,6 +1,6 @@
 import type { RecognitionResult, SpeechSettings } from '../../shared/types/speech';
 
-export interface SpeechRecognitionServiceConfig {
+interface SpeechRecognitionServiceConfig {
   settings: SpeechSettings;
   onResult: (result: RecognitionResult) => void;
   onError: (error: Error) => void;
@@ -10,12 +10,9 @@ export interface SpeechRecognitionServiceConfig {
  * Speech recognition service that manages provider lifecycle
  */
 export class SpeechRecognitionService {
-  private config: SpeechRecognitionServiceConfig;
   private isRunning = false;
 
-  constructor(config: SpeechRecognitionServiceConfig) {
-    this.config = config;
-  }
+  constructor(private readonly config: SpeechRecognitionServiceConfig) {}
 
   /**
    * Starts speech recognition
@@ -40,7 +37,6 @@ export class SpeechRecognitionService {
     //      this.config.onError(error);  // ← Call error callback here
     //    };
 
-    console.log('[SpeechRecognitionService] Started with settings:', this.config.settings);
   }
 
   /**
@@ -53,7 +49,6 @@ export class SpeechRecognitionService {
     }
 
     // TODO: Send audio to provider
-    console.log('[SpeechRecognitionService] Received audio chunk:', audioData.byteLength, 'bytes');
   }
 
   /**
@@ -67,6 +62,5 @@ export class SpeechRecognitionService {
     this.isRunning = false;
 
     // TODO: Close provider connection
-    console.log('[SpeechRecognitionService] Stopped');
   }
 }

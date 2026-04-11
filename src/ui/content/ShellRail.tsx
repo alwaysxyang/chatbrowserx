@@ -9,11 +9,6 @@ interface ShellRailProps {
 }
 
 export function ShellRail({ activeView, onSelectView, onVoiceToggle, isVoiceActive = false }: ShellRailProps) {
-  const handleVoiceClick = () => {
-    const nextState = !isVoiceActive;
-    onVoiceToggle?.(nextState);
-  };
-
   return (
     <nav aria-label={translateMessage('shell.rail.navLabel')} className="shell-rail">
       <button
@@ -36,7 +31,7 @@ export function ShellRail({ activeView, onSelectView, onVoiceToggle, isVoiceActi
         className={`rail-button ${isVoiceActive ? 'rail-button-active' : ''}`}
         data-tooltip={isVoiceActive ? translateMessage('shell.rail.voiceStop') : translateMessage('shell.rail.voice')}
         type="button"
-        onClick={handleVoiceClick}
+        onClick={() => onVoiceToggle?.(!isVoiceActive)}
       >
         <span className="rail-icon">
           {isVoiceActive ? (

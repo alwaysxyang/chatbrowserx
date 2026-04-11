@@ -15,10 +15,8 @@ const chatOrchestrator = new ChatOrchestrator();
  * Sets up message listeners and screenshot capture
  */
 export function initChatModule(): void {
-  // Register screenshot capture handler
   registerScreenshotCaptureHandler();
 
-  // Handle chat requests
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!isChatRequestMessage(message)) {
       return undefined;
@@ -35,7 +33,6 @@ export function initChatModule(): void {
     return true;
   });
 
-  // Handle explicit cancel requests from the content script
   chrome.runtime.onMessage.addListener((message, sender) => {
     if (!isChatCancelMessage(message)) {
       return undefined;
@@ -49,7 +46,6 @@ export function initChatModule(): void {
     return undefined;
   });
 
-  // Handle chat session port connections
   chrome.runtime.onConnect.addListener((port) => {
     if (port.name !== chatSessionPortName) {
       return;

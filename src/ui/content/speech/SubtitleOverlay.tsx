@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import './subtitle-overlay.css';
 
-export interface SubtitleOverlayProps {
+interface SubtitleOverlayProps {
   sourceText: string;
   translationText: string;
   isVisible: boolean;
@@ -13,7 +13,6 @@ export function SubtitleOverlay({ sourceText, translationText, isVisible }: Subt
   const [position, setPosition] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
-  const overlayRef = useRef<HTMLDivElement>(null);
   const [container] = useState(() => {
     const div = document.createElement('div');
     div.id = 'chatbrowserx-subtitle-container';
@@ -146,7 +145,6 @@ export function SubtitleOverlay({ sourceText, translationText, isVisible }: Subt
 
   const content = (
     <div
-      ref={overlayRef}
       className="subtitle-overlay"
       style={style}
       onMouseDown={handleMouseDown}

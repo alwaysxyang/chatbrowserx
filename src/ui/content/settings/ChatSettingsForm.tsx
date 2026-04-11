@@ -28,16 +28,14 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
     onChange(updateCodexSettings(value, nextValue as Partial<ModelSettings['codex']>));
   };
 
-  const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
-
   return (
     <div className="settings-form">
-      <span className="settings-provider-title">{label('settings.fields.provider')}</span>
-      <div className="settings-provider-switch" aria-label={label('settings.provider.switchLabel')}>
+      <span className="settings-provider-title">{translateMessage('settings.fields.provider')}</span>
+      <div className="settings-provider-switch" aria-label={translateMessage('settings.provider.switchLabel')}>
         <button
           type="button"
           className={`settings-provider-button ${activeProvider.isOpenAi ? 'settings-provider-button-active' : ''}`}
-          data-tooltip={label('settings.provider.openaiTooltip')}
+          data-tooltip={translateMessage('settings.provider.openaiTooltip')}
           data-tooltip-placement="bottom"
           onClick={() => onChange(updateProvider(value, 'openai'))}
         >
@@ -46,7 +44,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <button
           type="button"
           className={`settings-provider-button ${!activeProvider.isOpenAi ? 'settings-provider-button-active' : ''}`}
-          data-tooltip={label('settings.provider.codexTooltip')}
+          data-tooltip={translateMessage('settings.provider.codexTooltip')}
           data-tooltip-placement="bottom"
           onClick={() => onChange(updateProvider(value, 'codex'))}
         >
@@ -55,9 +53,9 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
       </div>
 
       <label>
-        <span>{label('settings.fields.apiBaseUrl')}</span>
+        <span>{translateMessage('settings.fields.apiBaseUrl')}</span>
         <input
-          aria-label={label('settings.fields.apiBaseUrl')}
+          aria-label={translateMessage('settings.fields.apiBaseUrl')}
           value={activeProvider.baseUrl}
           onChange={(event) => updateProviderConnection({ baseUrl: event.target.value })}
         />
@@ -65,20 +63,22 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
 
       <label>
         <span>
-          {activeProvider.isOpenAi ? label('settings.fields.apiKey') : label('settings.codex.fields.accessToken')}
+          {activeProvider.isOpenAi
+            ? translateMessage('settings.fields.apiKey')
+            : translateMessage('settings.codex.fields.accessToken')}
         </span>
 
         <div className="settings-input-with-icon">
           {activeProvider.isOpenAi ? (
             <input
-              aria-label={label('settings.fields.apiKey')}
+              aria-label={translateMessage('settings.fields.apiKey')}
               type={showApiKey ? 'text' : 'password'}
               value={activeProvider.credential}
               onChange={(event) => onChange(updateOpenAiSettings(value, { apiKey: event.target.value }))}
             />
           ) : (
             <textarea
-              aria-label={label('settings.codex.fields.accessToken')}
+              aria-label={translateMessage('settings.codex.fields.accessToken')}
               rows={5}
               value={showApiKey ? activeProvider.credential : '•'.repeat(activeProvider.credential ? activeProvider.credential.length : 8)}
               onChange={
@@ -92,7 +92,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           <button
             type="button"
             className="settings-input-icon-button"
-            aria-label={showApiKey ? label('settings.apiKey.hide') : label('settings.apiKey.show')}
+            aria-label={showApiKey ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')}
             onClick={() => setShowApiKey((current) => !current)}
             disabled={disabled}
           >
@@ -105,18 +105,18 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         </div>
       </label>
       <label>
-        <span>{label('settings.fields.model')}</span>
+        <span>{translateMessage('settings.fields.model')}</span>
         <input
-          aria-label={label('settings.fields.model')}
+          aria-label={translateMessage('settings.fields.model')}
           value={activeProvider.model}
           onChange={(event) => updateProviderConnection({ model: event.target.value })}
         />
       </label>
 
       <label>
-        <span>{label('settings.fields.systemPrompt')}</span>
+        <span>{translateMessage('settings.fields.systemPrompt')}</span>
         <textarea
-          aria-label={label('settings.fields.systemPrompt')}
+          aria-label={translateMessage('settings.fields.systemPrompt')}
           rows={4}
           value={value.systemPrompt}
           onChange={(event) => onChange(updateSharedModelSettings(value, 'systemPrompt', event.target.value))}
@@ -124,9 +124,9 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
       </label>
 
       <label>
-        <span>{label('settings.fields.maxHistory')}</span>
+        <span>{translateMessage('settings.fields.maxHistory')}</span>
         <input
-          aria-label={label('settings.fields.maxHistory')}
+          aria-label={translateMessage('settings.fields.maxHistory')}
           min={1}
           type="number"
           value={value.maxHistory}

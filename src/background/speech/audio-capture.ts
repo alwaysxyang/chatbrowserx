@@ -10,10 +10,12 @@ export class AudioCapture {
 
   /**
    * Starts capturing audio from the current tab.
+   * @param tabId
    * @param onAudioData - Callback that receives audio data chunks as ArrayBuffer
    * @param chunkInterval - Interval in milliseconds for audio chunks (default: 250ms)
    */
   async start(
+    tabId: number,
     onAudioData: (data: ArrayBuffer) => void,
     chunkInterval: number = 250,
   ): Promise<void> {
@@ -21,21 +23,26 @@ export class AudioCapture {
       throw new Error('Audio capture already started');
     }
 
-    this.mediaStream = await new Promise<MediaStream>((resolve, reject) => {
-      chrome.tabCapture.capture(
-        {
-          audio: true,
-          video: false,
-        },
-        (stream) => {
-          if (chrome.runtime.lastError || !stream) {
-            reject(new Error(chrome.runtime.lastError?.message || 'Failed to capture tab audio'));
-            return;
-          }
+    const streamId = await new Promise<string>((resolve, reject) => {
+      chrome.tabCapture.getMediaStreamId({
+        targetTabId: tabId,
+      }, (streamId) => {
+        if (chrome.runtime.lastError) {
+          reject(new Error(chrome.runtime.lastError?.message || 'Failed to capture tab audio'));
+        } else {
+          resolve(streamId);
+        }
+      });
+    });
 
-          resolve(stream);
-        },
-      );
+    this.mediaStream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        mandatory: {
+          chromeMediaSource: 'tab',
+          chromeMediaSourceId: streamId
+        }
+      } as any,
+      video: false
     });
 
     // Create audio context to keep the stream active

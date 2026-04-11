@@ -6,7 +6,7 @@ const FALLBACK_LOCALE: Locale = 'en';
 
 export type { Locale, MessageKey } from './message-catalog';
 
-export function getBrowserLanguage(): string | undefined {
+function getBrowserLanguage(): string | undefined {
   if (typeof navigator !== 'undefined' && typeof navigator.language === 'string') {
     return navigator.language;
   }

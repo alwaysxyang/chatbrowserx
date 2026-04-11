@@ -80,18 +80,9 @@ export function useLongScreenshotSession({ onCaptureVisibleTab }: UseLongScreens
     setIsLongMode(false);
   };
 
-  const queueWheelCapture = (
-    selection: ScreenshotRect,
-    deltaX: number,
-    deltaY: number,
-    scrollTarget: Window | HTMLElement,
-  ) => {
+  const queueWheelCapture = (selection: ScreenshotRect) => {
     const runId = longModeRunIdRef.current;
 
-    // 浏览器已经处理了滚动，我们不需要手动滚动
-    // 只需要在滚动后触发截图
-
-    // 防抖截图：清除之前的定时器，只在滚动停止后截图
     if (captureTimeoutRef.current !== null) {
       clearTimeout(captureTimeoutRef.current);
     }
@@ -104,11 +95,10 @@ export function useLongScreenshotSession({ onCaptureVisibleTab }: UseLongScreens
           return;
         }
 
-        // 使用快速等待，只等待2帧，不等待图片加载
         await waitForScreenshotFrame();
         await captureMissingLongSelectionChunks(selection, runId);
       });
-    }, 100); // 100ms 防抖，滚动停止后才截图
+    }, 100);
   };
 
   const completeLongCapture = async (): Promise<string | undefined> => {

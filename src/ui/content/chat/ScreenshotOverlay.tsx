@@ -108,7 +108,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
         scrollTarget instanceof Window ||
         scrollTarget === document.body
       ) {
-        queueWheelCapture(selection, 0, 0, window);
+        queueWheelCapture(selection);
         return;
       }
 
@@ -126,7 +126,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
         );
 
         if (intersects) {
-          queueWheelCapture(selection, 0, 0, window);
+          queueWheelCapture(selection);
         }
       }
     };

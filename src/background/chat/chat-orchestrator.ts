@@ -26,18 +26,11 @@ export class ChatOrchestrator {
       throw new Error(`Chat request already in progress for tab ${tabId}`);
     }
 
-    // Load settings
     const settings = await loadSettings();
-
-    // Create abort controller
     const controller = new AbortController();
-
-    // Initialize chat completion service
     const service = new ChatCompletionService({
       settings: settings.model,
     });
-
-    // Store session
     this.sessions.set(tabId, { service, controller });
 
     try {

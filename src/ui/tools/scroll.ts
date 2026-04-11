@@ -1,8 +1,8 @@
-import {translateMessage} from '../../shared/i18n/i18n';
+import { translateMessage } from '../../shared/i18n/i18n';
 
 const toolScrollingToastTestId = 'tool-scrolling-toast';
 
-export interface ScrollContainerInfo {
+interface ScrollContainerInfo {
   element: Window | HTMLElement;
   scrollHeight: number;
   clientHeight: number;
@@ -104,7 +104,7 @@ function createToolStatusToast(documentObject: Document, message: string): HTMLE
   return toast;
 }
 
-export interface ScanPageOptions<T> {
+interface ScanPageOptions<T> {
   callback: () => Promise<T> | T;
   documentObject?: Document;
   windowObject?: Window;
@@ -139,10 +139,10 @@ export async function scanPage<T>({
 
   let toast: HTMLElement = createToolStatusToast(documentObject, translateMessage('tools.scroll.loading'));
   if (onStep) {
-    const oldStep = onStep;
+    const previousOnStep = onStep;
     onStep = (scrollTop: number): boolean | void => {
       toast.remove();
-      const result = oldStep(scrollTop);
+      const result = previousOnStep(scrollTop);
       toast = createToolStatusToast(documentObject, translateMessage('tools.scroll.loading'));
       return result;
     };

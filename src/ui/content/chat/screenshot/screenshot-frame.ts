@@ -7,32 +7,6 @@ export function waitForScreenshotFrame(): Promise<void> {
 }
 
 /**
- * Find the scrollable parent element starting from the given element.
- * Returns window if no scrollable parent is found.
- */
-export function findScrollableParent(element: Element | null): Window | HTMLElement {
-  let current = element;
-
-  while (current && current !== document.documentElement) {
-    if (current instanceof HTMLElement) {
-      const style = window.getComputedStyle(current);
-      const overflowY = style.overflowY;
-
-      if (
-        (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') &&
-        current.scrollHeight > current.clientHeight
-      ) {
-        return current;
-      }
-    }
-
-    current = current.parentElement;
-  }
-
-  return window;
-}
-
-/**
  * Wait for images in the viewport to load and page to stabilize before taking a screenshot.
  * This prevents images from being cut off when scrolling quickly during long screenshots.
  */

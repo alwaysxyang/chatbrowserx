@@ -6,7 +6,7 @@ import {
 
 const defaultMaxIterations = 16;
 
-export interface ToolCallOrchestratorOptions {
+interface ToolCallOrchestratorOptions {
   provider: ChatCompletionProvider;
   toolRegistry?: ToolRegistry;
   maxIterations?: number;

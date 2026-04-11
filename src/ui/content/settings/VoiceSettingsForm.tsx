@@ -11,16 +11,15 @@ interface VoiceSettingsFormProps {
 
 export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFormProps) {
   const [showSecretKey, setShowSecretKey] = useState(false);
-  const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
 
   return (
     <div className="settings-form">
-      <span className="settings-provider-title">{label('settings.voice.provider')}</span>
-      <div className="settings-provider-switch" aria-label={label('settings.voice.provider')}>
+      <span className="settings-provider-title">{translateMessage('settings.voice.provider')}</span>
+      <div className="settings-provider-switch" aria-label={translateMessage('settings.voice.provider')}>
         <button
           type="button"
           className="settings-provider-button settings-provider-button-active"
-          data-tooltip={label('settings.voice.provider.volcengine')}
+          data-tooltip={translateMessage('settings.voice.provider.volcengine')}
           data-tooltip-placement="bottom"
           disabled={disabled}
         >
@@ -29,39 +28,39 @@ export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFo
       </div>
 
       <label>
-        <span>{label('settings.voice.sourceLanguage')}</span>
+        <span>{translateMessage('settings.voice.sourceLanguage')}</span>
         <select
-          aria-label={label('settings.voice.sourceLanguage')}
+          aria-label={translateMessage('settings.voice.sourceLanguage')}
           value={value.sourceLanguage}
           onChange={(e) => onChange({ ...value, sourceLanguage: e.target.value as SourceLanguage })}
           disabled={disabled}
         >
-          <option value="auto">{label('settings.voice.language.auto')}</option>
-          <option value="zh">{label('settings.voice.language.zh')}</option>
-          <option value="en">{label('settings.voice.language.en')}</option>
-          <option value="ja">{label('settings.voice.language.ja')}</option>
+          <option value="auto">{translateMessage('settings.voice.language.auto')}</option>
+          <option value="zh">{translateMessage('settings.voice.language.zh')}</option>
+          <option value="en">{translateMessage('settings.voice.language.en')}</option>
+          <option value="ja">{translateMessage('settings.voice.language.ja')}</option>
         </select>
       </label>
 
       <label>
-        <span>{label('settings.voice.targetLanguage')}</span>
+        <span>{translateMessage('settings.voice.targetLanguage')}</span>
         <select
-          aria-label={label('settings.voice.targetLanguage')}
+          aria-label={translateMessage('settings.voice.targetLanguage')}
           value={value.targetLanguage}
           onChange={(e) => onChange({ ...value, targetLanguage: e.target.value as TargetLanguage })}
           disabled={disabled}
         >
-          <option value="none">{label('settings.voice.language.none')}</option>
-          <option value="zh">{label('settings.voice.language.zh')}</option>
-          <option value="en">{label('settings.voice.language.en')}</option>
-          <option value="ja">{label('settings.voice.language.ja')}</option>
+          <option value="none">{translateMessage('settings.voice.language.none')}</option>
+          <option value="zh">{translateMessage('settings.voice.language.zh')}</option>
+          <option value="en">{translateMessage('settings.voice.language.en')}</option>
+          <option value="ja">{translateMessage('settings.voice.language.ja')}</option>
         </select>
       </label>
 
       <label>
-        <span>{label('settings.voice.accessKeyId')}</span>
+        <span>{translateMessage('settings.voice.accessKeyId')}</span>
         <input
-          aria-label={label('settings.voice.accessKeyId')}
+          aria-label={translateMessage('settings.voice.accessKeyId')}
           type="text"
           value={value.volcengine.accessKeyId}
           onChange={(e) =>
@@ -75,10 +74,10 @@ export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFo
       </label>
 
       <label>
-        <span>{label('settings.voice.secretAccessKey')}</span>
+        <span>{translateMessage('settings.voice.secretAccessKey')}</span>
         <div className="settings-input-with-icon">
           <input
-            aria-label={label('settings.voice.secretAccessKey')}
+            aria-label={translateMessage('settings.voice.secretAccessKey')}
             type={showSecretKey ? 'text' : 'password'}
             value={value.volcengine.secretAccessKey}
             onChange={(e) =>
@@ -92,7 +91,7 @@ export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFo
           <button
             type="button"
             className="settings-input-icon-button"
-            aria-label={showSecretKey ? label('settings.apiKey.hide') : label('settings.apiKey.show')}
+            aria-label={showSecretKey ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')}
             onClick={() => setShowSecretKey((current) => !current)}
             disabled={disabled}
           >

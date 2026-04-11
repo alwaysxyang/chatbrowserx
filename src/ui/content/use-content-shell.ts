@@ -6,7 +6,7 @@ import type { UiLanguage } from '../../shared/types/settings';
 import { defaultSettings, loadSettings } from '../../shared/storage/settings-repository';
 import { getPanelStateStorageKey } from './content-panel-state';
 
-export type ContentView = 'chat' | 'settings';
+type ContentView = 'chat' | 'settings';
 
 interface ScreenshotSession {
   onCaptured: (dataUrl: string) => void;

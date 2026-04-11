@@ -17,7 +17,6 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
   const hasUserInteractedRef = useRef(false);
   const [activeTab, setActiveTab] = useState<'model' | 'general' | 'voice'>('model');
   const [saveToast, setSaveToast] = useState<string | null>(null);
-  const label = (key: Parameters<typeof translateMessage>[0]) => translateMessage(key);
 
   useEffect(() => {
     loadSettings().then((storedSettings) => {
@@ -37,15 +36,12 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
     setSaveToast(null);
 
     try {
-      // 先等待一小段时间，再真实保存，给用户一个“保存中”的感受
       await new Promise((resolve) => setTimeout(resolve, 1000));
       await saveSettings(settings);
 
-      // Toast 使用本次保存后的语言设置，避免总是滞后一轮
       const toastLanguage = settings.general.uiLanguage;
       setSaveToast(translateMessage('settings.toast.saved', toastLanguage));
 
-      // 仅在保存成功后，才将语言变更同步给上层（ContentApp），从而更新全局 UI 语言
       onUiLanguageChange?.(settings.general.uiLanguage);
     } catch (error) {
       const toastLanguage = settings.general.uiLanguage;
@@ -62,7 +58,6 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
     setSettings(defaultSettings);
   };
 
-  // 保存成功提示 1.5s 后自动消失
   useEffect(() => {
     if (!saveToast) return;
 
@@ -75,27 +70,27 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
 
   return (
     <section className="settings-page">
-      <nav aria-label={label('settings.tabs.navLabel')} className="settings-tabs">
+      <nav aria-label={translateMessage('settings.tabs.navLabel')} className="settings-tabs">
         <button
           className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
           type="button"
           onClick={() => setActiveTab('model')}
         >
-          {label('settings.tabs.model')}
+          {translateMessage('settings.tabs.model')}
         </button>
         <button
           className={`settings-tab ${activeTab === 'voice' ? 'settings-tab-active' : ''}`}
           type="button"
           onClick={() => setActiveTab('voice')}
         >
-          {label('settings.tabs.voice')}
+          {translateMessage('settings.tabs.voice')}
         </button>
         <button
           className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
           type="button"
           onClick={() => setActiveTab('general')}
         >
-          {label('settings.tabs.general')}
+          {translateMessage('settings.tabs.general')}
         </button>
       </nav>
 
@@ -136,20 +131,20 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
       <footer className="settings-footer">
         <button
           className="primary-button"
-          data-tooltip={isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
+          data-tooltip={isSaving ? translateMessage('settings.actions.saving') : translateMessage('settings.actions.save')}
           disabled={isSaving}
           type="button"
           onClick={handleSave}
         >
-          {isSaving ? label('settings.actions.saving') : label('settings.actions.save')}
+          {isSaving ? translateMessage('settings.actions.saving') : translateMessage('settings.actions.save')}
         </button>
         <button
           className="secondary-button"
-          data-tooltip={label('settings.actions.reset')}
+          data-tooltip={translateMessage('settings.actions.reset')}
           type="button"
           onClick={handleResetToDefault}
         >
-          {label('settings.actions.reset')}
+          {translateMessage('settings.actions.reset')}
         </button>
       </footer>
     </section>

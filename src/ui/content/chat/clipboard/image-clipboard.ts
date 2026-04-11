@@ -36,7 +36,7 @@ function loadImageBlob(src: string): Promise<Blob> {
   });
 }
 
-export function readImageFileAsDataUrl(file: File): Promise<string> {
+function readImageFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
 
