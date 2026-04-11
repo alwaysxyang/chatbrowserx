@@ -1,6 +1,16 @@
 import { clamp, getViewportSize } from './screenshot-selection-geometry';
+
+import {
+  type LongScreenshotCaptureArea,
+} from './screenshot-scroll-target';
 import type { CapturedLongScreenshotChunk, ScreenshotDocumentRange, ScreenshotRect } from './screenshot-types';
 
+/**
+ * Load a screenshot image from a data URL.
+ *
+ * @param dataUrl - The screenshot image as a data URL
+ * @returns The loaded image element
+ */
 function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
@@ -10,6 +20,13 @@ function loadImage(dataUrl: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * Clamp a screenshot rectangle to the current viewport bounds.
+ *
+ * @param rect - The source rectangle in viewport coordinates
+ * @param viewport - The viewport dimensions used for clamping
+ * @returns A normalized rectangle that stays inside the viewport
+ */
 function normalizeRect(rect: ScreenshotRect, viewport = getViewportSize()): ScreenshotRect {
   const left = clamp(rect.left, 0, viewport.width - 1);
   const top = clamp(rect.top, 0, viewport.height - 1);
@@ -19,6 +36,13 @@ function normalizeRect(rect: ScreenshotRect, viewport = getViewportSize()): Scre
   return { left, top, width, height };
 }
 
+/**
+ * Crop a viewport screenshot down to the requested rectangle.
+ *
+ * @param dataUrl - The source screenshot data URL
+ * @param rect - The viewport rectangle to crop
+ * @returns The cropped image as a data URL
+ */
 export async function cropScreenshotDataUrl(dataUrl: string, rect: ScreenshotRect): Promise<string> {
   const viewport = getViewportSize();
   const normalizedRect = normalizeRect(rect, viewport);
@@ -29,15 +53,15 @@ export async function cropScreenshotDataUrl(dataUrl: string, rect: ScreenshotRec
   const sourceLeft = Math.round(normalizedRect.left * scaleX);
   const sourceTop = Math.round(normalizedRect.top * scaleY);
   const sourceWidth = Math.min(
-    Math.max(1, image.naturalWidth - sourceLeft),
-    Math.max(1, Math.round(normalizedRect.width * scaleX)),
+    image.naturalWidth - sourceLeft,
+    Math.round(normalizedRect.width * scaleX),
   );
   const sourceHeight = Math.min(
-    Math.max(1, image.naturalHeight - sourceTop),
-    Math.max(1, Math.round(normalizedRect.height * scaleY)),
+    image.naturalHeight - sourceTop,
+    Math.round(normalizedRect.height * scaleY),
   );
-  const targetWidth = Math.max(1, Math.round(normalizedRect.width * outputScale));
-  const targetHeight = Math.max(1, Math.round(normalizedRect.height * outputScale));
+  const targetWidth = Math.round(normalizedRect.width * outputScale);
+  const targetHeight = Math.round(normalizedRect.height * outputScale);
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
 
@@ -62,10 +86,16 @@ export async function cropScreenshotDataUrl(dataUrl: string, rect: ScreenshotRec
   return canvas.toDataURL('image/png');
 }
 
+/**
+ * Stitch multiple screenshot data URLs into a single vertical image.
+ *
+ * @param dataUrls - The ordered screenshot chunks to stitch
+ * @returns The stitched image as a data URL
+ */
 export async function stitchScreenshotDataUrls(dataUrls: string[]): Promise<string> {
   const images = await Promise.all(dataUrls.map(loadImage));
-  const width = Math.max(1, ...images.map((image) => image.naturalWidth));
-  const height = Math.max(1, images.reduce((sum, image) => sum + image.naturalHeight, 0));
+  const width = Math.max(...images.map((image) => image.naturalWidth), 1);
+  const height = images.reduce((sum, image) => sum + image.naturalHeight, 0) || 1;
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
 
@@ -85,6 +115,13 @@ export async function stitchScreenshotDataUrls(dataUrls: string[]): Promise<stri
   return canvas.toDataURL('image/png');
 }
 
+/**
+ * Capture and crop the current visible viewport selection.
+ *
+ * @param captureVisibleTab - The bridge used to capture the current tab viewport
+ * @param selection - The selected viewport rectangle
+ * @returns The cropped image as a data URL
+ */
 export async function captureSelectedViewport(
   captureVisibleTab: () => Promise<string>,
   selection: ScreenshotRect,
@@ -93,13 +130,13 @@ export async function captureSelectedViewport(
   return cropScreenshotDataUrl(dataUrl, selection);
 }
 
-export function getScreenshotDocumentRange(selection: ScreenshotRect): ScreenshotDocumentRange {
-  return {
-    startY: window.scrollY + selection.top,
-    endY: window.scrollY + selection.top + selection.height,
-  };
-}
-
+/**
+ * Find the still-missing logical content ranges for the current long screenshot session.
+ *
+ * @param range - The currently visible content range
+ * @param chunks - The chunks that have already been captured
+ * @returns The uncovered content ranges that still need screenshots
+ */
 export function getUncapturedLongScreenshotSegments(
   range: ScreenshotDocumentRange,
   chunks: CapturedLongScreenshotChunk[],
@@ -135,34 +172,39 @@ export function getUncapturedLongScreenshotSegments(
   return segments.filter((segment) => segment.endY > segment.startY);
 }
 
+/**
+ * Capture the currently visible long-screenshot area and crop the requested segments from it.
+ *
+ * @param captureVisibleTab - The bridge used to capture the current tab viewport
+ * @param captureArea - The current viewport crop rectangle and logical content range
+ * @param segments - The logical content ranges that still need capturing
+ * @returns The captured long-screenshot chunks for the missing ranges
+ */
 export async function captureLongScreenshotSegments(
   captureVisibleTab: () => Promise<string>,
-  selection: ScreenshotRect,
+  captureArea: LongScreenshotCaptureArea,
   segments: ScreenshotDocumentRange[],
 ): Promise<CapturedLongScreenshotChunk[]> {
   if (!segments.length) {
     return [];
   }
 
-  const viewport = getViewportSize();
-  const normalizedSelection = normalizeRect(selection, viewport);
-  const viewportScrollY = window.scrollY;
   const dataUrl = await captureVisibleTab();
 
   return Promise.all(
     segments.map(async (segment) => {
       const startY = Math.min(segment.startY, segment.endY);
       const endY = Math.max(segment.startY, segment.endY);
-      const chunkHeight = Math.max(1, endY - startY);
-      const viewportTop = startY - viewportScrollY;
+      const chunkHeight = endY - startY;
+      const viewportTop = captureArea.captureRect.top + (startY - captureArea.range.startY);
 
       return {
         startY,
         endY,
         dataUrl: await cropScreenshotDataUrl(dataUrl, {
-          left: normalizedSelection.left,
+          left: captureArea.captureRect.left,
           top: viewportTop,
-          width: normalizedSelection.width,
+          width: captureArea.captureRect.width,
           height: chunkHeight,
         }),
       };
@@ -170,12 +212,23 @@ export async function captureLongScreenshotSegments(
   );
 }
 
+/**
+ * Stitch ordered long-screenshot chunks into a single output image.
+ *
+ * @param chunks - The captured long-screenshot chunks
+ * @returns The stitched image as a data URL
+ */
 export async function stitchLongScreenshotChunks(chunks: CapturedLongScreenshotChunk[]): Promise<string> {
   return stitchScreenshotDataUrls(
     [...chunks].sort((left, right) => left.startY - right.startY).map((chunk) => chunk.dataUrl),
   );
 }
 
+/**
+ * Create the default screenshot selection rectangle for the current viewport.
+ *
+ * @returns The default screenshot selection rectangle
+ */
 export function createDefaultScreenshotSelection(): ScreenshotRect {
   const viewport = getViewportSize();
   const width = Math.max(120, Math.round(viewport.width * 0.62));
