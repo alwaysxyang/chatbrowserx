@@ -50,7 +50,7 @@ export class SpeechOrchestrator {
     await recognitionService.start();
 
     // Start audio capture
-    await audioCapture.start(tabId, (audioData: ArrayBuffer) => {
+    await audioCapture.start((audioData: ArrayBuffer) => {
       recognitionService.sendAudio(audioData);
     });
 

@@ -83,7 +83,9 @@ export type MessageKey =
   | 'error.response.empty'
   | 'error.message.sendFailed'
   | 'error.message.pageRefreshInterrupted'
-  | 'popup.description';
+  | 'popup.description'
+  | 'subtitle.waiting'
+  | 'subtitle.listening';
 
 export const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.tabs.model': { zh: '模型', en: 'Model', ja: 'モデル' },
@@ -187,6 +189,8 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
     en: 'ChatBrowserX currently focuses on basic chat capabilities. Open any page and click the bottom-right button to open the sidebar.',
     ja: 'ChatBrowserX は現在、基本的なチャット機能にフォーカスしています。任意のページを開き、右下のボタンをクリックするとサイドバーが開きます。',
   },
+  'subtitle.waiting': { zh: '等待语音输入...', en: 'Waiting for voice input...', ja: '音声入力を待っています...' },
+  'subtitle.listening': { zh: '正在聆听...', en: 'Listening...', ja: '聞いています...' },
 };
 
 export function resolveLocale(uiLanguage: UiLanguage, browserLanguage: string | undefined, fallbackLocale: Locale): Locale {

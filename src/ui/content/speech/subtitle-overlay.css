@@ -3,18 +3,23 @@
   bottom: 60px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.75);
   color: white;
-  padding: 12px 24px;
+  padding: 8px 20px;
   border-radius: 8px;
   max-width: 80%;
   min-width: 400px;
-  z-index: 999999;
+  z-index: 2147483647; /* Maximum z-index */
   cursor: move;
   user-select: none;
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
   transition: padding 0.2s ease;
+  pointer-events: auto;
+}
+
+.subtitle-overlay:has(.subtitle-overlay__translation) {
+  padding: 12px 24px;
 }
 
 .subtitle-overlay__source {

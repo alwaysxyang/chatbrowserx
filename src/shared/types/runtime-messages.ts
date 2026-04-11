@@ -1,4 +1,4 @@
-import type { ChatRequestPayload, ChatResponsePayload } from './chat';
+import type { ChatRequestPayload, ChatResponsePayload, ScreenshotCaptureResponsePayload } from './chat';
 import type { RecognitionResult } from './speech';
 
 /**
@@ -79,6 +79,12 @@ export interface RuntimeErrorResponse {
   error: string;
 }
 
+type NormalizedRuntimeSuccessData<TData> = [TData] extends [void]
+  ? null
+  : undefined extends TData
+    ? Exclude<TData, undefined> | null
+    : TData;
+
 /**
  * Union type representing either a successful or failed runtime operation response.
  * Uses a discriminated union pattern with the ok field for type-safe error handling.
@@ -86,6 +92,35 @@ export interface RuntimeErrorResponse {
  * @template TData - The type of data returned on success
  */
 export type RuntimeResponse<TData> = RuntimeSuccessResponse<TData> | RuntimeErrorResponse;
+
+/**
+ * Creates a successful runtime response envelope.
+ *
+ * @template TData - The type of data returned on success
+ * @param data - The payload to include in the response; defaults to null when omitted
+ * @returns A successful runtime response
+ */
+export function runtimeSuccessResponse(): RuntimeSuccessResponse<null>;
+export function runtimeSuccessResponse<TData>(data: TData): RuntimeSuccessResponse<NormalizedRuntimeSuccessData<TData>>;
+export function runtimeSuccessResponse<TData>(data?: TData): RuntimeSuccessResponse<NormalizedRuntimeSuccessData<TData>> {
+  return {
+    ok: true,
+    data: data ?? null,
+  } as RuntimeSuccessResponse<NormalizedRuntimeSuccessData<TData>>;
+}
+
+/**
+ * Creates a failed runtime response envelope.
+ *
+ * @param error - The error message to include in the response
+ * @returns A failed runtime response
+ */
+export function runtimeErrorResponse(error: string): RuntimeErrorResponse {
+  return {
+    ok: false,
+    error,
+  };
+}
 
 /**
  * Message sent to initiate a chat request with the LLM provider.
@@ -96,25 +131,9 @@ export interface ChatRequestMessage {
 }
 
 /**
- * Represents a successful chat response.
+ * Runtime response envelope for chat operations.
  */
-export interface ChatSuccessResponse {
-  ok: true;
-  data: ChatResponsePayload;
-}
-
-/**
- * Represents a failed chat response.
- */
-export interface ChatErrorResponse {
-  ok: false;
-  error: string;
-}
-
-/**
- * Union type representing either a successful or failed chat operation response.
- */
-export type ChatRuntimeResponse = ChatSuccessResponse | ChatErrorResponse;
+export type ChatRuntimeResponse = RuntimeResponse<ChatResponsePayload>;
 
 /**
  * Message sent during streaming chat responses containing a chunk of content.
@@ -141,29 +160,9 @@ export interface ScreenshotCaptureRequestMessage {
 }
 
 /**
- * Represents a successful screenshot capture response.
- */
-export interface ScreenshotCaptureSuccessResponse {
-  ok: true;
-  data: {
-    dataUrl: string;
-  };
-}
-
-/**
- * Represents a failed screenshot capture response.
- */
-export interface ScreenshotCaptureErrorResponse {
-  ok: false;
-  error: string;
-}
-
-/**
  * Union type representing either a successful or failed screenshot capture response.
  */
-export type ScreenshotCaptureRuntimeResponse =
-  | ScreenshotCaptureSuccessResponse
-  | ScreenshotCaptureErrorResponse;
+export type ScreenshotCaptureRuntimeResponse = RuntimeResponse<ScreenshotCaptureResponsePayload>;
 
 /**
  * Message sent to control panel behavior (toggle, open chat, open settings).
@@ -196,9 +195,6 @@ export interface GetPageContentToolPayload {
  */
 export interface SpeechStartRequestMessage {
   type: typeof speechStartRequestType;
-  payload: {
-    tabId: number;
-  };
 }
 
 /**
@@ -219,23 +215,7 @@ export interface SpeechResultMessage {
 /**
  * Represents a successful speech operation response.
  */
-export interface SpeechSuccessResponse {
-  ok: true;
-  data: Record<string, never>;
-}
-
-/**
- * Represents a failed speech operation response.
- */
-export interface SpeechErrorResponse {
-  ok: false;
-  error: string;
-}
-
-/**
- * Union type representing either a successful or failed speech operation response.
- */
-export type SpeechRuntimeResponse = SpeechSuccessResponse | SpeechErrorResponse;
+export type SpeechRuntimeResponse = RuntimeResponse<null>;
 
 /**
  * Type guard that checks if an unknown value is a RuntimeMessage with a specific type.
@@ -288,17 +268,19 @@ export function getRuntimeResponseData<TData>(response: RuntimeResponse<TData> |
  * @param task - The promise to wrap
  * @returns A promise that always resolves to a RuntimeResponse (never rejects)
  */
-export async function toRuntimeResponse<TData>(task: Promise<TData>): Promise<RuntimeResponse<TData>> {
+export async function toRuntimeResponse(task: Promise<void>): Promise<RuntimeResponse<null>>;
+export async function toRuntimeResponse<TData>(task: Promise<TData>): Promise<RuntimeResponse<NormalizedRuntimeSuccessData<TData>>>;
+export async function toRuntimeResponse<TData>(task: Promise<TData>): Promise<RuntimeResponse<NormalizedRuntimeSuccessData<TData>>> {
   try {
-    return {
-      ok: true,
-      data: await task,
-    };
+    const data = await task;
+
+    if (data === undefined) {
+      return runtimeSuccessResponse() as RuntimeResponse<NormalizedRuntimeSuccessData<TData>>;
+    }
+
+    return runtimeSuccessResponse(data) as RuntimeResponse<NormalizedRuntimeSuccessData<TData>>;
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    return runtimeErrorResponse(error instanceof Error ? error.message : String(error));
   }
 }
 

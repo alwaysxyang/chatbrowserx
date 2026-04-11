@@ -1,9 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
   chatRequestType,
   createRuntimeMessageGuard,
   getRuntimeResponseData,
   hasRuntimeMessageType,
+  type RuntimeResponse,
+  type RuntimeSuccessResponse,
+  runtimeErrorResponse,
+  runtimeSuccessResponse,
   toRuntimeResponse,
 } from '../../../src/shared/types/runtime-messages';
 
@@ -25,10 +29,46 @@ describe('runtime message helpers', () => {
     expect(() => getRuntimeResponseData(undefined, 'fallback')).toThrow('fallback');
   });
 
+  it('builds runtime success and error responses through helpers', () => {
+    expectTypeOf(runtimeSuccessResponse()).toEqualTypeOf<RuntimeSuccessResponse<null>>();
+    expectTypeOf(runtimeSuccessResponse(undefined)).toEqualTypeOf<RuntimeSuccessResponse<null>>();
+    expect(runtimeSuccessResponse({ value: 1 })).toEqual({
+      ok: true,
+      data: { value: 1 },
+    });
+
+    expect(runtimeSuccessResponse()).toEqual({
+      ok: true,
+      data: null,
+    });
+
+    expect(runtimeSuccessResponse(undefined)).toEqual({
+      ok: true,
+      data: null,
+    });
+
+    expect(runtimeErrorResponse('failed')).toEqual({
+      ok: false,
+      error: 'failed',
+    });
+  });
+
   it('wraps async results into runtime response envelopes', async () => {
+    expectTypeOf(toRuntimeResponse(Promise.resolve())).toEqualTypeOf<Promise<RuntimeResponse<null>>>();
+    expectTypeOf(toRuntimeResponse(Promise.resolve(undefined))).toEqualTypeOf<Promise<RuntimeResponse<null>>>();
     await expect(toRuntimeResponse(Promise.resolve({ value: 1 }))).resolves.toEqual({
       ok: true,
       data: { value: 1 },
+    });
+
+    await expect(toRuntimeResponse(Promise.resolve())).resolves.toEqual({
+      ok: true,
+      data: null,
+    });
+
+    await expect(toRuntimeResponse(Promise.resolve(undefined))).resolves.toEqual({
+      ok: true,
+      data: null,
     });
 
     await expect(toRuntimeResponse(Promise.reject(new Error('failed')))).resolves.toEqual({

@@ -1,6 +1,14 @@
-import { handleChatRequest, cancelChatRequest } from './chat-orchestrator';
+import { ChatOrchestrator } from './chat-orchestrator';
 import { registerScreenshotCaptureHandler } from './screenshot-capture';
-import { chatSessionPortName, isChatRequestMessage, isChatCancelMessage, toRuntimeResponse } from '../../shared/types/runtime-messages';
+import {
+  chatSessionPortName,
+  isChatCancelMessage,
+  isChatRequestMessage,
+  runtimeErrorResponse,
+  toRuntimeResponse,
+} from '../../shared/types/runtime-messages';
+
+const chatOrchestrator = new ChatOrchestrator();
 
 /**
  * Initialize chat module
@@ -16,7 +24,13 @@ export function initChatModule(): void {
       return undefined;
     }
 
-    void toRuntimeResponse(handleChatRequest(message.payload, sender.tab?.id)).then(sendResponse);
+    const tabId = sender.tab?.id;
+    if (tabId == null) {
+      sendResponse(runtimeErrorResponse('No tab ID'));
+      return true;
+    }
+
+    void toRuntimeResponse(chatOrchestrator.complete(tabId, message.payload)).then(sendResponse);
 
     return true;
   });
@@ -29,7 +43,7 @@ export function initChatModule(): void {
 
     const tabId = sender.tab?.id;
     if (tabId != null) {
-      cancelChatRequest(tabId);
+      chatOrchestrator.cancel(tabId);
     }
 
     return undefined;
@@ -47,7 +61,7 @@ export function initChatModule(): void {
     }
 
     port.onDisconnect.addListener(() => {
-      cancelChatRequest(tabId);
+      chatOrchestrator.cancel(tabId);
     });
   });
 }

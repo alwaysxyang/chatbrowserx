@@ -1,18 +1,26 @@
 /**
- * Captures audio from a browser tab using Chrome's tabCapture API and converts it to PCM 16k mono.
+ * Captures audio from a browser tab using Chrome's tabCapture API.
+ * Provides audio chunks via callback for provider-specific processing.
  */
 export class AudioCapture {
   private mediaStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
   private sourceNode: MediaStreamAudioSourceNode | null = null;
-  private workletNode: AudioWorkletNode | null = null;
-  private pendingSamples: number[] = [];
-  private readonly chunkSampleCount = 4000; // ~250ms at 16kHz
+  private recorder: MediaRecorder | null = null;
 
   /**
    * Starts capturing audio from the current tab.
+   * @param onAudioData - Callback that receives audio data chunks as ArrayBuffer
+   * @param chunkInterval - Interval in milliseconds for audio chunks (default: 250ms)
    */
-  async start(_tabId: number, onAudioData: (data: ArrayBuffer) => void): Promise<void> {
+  async start(
+    onAudioData: (data: ArrayBuffer) => void,
+    chunkInterval: number = 250,
+  ): Promise<void> {
+    if (this.mediaStream) {
+      throw new Error('Audio capture already started');
+    }
+
     this.mediaStream = await new Promise<MediaStream>((resolve, reject) => {
       chrome.tabCapture.capture(
         {
@@ -30,28 +38,34 @@ export class AudioCapture {
       );
     });
 
-    this.audioContext = new AudioContext({ sampleRate: 16000 });
-    await this.audioContext.audioWorklet.addModule(chrome.runtime.getURL('src/background/speech/pcm-capture-worklet.js'));
-
+    // Create audio context to keep the stream active
+    this.audioContext = new AudioContext();
     this.sourceNode = this.audioContext.createMediaStreamSource(this.mediaStream);
-    this.workletNode = new AudioWorkletNode(this.audioContext, 'pcm-capture-processor');
+    this.sourceNode.connect(this.audioContext.destination);
 
-    this.workletNode.port.onmessage = (event: MessageEvent<Float32Array>) => {
-      this.handleFloatSamples(event.data, onAudioData);
+    // Use MediaRecorder to capture audio chunks
+    this.recorder = new MediaRecorder(this.mediaStream, { mimeType: 'audio/webm' });
+
+    this.recorder.ondataavailable = async (event: BlobEvent) => {
+      if (event.data.size > 0) {
+        const buffer = await event.data.arrayBuffer();
+        onAudioData(buffer);
+      }
     };
 
-    this.sourceNode.connect(this.workletNode);
-    this.workletNode.connect(this.audioContext.destination);
+    this.recorder.start(chunkInterval);
   }
 
   /**
    * Stops capturing audio and cleans up resources.
    */
   stop(): void {
-    if (this.workletNode) {
-      this.workletNode.port.onmessage = null;
-      this.workletNode.disconnect();
-      this.workletNode = null;
+    if (this.recorder) {
+      this.recorder.ondataavailable = null;
+      if (this.recorder.state !== 'inactive') {
+        this.recorder.stop();
+      }
+      this.recorder = null;
     }
 
     if (this.sourceNode) {
@@ -68,25 +82,12 @@ export class AudioCapture {
       this.mediaStream.getTracks().forEach((track) => track.stop());
       this.mediaStream = null;
     }
-
-    this.pendingSamples = [];
   }
 
-  private handleFloatSamples(input: Float32Array, onAudioData: (data: ArrayBuffer) => void): void {
-    for (let index = 0; index < input.length; index += 1) {
-      this.pendingSamples.push(input[index]);
-    }
-
-    while (this.pendingSamples.length >= this.chunkSampleCount) {
-      const chunk = this.pendingSamples.splice(0, this.chunkSampleCount);
-      const pcmData = new Int16Array(chunk.length);
-
-      for (let index = 0; index < chunk.length; index += 1) {
-        const sample = Math.max(-1, Math.min(1, chunk[index]));
-        pcmData[index] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
-      }
-
-      onAudioData(pcmData.buffer);
-    }
+  /**
+   * Checks if audio capture is currently active.
+   */
+  isActive(): boolean {
+    return this.mediaStream !== null && this.recorder !== null;
   }
 }

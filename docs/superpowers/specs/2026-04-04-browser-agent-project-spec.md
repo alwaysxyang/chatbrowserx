@@ -38,12 +38,14 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - 聊天输入支持由用户主动触发的截图图片输入，包括当前可视窗口截图、选区截图与选区长截图；截图结果作为 Data URL `image_url` 多模态输入发送给模型。
 - 聊天输入支持在输入框中直接粘贴图片；粘贴结果作为 Data URL `image_url` 多模态输入发送给模型。
 - `llm/tools` 的接口、注册边界与首个页面内容读取工具能力。
+- 最小语音字幕链路：content 侧字幕 overlay、启动/停止识别交互、background 侧语音编排，以及识别结果回推到当前 tab。
+- 语音设置持久化：provider、源语言、目标语言与语音服务凭证。
 
 ### 3.2 当前阶段不做
 
 以下能力不属于当前阶段的首批实现：
 
-- 语音识别 / 同声传译。
+- 完整的语音识别 / 同声传译产品化能力（当前仅保留最小字幕链路，不扩展更复杂的语音工作流、历史持久化或多场景复用）。
 - 独立的图片分析 / 截图分析工具。
 - PDF / 通用滚动捕获能力（聊天输入中的选区长截图除外）。
 - 网络录制 / 页面流量分析。
@@ -62,11 +64,13 @@ src/
         clipboard/
         message/
         screenshot/
+      speech/
       settings/
     tools/
     popup/
   background/
     chat/
+    speech/
     messaging/
     index.ts
   llm/
@@ -93,6 +97,7 @@ src/
 - 内容脚本场景下的 UI 入口。
 - 负责创建 Shadow Root、挂载 React 应用、组织聊天与设置界面。
 - `ContentApp.tsx` 应保持为视图装配层；与面板开关、持久化、语言 hydration、overlay 会话、宽度拖拽相关的副作用与状态组织，可收敛到独立 hook（如 `use-content-shell`）中。
+- 与字幕 overlay 相关的展示状态，应优先保留在 content 侧控制器中，不额外经由 background/storage 做镜像持久化，除非后续需求明确要求跨重挂载恢复。
 - 不直接实现 provider 请求逻辑。
 - 不直接承担流式解析、tool loop、Chrome 后台任务。
 - 允许在轻量控制器（如 `use-chat-controller`）中维护聊天 UI 状态、调用 background 消息接口，以及处理滚动跟随、输入态、流式输出文本展示等交互细节，但不得直接依赖 provider 实现或 Chrome API。
@@ -112,8 +117,18 @@ src/
   - 聊天请求进行中的流式文本（在 loading 气泡中展示）；
   - 聊天中断状态（例如被用户停止时标记为 `interrupted` 并展示提示图标）；
   - 自动滚动到底的行为。
-  - 待发送图片输入状态（截图或剪贴板图片），并在提交时组装为 `text` / `image_url` 多模态 content。
+- 待发送图片输入状态（截图或剪贴板图片），并在提交时组装为 `text` / `image_url` 多模态 content。
 - 不直接依赖具体 provider，实现与 provider 的交互必须经过 `background` + `llm/services`。
+
+#### `src/ui/content/speech`
+
+- 负责网页内字幕 overlay 与语音识别开关交互。
+- 允许在轻量控制器（如 `use-subtitle-controller`）中维护字幕展示状态，并监听 background 回推的识别结果消息。
+- 字幕展示状态默认属于本地 UI 状态：
+  - 启动识别时进入 listening 状态；
+  - 收到 `speechResult` 后更新字幕文本；
+  - 停止识别或请求失败时回滚/清空本地状态。
+- 不负责语音服务编排、音频采集或 provider 凭证校验，这些能力必须留在 `background` 或更下层服务中。
 
 #### `src/ui/content/settings`
 
@@ -159,6 +174,13 @@ src/
   - 在调用结束后清理控制器，避免泄漏。
 - 可为 `llm/tools` 注入工具运行时依赖，例如“当前 tab 对应的 background 工具桥接能力”。
 - 负责聊天截图输入所需的后台截图桥接；截图捕获逻辑放在独立文件（如 `screenshot-capture.ts`），`background/index.ts` 只做注册装配。
+
+#### `src/background/speech`
+
+- 负责语音识别后台编排。
+- 负责接收 `speechStart` / `speechStop` 消息，基于 `sender.tab.id` 识别当前 tab，并协调音频采集与识别服务。
+- 负责将识别结果通过 `speechResult` 回推给对应 content script。
+- 不负责字幕 UI 状态持久化；字幕展示状态默认由 `ui/content/speech` 本地维护。
 
 #### `src/background/tools`
 
@@ -223,11 +245,13 @@ src/
 - `settings-repository`：负责设置的读写与归一化，提供默认值与键名管理。
 - 设置归一化应优先以 provider 专属字段为准，并只在兼容旧数据时回填顶层别名字段。
 - `chat-history-repository`：按“归一化 hostname”（例如 `www.baidu.com` → `baidu.com`）维度存储与读取聊天历史，保证同一站点下多页面共享历史。
+- `speech-settings-repository`：负责语音设置的读写与默认值管理，不承载运行中的字幕展示状态。
 
 #### `src/shared/types`
 
 - 跨模块共享类型（包括聊天消息结构、runtime 消息协议、设置类型、语言枚举等）。
 - 聊天消息类型需要承载图文混排输入协议，供 UI / background / llm 在不引入 provider 细节的前提下共享。
+- runtime 消息类型应统一复用共享响应包裹类型，例如 `ChatRuntimeResponse = RuntimeResponse<ChatResponsePayload>`、`SpeechRuntimeResponse = RuntimeResponse<null>`，避免为同类成功/失败协议重复定义平行类型。
 - 设置类型允许提供少量只读 selector/helper，用于统一读取当前激活 provider 的 `baseUrl`、凭证与 `model`，避免在各层重复分支判断。
 
 #### `src/shared/utils`
@@ -410,3 +434,15 @@ src/
 - Next Phase
   - Continue with the planned provider/service layer refactoring tasks on top of the stabilized shared type contracts.
 
+### Phase 2: Speech Subtitle Flow Simplification (2026-04-11)
+
+- Completed items
+  - Removed the extra subtitle state round-trip through background runtime messages and storage; subtitle display state now stays inside `/src/ui/content/speech/use-subtitle-controller.ts`.
+  - Reduced the speech runtime protocol to the three messages that are actually needed in the current implementation: `speechStart`, `speechStop`, and `speechResult`.
+  - Unified speech and chat runtime response typing around the shared `RuntimeResponse<T>` envelope, including `SpeechRuntimeResponse = RuntimeResponse<null>` and `ChatRuntimeResponse = RuntimeResponse<ChatResponsePayload>`.
+  - Completed verification for this phase: focused speech/chat tests plus full build all pass.
+
+- Benefits
+  - Reduced unnecessary cross-layer synchronization and made subtitle UI behavior easier to reason about.
+  - Kept responsibilities aligned with the intended boundaries: UI owns display state, background owns orchestration, shared types own protocol definitions.
+  - Improved response type consistency across runtime message contracts.

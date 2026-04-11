@@ -1,6 +1,11 @@
 import { SpeechOrchestrator } from './speech-orchestrator';
-import { isSpeechStartRequestMessage, isSpeechStopRequestMessage, toRuntimeResponse } from '../../shared/types/runtime-messages';
-import { clearSpeechState } from '../../shared/storage/speech-state-repository';
+import {
+  isSpeechStartRequestMessage,
+  isSpeechStopRequestMessage,
+  runtimeErrorResponse,
+  runtimeSuccessResponse,
+  toRuntimeResponse,
+} from '../../shared/types/runtime-messages';
 
 const speechOrchestrator = new SpeechOrchestrator();
 
@@ -17,7 +22,7 @@ export function initSpeechModule(): void {
 
     const tabId = sender.tab?.id;
     if (tabId == null) {
-      sendResponse({ ok: false, error: 'No tab ID' });
+      sendResponse(runtimeErrorResponse('No tab ID'));
       return true;
     }
 
@@ -37,7 +42,7 @@ export function initSpeechModule(): void {
       speechOrchestrator.stop(tabId);
     }
 
-    sendResponse({ ok: true, data: {} });
+    sendResponse(runtimeSuccessResponse());
 
     return true;
   });
@@ -46,9 +51,6 @@ export function initSpeechModule(): void {
   chrome.tabs.onRemoved.addListener((tabId) => {
     // Stop speech recognition if running for this tab
     speechOrchestrator.stop(tabId);
-
-    // Clear speech state for this tab
-    void clearSpeechState(tabId);
   });
 
   // Clean up all sessions when extension is suspended or reloaded

@@ -43,12 +43,14 @@ describe('background action click', () => {
   });
 
   it('cancels in-flight chat when the content runtime port disconnects', async () => {
-    const cancelChatRequest = vi.fn();
-    const handleChatRequest = vi.fn();
+    const cancelMock = vi.fn();
+    const completeMock = vi.fn();
 
     vi.doMock('../../src/background/chat/chat-orchestrator', () => ({
-      handleChatRequest,
-      cancelChatRequest,
+      ChatOrchestrator: vi.fn().mockImplementation(() => ({
+        complete: completeMock,
+        cancel: cancelMock,
+      })),
     }));
 
     await import('../../src/background/index');
@@ -60,6 +62,6 @@ describe('background action click', () => {
 
     port.__disconnect();
 
-    expect(cancelChatRequest).toHaveBeenCalledWith(37);
+    expect(cancelMock).toHaveBeenCalledWith(37);
   });
 });

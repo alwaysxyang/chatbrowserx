@@ -3,6 +3,7 @@ import {
   type ScreenshotCaptureRuntimeResponse,
   toRuntimeResponse,
 } from '../../shared/types/runtime-messages';
+import type { ScreenshotCaptureResponsePayload } from '../../shared/types/chat';
 
 async function captureVisibleTab(sender: chrome.runtime.MessageSender): Promise<string> {
   const dataUrl =
@@ -23,7 +24,9 @@ export function registerScreenshotCaptureHandler(): void {
       return undefined;
     }
 
-    void toRuntimeResponse(captureVisibleTab(sender).then((dataUrl) => ({ dataUrl }))).then((response) => {
+    void toRuntimeResponse<ScreenshotCaptureResponsePayload>(
+      captureVisibleTab(sender).then((dataUrl): ScreenshotCaptureResponsePayload => ({ dataUrl })),
+    ).then((response) => {
       sendResponse(response satisfies ScreenshotCaptureRuntimeResponse);
     });
 

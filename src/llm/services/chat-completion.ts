@@ -3,65 +3,76 @@ import { getActiveProviderModel, type ModelSettings } from '../../shared/types/s
 import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai/provider';
 import { CodexProvider } from '../providers/codex/provider';
-import { getDefaultToolRegistry, type ToolRegistry } from '../tools/tool-registry';
+import { getDefaultToolRegistry } from '../tools/tool-registry';
 import { runToolCallOrchestrator } from './tool-call-orchestrator';
 
-function toLlmMessages(settings: ModelSettings, history: ChatMessage[], input: ChatMessageContent): LlmChatMessage[] {
-  const trimmedHistory = history.slice(-settings.maxHistory);
-  const messages: LlmChatMessage[] = [];
-
-  if (settings.systemPrompt.trim()) {
-    messages.push({ role: 'system', content: settings.systemPrompt.trim() });
-  }
-
-  trimmedHistory.forEach((message) => {
-    if (message.role === 'user') {
-      messages.push({ role: 'user', content: getChatMessageTextContent(message.content) });
-      return;
-    }
-
-    messages.push({ role: 'assistant', content: getChatMessageTextContent(message.content) });
-  });
-
-  messages.push({ role: 'user', content: input });
-
-  return messages;
+export interface ChatCompletionServiceConfig {
+  settings: ModelSettings;
 }
 
-export async function completeChat(
-  settings: ModelSettings,
-  history: ChatMessage[],
-  input: ChatMessageContent,
-  onChunk?: (chunk: string) => void,
-  signal?: AbortSignal,
-  options?: {
-    provider?: ChatCompletionProvider;
-    toolRegistry?: ToolRegistry;
-  },
-): Promise<string> {
-  const provider =
-    options?.provider ??
-    (settings.provider === 'openai'
-      ? new OpenAiCompatibleProvider({
-          baseUrl: settings.openai.baseUrl,
-          apiKey: settings.openai.apiKey,
-        })
-      : new CodexProvider({
-          baseUrl: settings.codex.baseUrl,
-          accessToken: settings.codex.accessToken,
-        }));
-  const request: ChatCompletionInput = {
-    model: getActiveProviderModel(settings),
-    messages: toLlmMessages(settings, history, input),
-  };
+export class ChatCompletionService {
+  private config: ChatCompletionServiceConfig;
+  private readonly provider: ChatCompletionProvider;
 
-  return runToolCallOrchestrator(
-    request,
-    {
-      provider,
-      toolRegistry: options?.toolRegistry ?? getDefaultToolRegistry(),
-    },
-    onChunk,
-    signal,
-  );
+  constructor(config: ChatCompletionServiceConfig) {
+    this.config = config;
+    this.provider = this.createProvider(config.settings);
+  }
+
+  private createProvider(settings: ModelSettings): ChatCompletionProvider {
+    if (settings.provider === 'openai') {
+      return new OpenAiCompatibleProvider({
+        baseUrl: settings.openai.baseUrl,
+        apiKey: settings.openai.apiKey,
+      });
+    }
+    return new CodexProvider({
+      baseUrl: settings.codex.baseUrl,
+      accessToken: settings.codex.accessToken,
+    });
+  }
+
+  private toLlmMessages(history: ChatMessage[], input: ChatMessageContent): LlmChatMessage[] {
+    const trimmedHistory = history.slice(-this.config.settings.maxHistory);
+    const messages: LlmChatMessage[] = [];
+
+    if (this.config.settings.systemPrompt.trim()) {
+      messages.push({ role: 'system', content: this.config.settings.systemPrompt.trim() });
+    }
+
+    trimmedHistory.forEach((message) => {
+      if (message.role === 'user') {
+        messages.push({ role: 'user', content: getChatMessageTextContent(message.content) });
+        return;
+      }
+
+      messages.push({ role: 'assistant', content: getChatMessageTextContent(message.content) });
+    });
+
+    messages.push({ role: 'user', content: input });
+
+    return messages;
+  }
+
+  async complete(
+    history: ChatMessage[],
+    input: ChatMessageContent,
+    onChunk?: (chunk: string) => void,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    const request: ChatCompletionInput = {
+      model: getActiveProviderModel(this.config.settings),
+      messages: this.toLlmMessages(history, input),
+    };
+
+    return runToolCallOrchestrator(
+      request,
+      {
+        provider: this.provider,
+        toolRegistry: getDefaultToolRegistry(),
+      },
+      onChunk,
+      signal,
+    );
+  }
 }

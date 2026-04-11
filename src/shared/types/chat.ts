@@ -111,3 +111,7 @@ export interface ChatResponsePayload {
   /** The assistant's response text */
   reply: string;
 }
+
+export interface ScreenshotCaptureResponsePayload {
+  dataUrl: string;
+}

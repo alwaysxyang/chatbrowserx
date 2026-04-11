@@ -1,55 +1,86 @@
-import { completeChat } from '../../llm/services/chat-completion';
-import { getDefaultToolRegistry } from '../../llm/tools/tool-registry';
+import { ChatCompletionService } from '../../llm/services/chat-completion';
 import { loadSettings } from '../../shared/storage/settings-repository';
 import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types/chat';
 import { chatStreamChunkType } from '../../shared/types/runtime-messages';
 
-const controllers = new Map<number, AbortController>();
-
-export async function handleChatRequest(
-  payload: ChatRequestPayload,
-  tabId?: number,
-): Promise<ChatResponsePayload> {
-  const settings = await loadSettings();
-  const controller = new AbortController();
-
-  if (tabId != null) {
-    controllers.set(tabId, controller);
-  }
-
-  try {
-    const reply = await completeChat(
-      settings.model,
-      payload.history,
-      payload.input,
-      (chunk) => {
-        if (tabId == null || !chunk) return;
-
-        void chrome.tabs
-          .sendMessage(tabId as number, {
-            type: chatStreamChunkType,
-            payload: { content: chunk },
-          })
-          .catch(() => undefined);
-      },
-      controller.signal,
-      {
-        toolRegistry: getDefaultToolRegistry(),
-      },
-    );
-
-    return { reply };
-  } finally {
-    if (tabId != null) {
-      controllers.delete(tabId);
-    }
-  }
+interface ChatSession {
+  service: ChatCompletionService;
+  controller: AbortController;
 }
 
-export function cancelChatRequest(tabId: number): void {
-  const controller = controllers.get(tabId);
-  if (controller) {
-    controller.abort();
-    controllers.delete(tabId);
+/**
+ * Orchestrates chat completion requests
+ * Manages chat sessions per tab and handles streaming responses
+ */
+export class ChatOrchestrator {
+  private sessions = new Map<number, ChatSession>();
+
+  /**
+   * Handles a chat completion request for the specified tab
+   * @param tabId - The tab ID making the request
+   * @param payload - The chat request payload
+   * @returns The chat response
+   */
+  async complete(tabId: number, payload: ChatRequestPayload): Promise<ChatResponsePayload> {
+    if (this.sessions.has(tabId)) {
+      throw new Error(`Chat request already in progress for tab ${tabId}`);
+    }
+
+    // Load settings
+    const settings = await loadSettings();
+
+    // Create abort controller
+    const controller = new AbortController();
+
+    // Initialize chat completion service
+    const service = new ChatCompletionService({
+      settings: settings.model,
+    });
+
+    // Store session
+    this.sessions.set(tabId, { service, controller });
+
+    try {
+      const reply = await service.complete(
+        payload.history,
+        payload.input,
+        (chunk) => {
+          this.handleStreamChunk(tabId, chunk);
+        },
+        controller.signal,
+      );
+
+      return { reply };
+    } finally {
+      this.sessions.delete(tabId);
+    }
+  }
+
+  /**
+   * Cancels an ongoing chat request for the specified tab
+   * @param tabId - The tab ID to cancel
+   */
+  cancel(tabId: number): void {
+    const session = this.sessions.get(tabId);
+    if (!session) {
+      return;
+    }
+
+    session.controller.abort();
+    this.sessions.delete(tabId);
+  }
+
+  /**
+   * Handles streaming chunks by forwarding to the content script
+   */
+  private handleStreamChunk(tabId: number, chunk: string): void {
+    if (!chunk) return;
+
+    void chrome.tabs
+      .sendMessage(tabId, {
+        type: chatStreamChunkType,
+        payload: { content: chunk },
+      })
+      .catch(() => undefined);
   }
 }

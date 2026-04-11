@@ -11,6 +11,7 @@ type LocalStore = Record<string, unknown>;
 type RuntimeMessageListener = (message: unknown, sender: chrome.runtime.MessageSender, sendResponse: (response?: unknown) => void) => void | boolean;
 type ActionClickListener = (tab: chrome.tabs.Tab) => void;
 type RuntimeConnectListener = (port: chrome.runtime.Port) => void;
+type TabRemovedListener = (tabId: number, removeInfo: chrome.tabs.TabRemoveInfo) => void;
 
 interface TestPort extends chrome.runtime.Port {
   __disconnect: () => void;
@@ -28,6 +29,7 @@ const storageState: LocalStore = {};
 const runtimeMessageListeners = new Set<RuntimeMessageListener>();
 const actionClickListeners = new Set<ActionClickListener>();
 const runtimeConnectListeners = new Set<RuntimeConnectListener>();
+const tabRemovedListeners = new Set<TabRemovedListener>();
 
 const asyncCallback = (callback?: () => void) => {
   if (callback) {
@@ -108,6 +110,14 @@ const chromeMock = {
     sendMessage: vi.fn(),
     captureVisibleTab: vi.fn(),
     reload: vi.fn(),
+    onRemoved: {
+      addListener: vi.fn((listener: TabRemovedListener) => {
+        tabRemovedListeners.add(listener);
+      }),
+      removeListener: vi.fn((listener: TabRemovedListener) => {
+        tabRemovedListeners.delete(listener);
+      }),
+    },
   },
   scripting: {
     executeScript: vi.fn(),
@@ -136,6 +146,7 @@ beforeEach(() => {
   runtimeMessageListeners.clear();
   actionClickListeners.clear();
   runtimeConnectListeners.clear();
+  tabRemovedListeners.clear();
   chromeMock.runtime.sendMessage.mockReset();
   chromeMock.runtime.connect.mockReset();
   chromeMock.tabs.query.mockReset();
@@ -149,6 +160,8 @@ beforeEach(() => {
   chromeMock.runtime.onConnect.removeListener.mockClear();
   chromeMock.action.onClicked.addListener.mockClear();
   chromeMock.action.onClicked.removeListener.mockClear();
+  chromeMock.tabs.onRemoved.addListener.mockClear();
+  chromeMock.tabs.onRemoved.removeListener.mockClear();
 });
 
 Object.defineProperty(globalThis, '__chromeTestUtils', {

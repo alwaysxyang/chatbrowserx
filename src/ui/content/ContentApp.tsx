@@ -40,10 +40,12 @@ export function ContentApp() {
 
   const handleVoiceToggle = async (isActive: boolean) => {
     console.log('[ContentApp] Voice toggle:', isActive);
+    console.log('[ContentApp] Current subtitle state:', subtitle);
     try {
       if (isActive) {
         console.log('[ContentApp] Starting recognition...');
         await startRecognition();
+        console.log('[ContentApp] After startRecognition, subtitle:', subtitle);
       } else {
         console.log('[ContentApp] Stopping recognition...');
         await stopRecognition();
