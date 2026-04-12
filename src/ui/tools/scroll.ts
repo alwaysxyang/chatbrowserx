@@ -120,13 +120,23 @@ export async function scanPage<T>({
   windowObject = window,
   delayMs = 300,
   maxIterations = 128,
-  maxStableIterations = 2,
+  maxStableIterations = 3,
   onStep,
 }: ScanPageOptions<T>): Promise<T> {
-  const { element: scrollTarget, scrollHeight, clientHeight } = findMainScrollContainer(documentObject);
+  const { element: scrollTarget } = findMainScrollContainer(documentObject);
   const getScrollY = () => {
     if (scrollTarget === windowObject) return windowObject.scrollY;
     return (scrollTarget as HTMLElement).scrollTop;
+  };
+  const getScrollHeight = () => {
+    if (scrollTarget === windowObject) {
+      return documentObject.documentElement.scrollHeight;
+    }
+    return (scrollTarget as HTMLElement).scrollHeight;
+  };
+  const getClientHeight = () => {
+    if (scrollTarget === windowObject) return windowObject.innerHeight;
+    return (scrollTarget as HTMLElement).clientHeight;
   };
   const setScrollY = (y: number) => {
     if (scrollTarget === windowObject) windowObject.scrollTo(0, y);
@@ -159,6 +169,8 @@ export async function scanPage<T>({
 
     for (let iteration = 0; iteration < maxIterations; iteration += 1) {
       const currentY = getScrollY();
+      const currentScrollHeight = getScrollHeight();
+      const currentClientHeight = getClientHeight();
 
       if (currentY === lastScrollY) {
         noProgressCount += 1;
@@ -174,11 +186,11 @@ export async function scanPage<T>({
         break;
       }
 
-      if (currentY + clientHeight >= scrollHeight - 10) {
+      if (currentY + currentClientHeight >= currentScrollHeight - 10) {
         break;
       }
 
-      doScrollBy(clientHeight);
+      doScrollBy(currentClientHeight);
       await waitForDelay(delayMs);
     }
 

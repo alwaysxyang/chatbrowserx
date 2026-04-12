@@ -23,7 +23,7 @@ export function createGetPageContentTool(
       type: 'function',
       function: {
         name: 'get_current_page_content',
-        description: 'Get the current webpage title, url, and visible text content.',
+        description: 'Get the title, URL, and visible text content of the CURRENT browser tab that the user is viewing right now. ONLY use this tool when the user explicitly asks about "this page", "current page", "this website", or refers to content they are currently looking at in their browser. DO NOT use this tool for general search queries, web searches, or questions about other websites.',
         parameters: {
           type: 'object',
           properties: {},
