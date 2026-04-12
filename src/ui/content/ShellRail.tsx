@@ -1,4 +1,4 @@
-import { MessageCircleMore, Settings2, Mic, Square } from 'lucide-react';
+import { MessageCircleMore, Settings2, Mic, Square, FileText } from 'lucide-react';
 import { translateMessage } from '../../shared/i18n/i18n';
 
 interface ShellRailProps {
@@ -6,9 +6,10 @@ interface ShellRailProps {
   onSelectView: (view: 'chat' | 'settings') => void;
   onVoiceToggle?: (isActive: boolean) => void;
   isVoiceActive?: boolean;
+  onPdfCapture?: () => void;
 }
 
-export function ShellRail({ activeView, onSelectView, onVoiceToggle, isVoiceActive = false }: ShellRailProps) {
+export function ShellRail({ activeView, onSelectView, onVoiceToggle, isVoiceActive = false, onPdfCapture }: ShellRailProps) {
   return (
     <nav aria-label={translateMessage('shell.rail.navLabel')} className="shell-rail">
       <button
@@ -41,6 +42,19 @@ export function ShellRail({ activeView, onSelectView, onVoiceToggle, isVoiceActi
           )}
         </span>
         <span>{translateMessage('shell.rail.voice')}</span>
+      </button>
+
+      <button
+        aria-label={translateMessage('shell.rail.pdf')}
+        className="rail-button"
+        data-tooltip={translateMessage('shell.rail.pdf')}
+        type="button"
+        onClick={() => onPdfCapture?.()}
+      >
+        <span className="rail-icon">
+          <FileText className="h-3 w-3" strokeWidth={2.2} />
+        </span>
+        <span>{translateMessage('shell.rail.pdf')}</span>
       </button>
 
       <div className="rail-spacer" />

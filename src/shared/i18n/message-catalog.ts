@@ -85,7 +85,12 @@ export type MessageKey =
   | 'error.message.pageRefreshInterrupted'
   | 'popup.description'
   | 'subtitle.waiting'
-  | 'subtitle.listening';
+  | 'subtitle.listening'
+  | 'shell.rail.pdf'
+  | 'pdf.preview.title'
+  | 'pdf.preview.print'
+  | 'pdf.error.permission'
+  | 'pdf.error.failed';
 
 export const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.tabs.model': { zh: '模型', en: 'Model', ja: 'モデル' },
@@ -191,6 +196,19 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
   },
   'subtitle.waiting': { zh: '等待语音输入...', en: 'Waiting for voice input...', ja: '音声入力を待っています...' },
   'subtitle.listening': { zh: '正在聆听...', en: 'Listening...', ja: '聞いています...' },
+  'shell.rail.pdf': { zh: '转PDF', en: 'To PDF', ja: 'PDF化' },
+  'pdf.preview.title': { zh: 'PDF 预览', en: 'PDF Preview', ja: 'PDF プレビュー' },
+  'pdf.preview.print': { zh: '打印', en: 'Print', ja: '印刷' },
+  'pdf.error.permission': {
+    zh: '截图权限被拒绝',
+    en: 'Screenshot permission denied',
+    ja: 'スクリーンショット権限が拒否されました',
+  },
+  'pdf.error.failed': {
+    zh: '页面捕获失败',
+    en: 'Page capture failed',
+    ja: 'ページのキャプチャに失敗しました',
+  },
 };
 
 export function resolveLocale(uiLanguage: UiLanguage, browserLanguage: string | undefined, fallbackLocale: Locale): Locale {

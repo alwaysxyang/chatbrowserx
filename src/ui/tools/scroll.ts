@@ -111,7 +111,7 @@ interface ScanPageOptions<T> {
   delayMs?: number;
   maxIterations?: number;
   maxStableIterations?: number;
-  onStep?: (scrollTop: number) => boolean | void;
+  onStep?: (scrollTop: number) => boolean | void | Promise<boolean | void>;
 }
 
 export async function scanPage<T>({
@@ -140,9 +140,12 @@ export async function scanPage<T>({
   let toast: HTMLElement = createToolStatusToast(documentObject, translateMessage('tools.scroll.loading'));
   if (onStep) {
     const previousOnStep = onStep;
-    onStep = (scrollTop: number): boolean | void => {
+    onStep = async (scrollTop: number): Promise<boolean | void> => {
       toast.remove();
-      const result = previousOnStep(scrollTop);
+      await new Promise(resolve => requestAnimationFrame(() => {
+        requestAnimationFrame(resolve);
+      }));
+      const result = await previousOnStep(scrollTop);
       toast = createToolStatusToast(documentObject, translateMessage('tools.scroll.loading'));
       return result;
     };
@@ -167,7 +170,7 @@ export async function scanPage<T>({
       }
 
       lastScrollY = currentY;
-      if (onStep?.(currentY) === false) {
+      if ((await onStep?.(currentY)) === false) {
         break;
       }
 

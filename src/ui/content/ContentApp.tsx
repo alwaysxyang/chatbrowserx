@@ -12,6 +12,7 @@ import { translateMessage } from '../../shared/i18n/i18n';
 import { normalizeHostnameForStorage } from './content-panel-state';
 import { requestVisibleTabScreenshot } from './content-screenshot-bridge';
 import { useContentShell } from './use-content-shell';
+import { capturePage } from './pdf/pdf-capture';
 
 export function ContentApp() {
   const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
@@ -43,6 +44,18 @@ export function ContentApp() {
       await (isActive ? startRecognition() : stopRecognition());
     } catch (error) {
       console.error('Voice toggle error:', error);
+    }
+  };
+
+  const handlePdfCapture = async () => {
+    try {
+      setIsOpen(false);
+      await capturePage();
+    } catch (error) {
+      console.error('PDF capture error:', error);
+      alert(translateMessage('pdf.error.failed'));
+    } finally {
+      setIsOpen(true);
     }
   };
 
@@ -117,6 +130,7 @@ export function ContentApp() {
                 onSelectView={setActiveView}
                 onVoiceToggle={handleVoiceToggle}
                 isVoiceActive={subtitle.isActive}
+                onPdfCapture={handlePdfCapture}
               />
             </div>
           </div>
