@@ -2,6 +2,7 @@ import type { ChatCompletionInput, ChatCompletionProvider, LlmToolCall } from '.
 import {
   createToolRegistry,
   type ToolRegistry,
+  type ToolInvokeResult,
 } from '../tools/tool-registry';
 
 const defaultMaxIterations = 16;
@@ -12,6 +13,9 @@ interface ToolCallOrchestratorOptions {
   maxIterations?: number;
 }
 
+/**
+ * Parse a tool call's JSON arguments into an object payload.
+ */
 function parseToolArguments(toolCall: LlmToolCall): Record<string, unknown> {
   const rawArguments = toolCall.function.arguments?.trim();
 
@@ -29,6 +33,28 @@ function parseToolArguments(toolCall: LlmToolCall): Record<string, unknown> {
   }
 }
 
+/**
+ * Convert a tool execution failure into a JSON tool payload that the model can inspect.
+ */
+function buildToolErrorContent(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  return JSON.stringify({ error: message });
+}
+
+/**
+ * Convert a tool invocation result into the string payload required by tool messages.
+ */
+function serializeToolResult(result: ToolInvokeResult): string {
+  if (typeof result === 'string') {
+    return result;
+  }
+
+  return JSON.stringify(result) ?? 'null';
+}
+
+/**
+ * Run the tool loop until the model returns a final assistant message or the loop limit is exceeded.
+ */
 export async function runToolCallOrchestrator(
   input: ChatCompletionInput,
   options: ToolCallOrchestratorOptions,
@@ -44,7 +70,7 @@ export async function runToolCallOrchestrator(
       {
         model: input.model,
         messages,
-        tools: toolRegistry.getDefinitions(),
+        tools: await toolRegistry.getDefinitions(),
       },
       onChunk,
       signal,
@@ -65,14 +91,23 @@ export async function runToolCallOrchestrator(
           throw new Error(`TOOL_NOT_REGISTERED: ${toolCall.function.name}`);
         }
 
-        const content = await tool.invoke(parseToolArguments(toolCall));
+        try {
+          const content = serializeToolResult(await tool.invoke(parseToolArguments(toolCall)));
 
-        return {
-          role: 'tool' as const,
-          toolCallId: toolCall.id,
-          name: toolCall.function.name,
-          content,
-        };
+          return {
+            role: 'tool' as const,
+            toolCallId: toolCall.id,
+            name: toolCall.function.name,
+            content,
+          };
+        } catch (error) {
+          return {
+            role: 'tool' as const,
+            toolCallId: toolCall.id,
+            name: toolCall.function.name,
+            content: buildToolErrorContent(error),
+          };
+        }
       }),
     );
 

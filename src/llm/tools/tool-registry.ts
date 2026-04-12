@@ -1,3 +1,5 @@
+export type ToolInvokeResult = unknown;
+
 export interface ToolDefinition {
   type: 'function';
   function: {
@@ -9,12 +11,12 @@ export interface ToolDefinition {
 
 export interface LlmToolModule {
   name: () => string;
-  definition: () => ToolDefinition;
-  invoke: (argumentsObject: Record<string, unknown>) => Promise<string> | string;
+  definition: () => Promise<ToolDefinition | null> | ToolDefinition | null;
+  invoke: (argumentsObject: Record<string, unknown>) => Promise<ToolInvokeResult> | ToolInvokeResult;
 }
 
 export interface ToolRegistry {
-  getDefinitions: () => ToolDefinition[];
+  getDefinitions: () => Promise<ToolDefinition[]>;
   getTool: (name: string) => LlmToolModule | undefined;
   addTool: (tool: LlmToolModule) => void;
 }
@@ -23,7 +25,10 @@ export function createToolRegistry(): ToolRegistry {
   const toolMap = new Map<string, LlmToolModule>();
 
   return {
-    getDefinitions: () => Array.from(toolMap.values()).map((tool) => tool.definition()),
+    getDefinitions: async () => {
+      const definitions = await Promise.all(Array.from(toolMap.values()).map((tool) => tool.definition()));
+      return definitions.filter((definition): definition is ToolDefinition => definition !== null);
+    },
     getTool: (name) => toolMap.get(name),
     addTool: (tool) => {
       toolMap.set(tool.name(), tool);
@@ -56,3 +61,4 @@ export function createDefaultToolRegistry(): ToolRegistry {
 }
 
 import './get-page-content-tool';
+import './tavily';

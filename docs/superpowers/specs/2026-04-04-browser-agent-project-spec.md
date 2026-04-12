@@ -40,6 +40,9 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
   - 类型：feature spec
   - 用途：speech 子域的当前实现与未来设计说明
+- `docs/superpowers/specs/2026-04-12-tavily-tools-design.md`
+  - 类型：feature spec / folder spec
+  - 用途：`src/llm/tools/tavily` 与 Tavily 设置、可见性、调用链路说明
 - `docs/superpowers/specs/2026-04-10-refactoring-design.md`
   - 类型：归档文档
   - 用途：记录历史重构背景，不作为当前实现约束来源
@@ -69,6 +72,10 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
   - 剪贴板图片输入
   - 聊天图片预览
 - `llm/tools` 的接口边界与首个页面内容读取工具
+- 基于 Tavily 的最小网页搜索工具：
+  - `tavily_search`
+  - `tavily_extract`
+  - `tavily_crawl`
 - 最小语音骨架：
   - 语音按钮
   - 字幕 overlay
@@ -84,7 +91,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - PDF 能力
 - 通用滚动捕获能力（聊天输入中的选区长截图除外）
 - 网络录制 / 页面流量分析
-- 除首个页面内容读取工具之外的其他具体工具实现
+- 除当前页面内容读取工具与 Tavily 搜索工具之外的其他具体工具实现
 
 ## 5. 当前目录结构
 
@@ -101,6 +108,8 @@ src/
     providers/
     services/
     tools/
+      shared/
+      tavily/
   shared/
     i18n/
     storage/
@@ -141,6 +150,7 @@ src/
 
 - 负责设置面板与表单交互。
 - 负责模型设置、通用设置、语音设置的展示、编辑、保存反馈。
+- 模型设置当前包括 provider 配置、system prompt、history 上限与 `Tavily Key`。
 - 不直接访问 provider 实现。
 
 #### `src/ui/content/speech`
@@ -207,11 +217,15 @@ src/
 
 - 负责基于 provider 的高层调用服务。
 - 当前包含聊天完成与 tool call 编排。
+- tool call 编排在工具执行失败时，会把错误作为 tool result 回传给模型，由模型决定后续处理，而不是直接终止整轮聊天。
 
 #### `src/llm/tools`
 
 - 定义工具抽象、工具注册与工具级接口。
-- 当前只保留首个页面内容读取工具。
+- 当前包括首个页面内容读取工具与 Tavily 网页搜索工具。
+- `src/llm/tools/shared` 负责多个工具可复用的参数读取与请求辅助，不承载具体工具 definition。
+- `src/llm/tools/tavily` 的细化约束见 `docs/superpowers/specs/2026-04-12-tavily-tools-design.md`。
+- 工具 `invoke()` 允许返回任意可序列化内容；统一由 tool loop 在写回模型前完成字符串化，工具模块本身不应重复手动序列化 JSON。
 
 ### 6.4 `src/shared`
 

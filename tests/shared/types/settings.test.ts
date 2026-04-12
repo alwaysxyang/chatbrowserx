@@ -13,6 +13,7 @@ const baseSettings: ModelSettings = {
   model: 'openai-primary',
   systemPrompt: 'system prompt',
   maxHistory: 12,
+  tavilyApiKey: 'tavily-key',
   openai: {
     apiKey: 'openai-key',
     model: 'openai-primary',

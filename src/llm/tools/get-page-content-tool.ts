@@ -37,7 +37,7 @@ export function createGetPageContentTool(
         type: getPageContentToolRequestType,
       }) as GetPageContentToolPayload;
 
-      return JSON.stringify(response);
+      return response;
     },
   };
 }

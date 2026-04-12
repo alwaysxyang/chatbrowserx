@@ -14,6 +14,7 @@ describe('SettingsPanel', () => {
           baseUrl: 'https://example.com/v1',
           systemPrompt: 'saved prompt',
           maxHistory: 12,
+          tavilyApiKey: 'saved-tavily-key',
         },
         general: {
           uiLanguage: 'system',
@@ -26,10 +27,13 @@ describe('SettingsPanel', () => {
     await waitFor(() => {
       expect(screen.getByLabelText('API Key')).toHaveValue('saved-key');
     });
+    expect(screen.getByLabelText('Tavily Key')).toHaveValue('saved-tavily-key');
 
     const user = userEvent.setup();
     await user.clear(screen.getByLabelText('Model'));
     await user.type(screen.getByLabelText('Model'), 'new-model');
+    await user.clear(screen.getByLabelText('Tavily Key'));
+    await user.type(screen.getByLabelText('Tavily Key'), 'new-tavily-key');
     const saveButton = screen.getByRole('button', { name: '保存设置' });
     await user.click(saveButton);
 
@@ -37,6 +41,7 @@ describe('SettingsPanel', () => {
     await waitFor(async () => {
       const saved = await chrome.storage.local.get('chatbrowserx.settings');
       expect((saved['chatbrowserx.settings'] as { model: { model: string } }).model.model).toBe('new-model');
+      expect((saved['chatbrowserx.settings'] as { model: { tavilyApiKey: string } }).model.tavilyApiKey).toBe('new-tavily-key');
     });
   });
 

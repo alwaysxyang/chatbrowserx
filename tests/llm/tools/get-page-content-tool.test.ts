@@ -15,13 +15,11 @@ describe('get page content tool', () => {
 
     const tool = createGetPageContentTool();
 
-    await expect(tool.invoke({})).resolves.toBe(
-      JSON.stringify({
-        title: 'Example title',
-        url: 'https://example.com/article',
-        content: 'Example body text',
-      }),
-    );
+    await expect(tool.invoke({})).resolves.toEqual({
+      title: 'Example title',
+      url: 'https://example.com/article',
+      content: 'Example body text',
+    });
     expect(tabsQueryMock).toHaveBeenCalledWith({ active: true, currentWindow: true });
     expect(tabsSendMessageMock).toHaveBeenCalledWith(9, {
       type: 'chatbrowserx.tool.get-page-content.request',

@@ -3,6 +3,7 @@ import type { ModelSettings } from '../../../../src/shared/types/settings';
 import {
   updateCodexSettings,
   updateOpenAiSettings,
+  updateSharedModelSettings,
   updateProvider,
 } from '../../../../src/ui/content/settings/model-settings-helpers';
 
@@ -11,6 +12,7 @@ const baseSettings: ModelSettings = {
   model: 'openai-model',
   systemPrompt: 'system prompt',
   maxHistory: 20,
+  tavilyApiKey: 'tavily-key',
   openai: {
     apiKey: 'openai-key',
     model: 'openai-model',
@@ -56,5 +58,13 @@ describe('model settings helpers', () => {
       accessToken: 'codex-next-token',
     });
     expect(result.openai).toEqual(baseSettings.openai);
+  });
+
+  it('updates shared model settings including the Tavily API key', () => {
+    const result = updateSharedModelSettings(baseSettings, 'tavilyApiKey', 'next-tavily-key');
+
+    expect(result.tavilyApiKey).toBe('next-tavily-key');
+    expect(result.openai).toEqual(baseSettings.openai);
+    expect(result.codex).toEqual(baseSettings.codex);
   });
 });

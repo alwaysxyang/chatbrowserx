@@ -7,7 +7,7 @@ import {
 } from '../../../src/llm/tools/tool-registry';
 
 describe('tool registry', () => {
-  it('returns definitions and resolves tools by name', () => {
+  it('returns definitions and resolves tools by name', async () => {
     const echoTool: LlmToolModule = {
       name: () => 'echo',
       definition: () => ({
@@ -30,23 +30,41 @@ describe('tool registry', () => {
     const registry = createToolRegistry();
     registry.addTool(echoTool);
 
-    expect(registry.getDefinitions()).toEqual([echoTool.definition()]);
+    await expect(registry.getDefinitions()).resolves.toEqual([echoTool.definition()]);
     expect(registry.getTool('echo')).toBe(echoTool);
     expect(registry.getTool('missing')).toBeUndefined();
   });
 
-  it('defaults to an empty registry', () => {
+  it('filters out null tool definitions', async () => {
+    const hiddenTool: LlmToolModule = {
+      name: () => 'hidden',
+      definition: async () => null,
+      invoke: async () => 'hidden',
+    };
+
+    const registry = createToolRegistry();
+    registry.addTool(hiddenTool);
+
+    await expect(registry.getDefinitions()).resolves.toEqual([]);
+    expect(registry.getTool('hidden')).toBe(hiddenTool);
+  });
+
+  it('defaults to an empty registry', async () => {
     const registry = createToolRegistry();
 
-    expect(registry.getDefinitions()).toEqual([]);
+    await expect(registry.getDefinitions()).resolves.toEqual([]);
     expect(registry.getTool('anything')).toBeUndefined();
   });
 
-  it('registers default tool modules', () => {
+  it('registers default tool modules', async () => {
     const registry = createDefaultToolRegistry();
 
     expect(registry.getTool('get_current_page_content')).toBeDefined();
-    expect(registry.getDefinitions().map((definition) => definition.function.name)).toContain('get_current_page_content');
+    expect(registry.getTool('tavily_search')).toBeDefined();
+
+    const definitions = await registry.getDefinitions();
+    expect(definitions.map((definition) => definition.function.name)).toContain('get_current_page_content');
+    expect(definitions.map((definition) => definition.function.name)).not.toContain('tavily_search');
   });
 
   it('allows tool modules to register themselves into the global registry', async () => {

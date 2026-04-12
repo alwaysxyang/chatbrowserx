@@ -14,6 +14,7 @@ export type MessageKey =
   | 'settings.fields.provider'
   | 'settings.fields.apiBaseUrl'
   | 'settings.fields.apiKey'
+  | 'settings.fields.tavilyApiKey'
   | 'settings.fields.model'
   | 'settings.codex.fields.accessToken'
   | 'settings.fields.systemPrompt'
@@ -104,6 +105,7 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.fields.provider': { zh: 'Provider', en: 'Provider', ja: 'プロバイダ' },
   'settings.fields.apiBaseUrl': { zh: 'API Base URL', en: 'API Base URL', ja: 'API Base URL' },
   'settings.fields.apiKey': { zh: 'API Key', en: 'API Key', ja: 'API Key' },
+  'settings.fields.tavilyApiKey': { zh: 'Tavily Key', en: 'Tavily Key', ja: 'Tavily Key' },
   'settings.codex.fields.accessToken': { zh: 'Codex ACCESS_TOKEN', en: 'Codex ACCESS_TOKEN', ja: 'Codex ACCESS_TOKEN' },
   'settings.fields.model': { zh: 'Model', en: 'Model', ja: 'モデル' },
   'settings.fields.systemPrompt': { zh: 'System Prompt', en: 'System Prompt', ja: 'システムプロンプト' },

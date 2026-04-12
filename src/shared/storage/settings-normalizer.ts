@@ -14,6 +14,7 @@ export const defaultSettings: Settings = {
         model: '',
         systemPrompt: 'You are ChatBrowserX, a helpful browser agent assistant.',
         maxHistory: 50,
+        tavilyApiKey: '',
         openai: {
             apiKey: '',
             model: '',
@@ -68,6 +69,7 @@ function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
         defaultSettings.model.codex.baseUrl;
     const systemPrompt = readNonEmptyString(model.systemPrompt) ?? defaultSettings.model.systemPrompt;
     const maxHistory = readPositiveNumber(model.maxHistory) ?? defaultSettings.model.maxHistory;
+    const tavilyApiKey = readString(model.tavilyApiKey) ?? defaultSettings.model.tavilyApiKey;
     const openaiApiKey = readString(model.openai?.apiKey) ?? readString(model.apiKey) ?? defaultSettings.model.openai.apiKey;
     const openaiModelName =
         readString(model.openai?.model) ??
@@ -89,6 +91,7 @@ function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
         model: aliasModelName,
         systemPrompt,
         maxHistory,
+        tavilyApiKey,
         openai: {
             apiKey: openaiApiKey,
             model: openaiModelName,

@@ -16,9 +16,17 @@ interface ChatSettingsFormProps {
   onChange: (nextValue: ModelSettings) => void;
 }
 
+/**
+ * Render the model settings form for provider credentials and shared model configuration.
+ */
 export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsFormProps) {
-  const [showApiKey, setShowApiKey] = useState(false);
+  const [showProviderCredential, setShowProviderCredential] = useState(false);
+  const [showTavilyApiKey, setShowTavilyApiKey] = useState(false);
   const activeProvider = getActiveProviderFormValues(value);
+
+  /**
+   * Update the fields that belong to the currently selected provider.
+   */
   const updateProviderConnection = (nextValue: Partial<ModelSettings['openai']> | Partial<ModelSettings['codex']>) => {
     if (activeProvider.isOpenAi) {
       onChange(updateOpenAiSettings(value, nextValue as Partial<ModelSettings['openai']>));
@@ -72,7 +80,7 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           {activeProvider.isOpenAi ? (
             <input
               aria-label={translateMessage('settings.fields.apiKey')}
-              type={showApiKey ? 'text' : 'password'}
+              type={showProviderCredential ? 'text' : 'password'}
               value={activeProvider.credential}
               onChange={(event) => onChange(updateOpenAiSettings(value, { apiKey: event.target.value }))}
             />
@@ -80,23 +88,54 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
             <textarea
               aria-label={translateMessage('settings.codex.fields.accessToken')}
               rows={5}
-              value={showApiKey ? activeProvider.credential : '•'.repeat(activeProvider.credential ? activeProvider.credential.length : 8)}
+              value={
+                showProviderCredential
+                  ? activeProvider.credential
+                  : '•'.repeat(activeProvider.credential ? activeProvider.credential.length : 8)
+              }
               onChange={
-                showApiKey
+                showProviderCredential
                   ? (event) => onChange(updateCodexSettings(value, { accessToken: event.target.value }))
                   : undefined
               }
-              readOnly={!showApiKey}
+              readOnly={!showProviderCredential}
             />
           )}
           <button
             type="button"
             className="settings-input-icon-button"
-            aria-label={showApiKey ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')}
-            onClick={() => setShowApiKey((current) => !current)}
+            aria-label={
+              showProviderCredential ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')
+            }
+            onClick={() => setShowProviderCredential((current) => !current)}
             disabled={disabled}
           >
-            {showApiKey ? (
+            {showProviderCredential ? (
+              <EyeOff className="settings-input-icon" strokeWidth={2.1} />
+            ) : (
+              <Eye className="settings-input-icon" strokeWidth={2.1} />
+            )}
+          </button>
+        </div>
+      </label>
+
+      <label>
+        <span>{translateMessage('settings.fields.tavilyApiKey')}</span>
+        <div className="settings-input-with-icon">
+          <input
+            aria-label={translateMessage('settings.fields.tavilyApiKey')}
+            type={showTavilyApiKey ? 'text' : 'password'}
+            value={value.tavilyApiKey}
+            onChange={(event) => onChange(updateSharedModelSettings(value, 'tavilyApiKey', event.target.value))}
+          />
+          <button
+            type="button"
+            className="settings-input-icon-button"
+            aria-label={showTavilyApiKey ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')}
+            onClick={() => setShowTavilyApiKey((current) => !current)}
+            disabled={disabled}
+          >
+            {showTavilyApiKey ? (
               <EyeOff className="settings-input-icon" strokeWidth={2.1} />
             ) : (
               <Eye className="settings-input-icon" strokeWidth={2.1} />

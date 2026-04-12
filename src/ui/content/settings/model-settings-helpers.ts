@@ -7,6 +7,9 @@ import {
   type ModelSettings,
 } from '../../../shared/types/settings';
 
+/**
+ * Switch the active chat provider while keeping the mirrored top-level model in sync.
+ */
 export function updateProvider(settings: ModelSettings, provider: ChatProviderId): ModelSettings {
   return {
     ...settings,
@@ -15,7 +18,10 @@ export function updateProvider(settings: ModelSettings, provider: ChatProviderId
   };
 }
 
-export function updateSharedModelSettings<K extends 'systemPrompt' | 'maxHistory'>(
+/**
+ * Update model settings that are shared across providers.
+ */
+export function updateSharedModelSettings<K extends 'systemPrompt' | 'maxHistory' | 'tavilyApiKey'>(
   settings: ModelSettings,
   field: K,
   nextValue: ModelSettings[K],
@@ -26,6 +32,9 @@ export function updateSharedModelSettings<K extends 'systemPrompt' | 'maxHistory
   };
 }
 
+/**
+ * Update the OpenAI-specific configuration while preserving other provider settings.
+ */
 export function updateOpenAiSettings(
   settings: ModelSettings,
   nextValue: Partial<ModelSettings['openai']>,
@@ -39,6 +48,9 @@ export function updateOpenAiSettings(
   };
 }
 
+/**
+ * Update the Codex-specific configuration while preserving other provider settings.
+ */
 export function updateCodexSettings(
   settings: ModelSettings,
   nextValue: Partial<ModelSettings['codex']>,
@@ -52,6 +64,9 @@ export function updateCodexSettings(
   };
 }
 
+/**
+ * Resolve the provider-specific field values that should be shown in the model settings form.
+ */
 export function getActiveProviderFormValues(settings: ModelSettings) {
   return {
     isOpenAi: isOpenAIProvider(settings),

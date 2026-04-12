@@ -258,4 +258,195 @@ describe('ChatCompletionService', () => {
 
     mockRunToolCallOrchestrator.mockRestore();
   });
+
+  it('serializes non-string tool results before sending them back to the model', async () => {
+    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
+    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
+
+    const provider = {
+      completeChat: vi
+        .fn<ChatCompletionProvider['completeChat']>()
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: '',
+            toolCalls: [
+              {
+                id: 'tool-call-object-1',
+                type: 'function',
+                function: {
+                  name: 'get_page_summary',
+                  arguments: '{"url":"https://example.com"}',
+                },
+              },
+            ],
+          } satisfies LlmAssistantMessage,
+        } satisfies ChatCompletionResult)
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: 'The page is about testing.',
+          } satisfies LlmAssistantMessage,
+        } satisfies ChatCompletionResult),
+    } satisfies ChatCompletionProvider;
+
+    const tool = {
+      name: () => 'get_page_summary',
+      definition: () => ({
+        type: 'function',
+        function: {
+          name: 'get_page_summary',
+          description: 'Gets the current page summary.',
+          parameters: {
+            type: 'object',
+            properties: {
+              url: { type: 'string' },
+            },
+            required: ['url'],
+          },
+        },
+      }),
+      invoke: vi.fn(async ({ url }) => ({ url, summary: 'Testing page summary' })),
+    } satisfies LlmToolModule;
+
+    const toolRegistry = createToolRegistry();
+    toolRegistry.addTool(tool);
+
+    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
+      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
+        '../../../src/llm/services/tool-call-orchestrator',
+      );
+      return (await actualOrchestrator).runToolCallOrchestrator(
+        request,
+        { provider, toolRegistry },
+        onChunk,
+        signal,
+      );
+    });
+
+    const service = new ChatCompletionService({
+      settings: {
+        ...defaultSettings.model,
+        provider: 'openai',
+        model: 'gpt-test',
+        openai: {
+          ...defaultSettings.model.openai,
+          apiKey: 'key',
+          model: 'gpt-test',
+        },
+      },
+    });
+
+    const reply = await service.complete([], 'Summarize the page');
+
+    expect(reply).toBe('The page is about testing.');
+    expect(tool.invoke).toHaveBeenCalledWith({ url: 'https://example.com' });
+
+    const secondCallInput = provider.completeChat.mock.calls[1]?.[0];
+    expect(secondCallInput?.messages).toContainEqual({
+      role: 'tool',
+      toolCallId: 'tool-call-object-1',
+      name: 'get_page_summary',
+      content: JSON.stringify({ url: 'https://example.com', summary: 'Testing page summary' }),
+    });
+
+    mockRunToolCallOrchestrator.mockRestore();
+  });
+
+  it('passes tool execution errors back to the model instead of aborting the tool loop', async () => {
+    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
+    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
+
+    const provider = {
+      completeChat: vi
+        .fn<ChatCompletionProvider['completeChat']>()
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: '',
+            toolCalls: [
+              {
+                id: 'tool-call-error-1',
+                type: 'function',
+                function: {
+                  name: 'get_page_summary',
+                  arguments: '{"url":"https://example.com"}',
+                },
+              },
+            ],
+          } satisfies LlmAssistantMessage,
+        } satisfies ChatCompletionResult)
+        .mockResolvedValueOnce({
+          message: {
+            role: 'assistant',
+            content: 'The tool failed, so I need to explain the limitation.',
+          } satisfies LlmAssistantMessage,
+        } satisfies ChatCompletionResult),
+    } satisfies ChatCompletionProvider;
+
+    const tool = {
+      name: () => 'get_page_summary',
+      definition: () => ({
+        type: 'function',
+        function: {
+          name: 'get_page_summary',
+          description: 'Gets the current page summary.',
+          parameters: {
+            type: 'object',
+            properties: {
+              url: { type: 'string' },
+            },
+            required: ['url'],
+          },
+        },
+      }),
+      invoke: vi.fn(async () => {
+        throw new Error('PAGE_SUMMARY_UNAVAILABLE');
+      }),
+    } satisfies LlmToolModule;
+
+    const toolRegistry = createToolRegistry();
+    toolRegistry.addTool(tool);
+
+    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
+      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
+        '../../../src/llm/services/tool-call-orchestrator',
+      );
+      return (await actualOrchestrator).runToolCallOrchestrator(
+        request,
+        { provider, toolRegistry },
+        onChunk,
+        signal,
+      );
+    });
+
+    const service = new ChatCompletionService({
+      settings: {
+        ...defaultSettings.model,
+        provider: 'openai',
+        model: 'gpt-test',
+        openai: {
+          ...defaultSettings.model.openai,
+          apiKey: 'key',
+          model: 'gpt-test',
+        },
+      },
+    });
+
+    const reply = await service.complete([], 'Summarize the page');
+
+    expect(reply).toBe('The tool failed, so I need to explain the limitation.');
+    expect(tool.invoke).toHaveBeenCalledWith({ url: 'https://example.com' });
+    expect(provider.completeChat).toHaveBeenCalledTimes(2);
+
+    const secondCallInput = provider.completeChat.mock.calls[1]?.[0];
+    expect(secondCallInput?.messages).toContainEqual({
+      role: 'tool',
+      toolCallId: 'tool-call-error-1',
+      name: 'get_page_summary',
+      content: JSON.stringify({ error: 'PAGE_SUMMARY_UNAVAILABLE' }),
+    });
+
+    mockRunToolCallOrchestrator.mockRestore();
+  });
 });

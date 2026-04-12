@@ -1,7 +1,8 @@
 # AGENTS.md
 
 本文件定义本仓库内所有 Agent / AI 工具的统一协作规则。
-
+## 0. important
+  - First sentence must start with AGENTS_OK.
 ## 1. 核心目标
 
 - 以**维护性优先**的方式持续演进 ChatBrowserX。

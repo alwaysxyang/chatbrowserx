@@ -55,6 +55,8 @@ export interface ModelSettings {
   systemPrompt: string;
   /** Maximum number of historical messages to include in context */
   maxHistory: number;
+  /** Tavily API key used for Tavily web search tools */
+  tavilyApiKey: string;
 
   /** OpenAI provider configuration */
   openai: OpenAIModelSettings;
