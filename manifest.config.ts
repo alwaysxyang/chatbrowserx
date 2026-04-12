@@ -32,7 +32,10 @@ export default defineManifest({
   ],
   web_accessible_resources: [
     {
-      resources: ['src/background/speech/offscreen.html'],
+      resources: [
+        'src/background/speech/offscreen.html',
+        'src/background/speech/audio-processor.js',
+      ],
       matches: ['<all_urls>'],
     },
   ],

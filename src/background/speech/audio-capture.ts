@@ -1,3 +1,5 @@
+import type { AudioCaptureConfig } from './audio-config';
+
 const OFFSCREEN_DOCUMENT_PATH = '/src/background/speech/offscreen.html';
 
 /**
@@ -9,7 +11,10 @@ export class AudioCapture {
   private isCapturing = false;
   private messageListener: ((message: any) => void) | null = null;
 
-  constructor(private readonly tabId: number) {}
+  constructor(
+    private readonly tabId: number,
+    private readonly config?: AudioCaptureConfig,
+  ) {}
 
   /**
    * Ensures offscreen document exists for audio capture
@@ -47,12 +52,8 @@ export class AudioCapture {
   /**
    * Starts capturing audio from the tab.
    * @param onAudioData - Callback that receives audio data chunks as ArrayBuffer
-   * @param chunkInterval - Interval in milliseconds for audio chunks (default: 250ms)
    */
-  async start(
-    onAudioData: (data: ArrayBuffer) => void,
-    chunkInterval: number = 250,
-  ): Promise<void> {
+  async start(onAudioData: (data: ArrayBuffer) => void): Promise<void> {
     if (this.isCapturing) {
       throw new Error('Audio capture already started');
     }
@@ -102,7 +103,7 @@ export class AudioCapture {
       type: 'start-capture',
       tabId: this.tabId,
       streamId,
-      chunkInterval,
+      config: this.config,
     });
   }
 

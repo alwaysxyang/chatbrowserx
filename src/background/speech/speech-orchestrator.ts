@@ -1,6 +1,7 @@
 import type { RecognitionResult } from '../../shared/types/speech';
 import { SpeechRecognitionService } from '../../speech/services/speech-recognition';
 import { AudioCapture } from './audio-capture';
+import type { AudioCaptureConfig } from './audio-config';
 import { speechResultType } from '../../shared/types/speech';
 import {loadSettings} from "../../shared/storage/settings-repository";
 
@@ -26,8 +27,14 @@ export class SpeechOrchestrator {
 
     // Load settings
     const settings = await loadSettings();
+
+    // Audio capture configuration optimized for speech recognition
+    const audioCaptureConfig: AudioCaptureConfig = {
+      format: 'pcm-int16',    // 16-bit PCM
+    };
+
     // Initialize audio capture for this tab
-    const audioCapture = new AudioCapture(tabId);
+    const audioCapture = new AudioCapture(tabId, audioCaptureConfig);
 
     // Initialize recognition service
     const recognitionService = new SpeechRecognitionService({

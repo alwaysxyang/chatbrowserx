@@ -28,6 +28,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         offscreen: 'src/background/speech/offscreen.html',
+        'audio-processor': 'src/background/speech/audio-processor.js',
       },
     },
   },
