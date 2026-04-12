@@ -1,6 +1,7 @@
 import type { RecognitionResult } from '../../shared/types/speech';
 import type { SpeechSettings } from '../../shared/types/settings';
-import {SpeechRecognitionProvider} from "../model/recognition";
+import type { SpeechRecognitionProvider } from '../model/recognition';
+import { VolcengineProvider } from '../providers/volcengine';
 
 interface SpeechRecognitionServiceConfig {
   settings: SpeechSettings;
@@ -10,6 +11,7 @@ interface SpeechRecognitionServiceConfig {
  * Speech recognition service that manages provider lifecycle
  */
 export class SpeechRecognitionService implements SpeechRecognitionProvider {
+  private provider: SpeechRecognitionProvider | null = null;
   private isRunning = false;
 
   constructor(private readonly config: SpeechRecognitionServiceConfig) {}
@@ -22,45 +24,57 @@ export class SpeechRecognitionService implements SpeechRecognitionProvider {
       throw new Error('Speech recognition already running');
     }
 
+    // Create provider based on settings
+    this.provider = this.createProvider();
+
+    // Start provider
+    await this.provider.start(onResult, onError);
+
     this.isRunning = true;
-
-    // TODO: Initialize provider connection (WebSocket, etc.)
-    // When implementing real provider:
-    // 1. Create WebSocket connection
-    // 2. Set up message handler:
-    //    ws.onmessage = (event) => {
-    //      const result = parseProviderResponse(event.data);
-    //      this.config.onResult(result);  // ← Call callback here
-    //    };
-    // 3. Set up error handler:
-    //    ws.onerror = (error) => {
-    //      this.config.onError(error);  // ← Call error callback here
-    //    };
-
   }
 
   /**
    * Sends audio data to the recognition provider
    */
   sendAudio(audioData: ArrayBuffer): void {
-    if (!this.isRunning) {
+    if (!this.isRunning || !this.provider) {
       console.warn('[SpeechRecognitionService] Cannot send audio: service not running');
       return;
     }
-    console.log(`[SpeechRecognitionService] Sending audio`);
-    // TODO: Send audio to provider
+
+    this.provider.sendAudio(audioData);
   }
 
   /**
    * Stops speech recognition
    */
   stop(): void {
-    if (!this.isRunning) {
+    if (!this.isRunning || !this.provider) {
       return;
     }
 
+    this.provider.stop();
+    this.provider = null;
     this.isRunning = false;
+  }
 
-    // TODO: Close provider connection
+  /**
+   * Creates provider instance based on settings
+   */
+  private createProvider(): SpeechRecognitionProvider {
+    const { settings } = this.config;
+
+    switch (settings.provider) {
+      case 'volcengine':
+        return new VolcengineProvider({
+          accessKey: settings.volcengine.accessKeyId,
+          secretKey: settings.volcengine.secretAccessKey,
+          sourceLanguage: settings.sourceLanguage === 'auto' ? 'zh' : settings.sourceLanguage,
+          targetLanguages: settings.targetLanguage === 'none' ? [] : [settings.targetLanguage],
+        });
+
+      default:
+        throw new Error(`Unsupported speech provider: ${settings.provider}`);
+    }
   }
 }

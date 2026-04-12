@@ -11,6 +11,36 @@ class PCMProcessor extends AudioWorkletProcessor {
     this.config = options.processorOptions || {
       format: 'pcm-int16',
     };
+
+    // Initialize resampling state
+    this.targetSampleRate = this.config.targetSampleRate;
+  }
+
+  /**
+   * Simple linear interpolation resampling
+   */
+  resample(inputData, inputSampleRate, outputSampleRate) {
+    if (inputSampleRate === outputSampleRate) {
+      return inputData;
+    }
+
+    const ratio = inputSampleRate / outputSampleRate;
+    const outputLength = Math.round(inputData.length / ratio);
+    const output = new Float32Array(outputLength);
+
+    for (let i = 0; i < outputLength; i++) {
+      const position = i * ratio;
+      const index = Math.floor(position);
+      const fraction = position - index;
+
+      if (index + 1 < inputData.length) {
+        output[i] = inputData[index] * (1 - fraction) + inputData[index + 1] * fraction;
+      } else {
+        output[i] = inputData[index];
+      }
+    }
+
+    return output;
   }
 
   /**
@@ -33,40 +63,37 @@ class PCMProcessor extends AudioWorkletProcessor {
    */
   process(inputs, outputs) {
     const input = inputs[0];
-    const output = outputs[0];
-
     if (!input || !input.length) {
       return true;
     }
 
-    // Copy input to output (passthrough) so audio continues playing
     const inputChannel = input[0];
-    const outputChannel = output[0];
-    if (inputChannel && outputChannel) {
-      outputChannel.set(inputChannel);
+    if (!inputChannel || inputChannel.length === 0) {
+      return true;
     }
 
-    // Process mono audio data based on format
+    // Resample if target sample rate is specified and different from current
+    let processedData = inputChannel;
+    if (this.targetSampleRate && this.targetSampleRate !== sampleRate) {
+      // sampleRate is a global variable in AudioWorklet context
+      processedData = this.resample(inputChannel, sampleRate, this.targetSampleRate);
+    }
+
     if (this.config.format === 'pcm-int16') {
-      if (inputChannel && inputChannel.length > 0) {
-        const int16Data = this.float32ToInt16(inputChannel);
-        this.port.postMessage({
-          type: 'audio-data',
-          data: int16Data.buffer,
-        }, [int16Data.buffer]);
-      }
+      const int16Data = this.float32ToInt16(processedData);
+      this.port.postMessage({
+        type: 'audio-data',
+        data: int16Data.buffer,
+      });
     } else if (this.config.format === 'pcm-float32') {
-      if (inputChannel && inputChannel.length > 0) {
-        // Create a copy since we're transferring the buffer
-        const float32Data = new Float32Array(inputChannel);
-        this.port.postMessage({
-          type: 'audio-data',
-          data: float32Data.buffer,
-        }, [float32Data.buffer]);
-      }
+      const float32Data = new Float32Array(processedData);
+      this.port.postMessage({
+        type: 'audio-data',
+        data: float32Data.buffer,
+      });
     }
 
-    return true; // Keep processor alive
+    return true;
   }
 }
 

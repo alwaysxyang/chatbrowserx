@@ -39,6 +39,11 @@ export const speechStopRequestType = 'chatbrowserx.speech.stop';
 export const speechResultType = 'chatbrowserx.speech.result';
 
 /**
+ * Message type identifier for speech recognition errors.
+ */
+export const speechErrorType = 'chatbrowserx.speech.error';
+
+/**
  * Message type identifier for querying speech state.
  */
 export const speechStateQueryType = 'chatbrowserx.speech.state.query';
@@ -61,6 +66,15 @@ export interface SpeechResultMessage extends RuntimeMessage<typeof speechResultT
 }
 
 /**
+ * Message sent when speech recognition encounters an error.
+ */
+export interface SpeechErrorMessage extends RuntimeMessage<typeof speechErrorType> {
+  payload: {
+    error: string;
+  };
+}
+
+/**
  * Message sent to query current speech state.
  */
 export interface SpeechStateQueryMessage extends RuntimeMessage<typeof speechStateQueryType> {}
@@ -78,6 +92,7 @@ export type SpeechStateQueryResponse = RuntimeResponse<SpeechStateQueryResponseP
 const isSpeechStartRequestMessageGuard = createRuntimeMessageGuard<SpeechStartRequestMessage>(speechStartRequestType);
 const isSpeechStopRequestMessageGuard = createRuntimeMessageGuard<SpeechStopRequestMessage>(speechStopRequestType);
 const isSpeechResultMessageGuard = createRuntimeMessageGuard<SpeechResultMessage>(speechResultType);
+const isSpeechErrorMessageGuard = createRuntimeMessageGuard<SpeechErrorMessage>(speechErrorType);
 const isSpeechStateQueryMessageGuard = createRuntimeMessageGuard<SpeechStateQueryMessage>(speechStateQueryType);
 
 /**
@@ -108,6 +123,16 @@ export function isSpeechStopRequestMessage(message: unknown): message is SpeechS
  */
 export function isSpeechResultMessage(message: unknown): message is SpeechResultMessage {
   return isSpeechResultMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a SpeechErrorMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a SpeechErrorMessage
+ */
+export function isSpeechErrorMessage(message: unknown): message is SpeechErrorMessage {
+  return isSpeechErrorMessageGuard(message);
 }
 
 /**

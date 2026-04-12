@@ -1,4 +1,4 @@
-import type { AudioCaptureConfig } from './audio-config';
+import type { AudioCaptureConfig } from './offscreen';
 
 const OFFSCREEN_DOCUMENT_PATH = '/src/background/speech/offscreen.html';
 
@@ -9,7 +9,7 @@ const OFFSCREEN_DOCUMENT_PATH = '/src/background/speech/offscreen.html';
  */
 export class AudioCapture {
   private isCapturing = false;
-  private messageListener: ((message: any) => void) | null = null;
+  private port?: chrome.runtime.Port;
 
   constructor(
     private readonly tabId: number,
@@ -58,7 +58,6 @@ export class AudioCapture {
       throw new Error('Audio capture already started');
     }
 
-    // Get stream ID from tabCapture
     const streamId = await new Promise<string>((resolve, reject) => {
       chrome.tabCapture.getMediaStreamId(
         {
@@ -76,35 +75,53 @@ export class AudioCapture {
       );
     });
 
-    // Ensure offscreen document exists
     await this.ensureOffscreenDocument();
 
-    // Set up message listener for audio data from offscreen document
-    this.messageListener = (message: any) => {
-      // Only handle messages for this tab
-      if (message.tabId !== this.tabId) {
-        return;
-      }
+    const portName = `audio-capture-${this.tabId}`;
+    const portConnectedPromise = new Promise<chrome.runtime.Port>((resolve) => {
+      const listener = (port: chrome.runtime.Port) => {
+        if (port.name === portName) {
+          chrome.runtime.onConnect.removeListener(listener);
+          resolve(port);
+        }
+      };
+      chrome.runtime.onConnect.addListener(listener);
+    });
 
-      if (message.type === 'audio-data') {
-        onAudioData(message.data);
-      } else if (message.type === 'audio-error') {
-        console.error(`Audio capture error from offscreen for tab ${this.tabId}:`, message.error);
-        this.stop();
-      } else if (message.type === 'capture-started') {
-        this.isCapturing = true;
-      }
-    };
-
-    chrome.runtime.onMessage.addListener(this.messageListener);
-
-    // Send message to offscreen document to start capture
     await chrome.runtime.sendMessage({
       type: 'start-capture',
       tabId: this.tabId,
       streamId,
       config: this.config,
     });
+
+    this.port = await portConnectedPromise;
+
+    this.port.onMessage.addListener((message: any) => {
+      if (message.type === 'audio-data') {
+        if (!message.data || !Array.isArray(message.data)) {
+          console.error('[AudioCapture] Invalid data format:', message.data);
+          return;
+        }
+
+        const uint8Array = new Uint8Array(message.data);
+        const audioData = uint8Array.buffer;
+
+        if (audioData.byteLength === 0) {
+          return;
+        }
+        onAudioData(audioData);
+      } else if (message.type === 'audio-error') {
+        console.error(`Audio capture error from offscreen:`, message.error);
+        this.stop();
+      }
+    });
+
+    this.port.onDisconnect.addListener(() => {
+      this.stop();
+    });
+
+    this.isCapturing = true;
   }
 
   /**
@@ -123,10 +140,10 @@ export class AudioCapture {
       // Ignore errors if offscreen document is already closed
     });
 
-    // Clean up message listener
-    if (this.messageListener) {
-      chrome.runtime.onMessage.removeListener(this.messageListener);
-      this.messageListener = null;
+    // Disconnect port
+    if (this.port) {
+      this.port.disconnect();
+      this.port = undefined;
     }
 
     this.isCapturing = false;

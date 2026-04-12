@@ -50,6 +50,7 @@ interface CaptureSession {
   workletNode?: AudioWorkletNode;
   recorder?: MediaRecorder;
   config: AudioCaptureConfig;
+  port?: chrome.runtime.Port; // Long-lived connection for audio data
 }
 
 // Support multiple tabs simultaneously
@@ -64,7 +65,8 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
   }
   config = normalizeAudioCaptureConfig(config);
 
-  // Get media stream using the stream ID from tabCapture
+  const port = chrome.runtime.connect({ name: `audio-capture-${tabId}` });
+
   const mediaStream = await navigator.mediaDevices.getUserMedia({
     audio: {
       mandatory: {
@@ -75,77 +77,75 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
     video: false,
   });
 
-  // Create audio context with specified sample rate
   const audioContext = new AudioContext({
-    sampleRate: config.sampleRate,
-    latencyHint: 'interactive',
+    // sampleRate: config.sampleRate,
+    // latencyHint: 'interactive',
   });
   const sourceNode = audioContext.createMediaStreamSource(mediaStream);
 
-  if (config.format === 'webm') {
-    // Use MediaRecorder for WebM format
-    sourceNode.connect(audioContext.destination);
+  // Connect source to destination to maintain audio playback
+  sourceNode.connect(audioContext.destination);
 
+  if (config.format === 'webm') {
     const recorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
     recorder.ondataavailable = async (event: BlobEvent) => {
       if (event.data.size > 0) {
         const buffer = await event.data.arrayBuffer();
-        void chrome.runtime.sendMessage({
+        const dataArray = Array.from(new Uint8Array(buffer));
+        port.postMessage({
           type: 'audio-data',
-          tabId,
-          data: buffer,
+          data: dataArray,
         });
       }
     };
 
     recorder.onerror = (event: Event) => {
       console.error(`MediaRecorder error for tab ${tabId}:`, event);
-      chrome.runtime.sendMessage({
+      port.postMessage({
         type: 'audio-error',
-        tabId,
         error: 'MediaRecorder error',
       });
     };
 
     recorder.start(config.chunkInterval);
 
-    sessions.set(tabId, { mediaStream, audioContext, sourceNode, recorder, config });
+    sessions.set(tabId, { mediaStream, audioContext, sourceNode, recorder, config, port });
   } else {
-    // Use AudioWorklet for PCM formats
-    // Load AudioWorklet module
     await audioContext.audioWorklet.addModule(
       chrome.runtime.getURL('src/background/speech/audio-processor.js')
     );
 
-    // Create AudioWorklet node
     const workletNode = new AudioWorkletNode(audioContext, 'pcm-processor', {
       numberOfInputs: 1,
-      numberOfOutputs: 1,
-      outputChannelCount: [1],
+      numberOfOutputs: 0,
       processorOptions: {
         format: config.format,
+        targetSampleRate: config.sampleRate,
       },
     });
 
-    // Listen for audio data from AudioWorklet
     workletNode.port.onmessage = (event: MessageEvent) => {
       if (event.data.type === 'audio-data') {
-        void chrome.runtime.sendMessage({
+        const data = event.data.data;
+        const dataSize = data?.byteLength || 0;
+
+        if (dataSize === 0) {
+          return;
+        }
+
+        const dataArray = Array.from(new Uint8Array(data));
+        port.postMessage({
           type: 'audio-data',
-          tabId,
-          data: event.data.data,
+          data: dataArray,
         });
       }
     };
 
-    // Connect audio nodes
     sourceNode.connect(workletNode);
-    workletNode.connect(audioContext.destination);
 
-    sessions.set(tabId, { mediaStream, audioContext, sourceNode, workletNode, config });
+    sessions.set(tabId, { mediaStream, audioContext, sourceNode, workletNode, config, port });
   }
 
-  // Notify service worker that capture started successfully
   void chrome.runtime.sendMessage({
     type: 'capture-started',
     tabId,
@@ -217,6 +217,12 @@ chrome.runtime.onMessage.addListener((message: OffscreenMessage) => {
 });
 
 // Notify background that offscreen document is ready
-chrome.runtime.sendMessage({ type: 'offscreen-ready' }).catch(() => {
-  // Ignore error if background script is not ready yet
-});
+if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+  try {
+    chrome.runtime.sendMessage({ type: 'offscreen-ready' })?.catch(() => {
+      // Ignore error if background script is not ready yet
+    });
+  } catch {
+    // Ignore error in test environment
+  }
+}

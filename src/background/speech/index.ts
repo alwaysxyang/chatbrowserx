@@ -78,7 +78,7 @@ export function initSpeechModule(): void {
   // Clean up speech state when tab is closed
   chrome.tabs.onRemoved.addListener((tabId) => {
     // Stop speech recognition and clean up storage
-    void speechOrchestrator.cleanup(tabId);
+    void speechOrchestrator.stop(tabId);
   });
 
   // Clean up all sessions when extension is suspended or reloaded

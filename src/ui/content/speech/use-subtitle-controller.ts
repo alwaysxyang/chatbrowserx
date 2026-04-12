@@ -5,6 +5,7 @@ import {
 } from '../../../shared/types/runtime-messages';
 import {
   isSpeechResultMessage,
+  isSpeechErrorMessage,
   type SpeechRuntimeResponse,
   type SpeechStateQueryResponse,
   speechStartRequestType,
@@ -65,17 +66,18 @@ export function useSubtitleController() {
 
   useEffect(() => {
     const handleMessage = (message: unknown) => {
-      if (!isSpeechResultMessage(message)) {
-        return;
+      if (isSpeechResultMessage(message)) {
+        const result: RecognitionResult = message.payload;
+
+        setSubtitle({
+          sourceText: result.sourceText,
+          translationText: result.translationText || '',
+          isActive: true,
+        });
+      } else if (isSpeechErrorMessage(message)) {
+        console.error('[Subtitle] Recognition error:', message.payload.error);
+        resetSubtitle();
       }
-
-      const result: RecognitionResult = message.payload;
-
-      setSubtitle({
-        sourceText: result.sourceText,
-        translationText: result.translationText || '',
-        isActive: true,
-      });
     };
 
     chrome.runtime.onMessage.addListener(handleMessage);
@@ -83,7 +85,7 @@ export function useSubtitleController() {
     return () => {
       chrome.runtime.onMessage.removeListener(handleMessage);
     };
-  }, []);
+  }, [resetSubtitle]);
 
   const startRecognition = useCallback(async () => {
     setSubtitle(listeningSubtitleState);

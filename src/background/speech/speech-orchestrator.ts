@@ -2,7 +2,7 @@ import type { RecognitionResult } from '../../shared/types/speech';
 import { SpeechRecognitionService } from '../../speech/services/speech-recognition';
 import { AudioCapture } from './audio-capture';
 import type { AudioCaptureConfig } from './audio-config';
-import { speechResultType } from '../../shared/types/speech';
+import { speechResultType, speechErrorType } from '../../shared/types/speech';
 import {loadSettings} from "../../shared/storage/settings-repository";
 
 interface TabSession {
@@ -89,22 +89,10 @@ export class SpeechOrchestrator {
   }
 
   /**
-   * Cleans up session (called when tab closes)
-   */
-  cleanup(tabId: number): void {
-    const session = this.sessions.get(tabId);
-    if (session) {
-      session.recognitionService.stop();
-      session.audioCapture.stop();
-      this.sessions.delete(tabId);
-    }
-  }
-
-  /**
    * Handles recognition results by forwarding to the content script
    */
   private handleRecognitionResult(tabId: number, result: RecognitionResult): void {
-    chrome.tabs.sendMessage(tabId, {
+    void chrome.tabs.sendMessage(tabId, {
       type: speechResultType,
       payload: result,
     });
@@ -115,6 +103,17 @@ export class SpeechOrchestrator {
    */
   private handleRecognitionError(tabId: number, error: Error): void {
     console.error(`Speech recognition error for tab ${tabId}:`, error);
+
+    // Notify frontend about the error
+    chrome.tabs.sendMessage(tabId, {
+      type: speechErrorType,
+      payload: {
+        error: error.message,
+      },
+    }).catch(() => {
+      // Ignore if tab is closed
+    });
+
     void this.stop(tabId);
   }
 }
