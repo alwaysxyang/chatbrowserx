@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { createGetPageContentTool } from '../../../src/llm/tools/get-page-content-tool';
 
 describe('get page content tool', () => {
-  it('describes itself as a read-only analysis tool instead of a page action tool', () => {
+  it('describes itself as a read-only analysis tool instead of a page action tool', async () => {
     const tool = createGetPageContentTool();
-    const definition = tool.definition();
+    const definition = await tool.definition();
     const description = definition?.function.description ?? '';
 
     expect(description).toContain('Use this tool only for read-only analysis of the current page');

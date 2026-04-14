@@ -85,7 +85,7 @@ describe('Tavily tools', () => {
       topic: 'news',
       max_results: 3,
       search_depth: 'advanced',
-      include_answer: 'basic',
+      include_answer: 'advanced',
       include_images: false,
       include_raw_content: false,
     });
