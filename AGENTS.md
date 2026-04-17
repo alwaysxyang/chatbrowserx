@@ -20,6 +20,9 @@
 如果任务明显属于某个子领域，还必须继续阅读对应 feature spec，例如：
 
 - speech 相关：`docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
+- Tavily 工具相关：`docs/superpowers/specs/2026-04-12-tavily-tools-design.md`
+- 打印/保存为 PDF 相关：`docs/superpowers/specs/2026-04-17-pdf-capture-folder-spec.md`
+- Volcengine speech provider 相关：`docs/superpowers/specs/2026-04-17-volcengine-speech-provider-folder-spec.md`
 
 并且在执行任何回复、澄清、设计、实现、调研之前，必须先检查并加载适用 skill；禁止跳过 skill 检查直接开始分析、提问或实现。
 
@@ -96,7 +99,7 @@
 - `ui` 不直接依赖 provider 实现。
 - `ui` 不直接承担 LLM 编排、tool loop 或后台长流程。
 - `background` 不直接书写 JSX。
-- `llm` 不直接依赖 Chrome API。
+- `llm/providers` 与 `llm/services` 不直接依赖 Chrome API；`llm/tools` 若需要 tab 能力可使用 Chrome API，但不得依赖 DOM 能力（DOM 读取与滚动必须留在 `ui/tools`）。
 - `speech` 不直接承载 content UI 状态。
 - `shared` 不放具体业务编排逻辑。
 - `index.ts` 仅用于入口装配或导出聚合，不承载主要业务逻辑。
@@ -109,16 +112,20 @@
 - 最小设置能力（model / general / voice）
 - provider 抽象
 - 聊天输入中的图片能力（截图、选区截图、选区长截图、剪贴板图片）
-- `llm/tools` 的接口边界与首个页面内容读取工具
-- 最小语音骨架（语音按钮、字幕 overlay、background 语音编排、tab 音频采集链路、speech service 占位实现）
+- `llm/tools` 的接口边界与当前阶段允许的工具：
+  - 当前页面内容读取工具：`get_current_page_content`
+  - 基于 Tavily 的最小网页搜索工具：`tavily_search`、`tavily_extract`、`tavily_crawl`
+- 最小语音骨架（语音按钮、字幕 overlay、background 语音编排、tab 音频采集链路、最小 speech provider 接入）
+- 基于页面滚动 + 截图拼接的“打印/保存为 PDF”能力（仅用于用户主动触发的页面留存，不扩展为 PDF 解析或通用滚动捕获框架）
 
 ### 7.2 当前阶段明确不做内容
 
-- 完整的语音识别 / 同声传译产品化能力（真实 provider 协议、真实识别结果链路、复杂历史持久化、多场景复用等）
+- 完整的语音识别 / 同声传译产品化能力（复杂历史持久化、多场景复用、VAD、自动重连、错误码体系、结果复盘导出等）
 - 独立的图片分析 / 截图分析工具
-- PDF / 通用滚动捕获能力（聊天输入中的选区长截图除外）
+- PDF 解析/阅读/编辑能力
+- 通用滚动捕获能力（聊天输入中的选区长截图与“打印/保存为 PDF”链路除外）
 - 网络录制 / 页面流量分析
-- 除首个页面内容读取工具之外的其他具体工具实现
+- 除 `get_current_page_content` 与 Tavily 工具之外的其他具体工具实现
 
 如果任务要求恢复或新增上述能力，必须先确认其在主 spec 中的归属与边界；必要时先更新 spec，再改代码。
 

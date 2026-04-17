@@ -43,6 +43,12 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `docs/superpowers/specs/2026-04-12-tavily-tools-design.md`
   - 类型：feature spec / folder spec
   - 用途：`src/llm/tools/tavily` 与 Tavily 设置、可见性、调用链路说明
+- `docs/superpowers/specs/2026-04-17-pdf-capture-folder-spec.md`
+  - 类型：folder spec
+  - 用途：`src/ui/content/pdf` 的当前实现边界与依赖方向说明
+- `docs/superpowers/specs/2026-04-17-volcengine-speech-provider-folder-spec.md`
+  - 类型：folder spec
+  - 用途：`src/speech/providers/volcengine` 的当前实现边界与依赖方向说明
 - `docs/superpowers/specs/2026-04-10-refactoring-design.md`
   - 类型：归档文档
   - 用途：记录历史重构背景，不作为当前实现约束来源
@@ -81,15 +87,16 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
   - 字幕 overlay
   - background 语音编排
   - tab 音频采集链路
-  - `src/speech/services/speech-recognition.ts` 的占位 service
+-  - 最小 speech provider 接入（当前包含 `volcengine`）
 - 设置持久化、聊天历史持久化、多语言 UI
+- 基于页面滚动 + 截图拼接的“打印/保存为 PDF”能力（仅用于用户主动触发的页面留存）
 
 ### 4.2 当前阶段明确不做内容
 
 - 完整的语音识别 / 同声传译产品化能力
 - 独立的图片分析 / 截图分析工具
-- PDF 能力
-- 通用滚动捕获能力（聊天输入中的选区长截图除外）
+- PDF 解析/阅读/编辑能力
+- 通用滚动捕获能力（聊天输入中的选区长截图与“打印/保存为 PDF”链路除外）
 - 网络录制 / 页面流量分析
 - 除当前页面内容读取工具与 Tavily 搜索工具之外的其他具体工具实现
 
@@ -100,7 +107,6 @@ src/
   assets/
   background/
     chat/
-    messaging/
     speech/
     index.ts
   llm/
@@ -111,14 +117,19 @@ src/
       shared/
       tavily/
   shared/
+    browser/
     i18n/
     storage/
     types/
   speech/
+    model/
+    providers/
+      volcengine/
     services/
   ui/
     content/
       chat/
+      pdf/
       settings/
       speech/
     popup/
@@ -160,6 +171,13 @@ src/
 - `SubtitleOverlay` 负责 overlay 的 portal 挂载、拖拽与 listening 文案展示。
 - 字幕展示状态默认属于 UI 本地状态，不额外经由 background/storage 镜像持久化。
 
+#### `src/ui/content/pdf`
+
+- 负责“打印/保存为 PDF”能力的 UI 侧实现。
+- 当前实现基于页面滚动 + 可视区域截图拼接，在新窗口打开预览并调用浏览器打印能力保存为 PDF。
+- 不提供 PDF 解析/阅读/编辑能力，不作为 LLM tool 暴露。
+- 细化约束见 `docs/superpowers/specs/2026-04-17-pdf-capture-folder-spec.md`。
+
 #### `src/ui/popup`
 
 - 负责浏览器插件 popup 页面。
@@ -168,7 +186,9 @@ src/
 #### `src/ui/tools`
 
 - 放置需要 content script / DOM 能力的工具执行逻辑。
-- 当前只保留首个页面内容读取工具的 content 侧执行逻辑。
+- 当前包括：
+  - 当前页面内容读取工具的 content 侧执行逻辑
+  - 页面滚动扫描与截图拼接所需的 DOM 辅助能力
 - 不负责 provider 协议、tool loop 或后台调度。
 
 ### 6.2 `src/background`
@@ -194,14 +214,12 @@ src/
 - 负责把识别结果通过 `speechResult` 回推给 content script。
 - 不负责字幕 UI 状态持久化。
 
-#### `src/background/messaging`
-
-- 放置 background 侧消息契约的再导出或兼容桥接。
-- 不应演化为新的业务编排层。
-
 ### 6.3 `src/llm`
 
-`src/llm` 负责模型协议、provider 接入、聊天完成服务与 tool 协议，不直接依赖 Chrome API。
+`src/llm` 负责模型协议、provider 接入、聊天完成服务与 tool 协议。
+
+- `src/llm/providers` 与 `src/llm/services` 不直接依赖 Chrome API。
+- `src/llm/tools` 允许为少量工具使用 Chrome API 获取 tab 能力，但不得依赖 DOM 能力；DOM 读取与滚动等能力必须留在 `src/ui/tools`。
 
 #### `src/llm/model`
 
@@ -231,6 +249,12 @@ src/
 
 `src/shared` 负责跨层共享的通用类型、存储、i18n 与无业务偏向的基础能力。
 
+#### `src/shared/browser`
+
+- 负责浏览器无业务偏向的能力封装与适配层。
+- 用于承载可被多层复用的浏览器相关小能力，避免把业务编排塞进 `shared`。
+- 允许使用 Chrome API，但必须保持“无业务偏向”的边界，不得在此层引入跨模块编排逻辑。
+
 #### `src/shared/types`
 
 - 负责跨层共享类型。
@@ -247,13 +271,20 @@ src/
 
 ### 6.5 `src/speech`
 
-`src/speech` 当前只保留 speech provider lifecycle 的占位 service 层。
+`src/speech` 负责 speech 子域的 provider 抽象、provider 实现与 service 层边界，不直接承载 content UI 状态。
 
 #### `src/speech/services`
 
-- 当前仅有 `speech-recognition.ts`。
-- 该文件负责 `start / sendAudio / stop` 的 service 边界与回调注入。
-- 该层当前仍是 mock / placeholder，不代表真实 provider 已接入。
+- `speech-recognition.ts` 负责 `start / sendAudio / stop` 的 service 边界与 provider 生命周期管理。
+
+#### `src/speech/providers`
+
+- 放置 speech provider 的具体实现。
+- 当前存在 `volcengine` 最小接入，细化约束见 `docs/superpowers/specs/2026-04-17-volcengine-speech-provider-folder-spec.md`。
+
+#### `src/speech/model`
+
+- 放置 speech 子域的抽象协议与类型（例如 `SpeechRecognitionProvider`）。
 
 ## 7. 关键运行链路
 
@@ -278,7 +309,14 @@ src/
 3. `background/speech/index.ts` 调用 `SpeechOrchestrator`。
 4. `SpeechOrchestrator` 读取 `speech-settings-repository`，创建 `AudioCapture` 与 `SpeechRecognitionService`。
 5. `AudioCapture` 负责 tab 音频采集并把 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
-6. 当前 `SpeechRecognitionService` 仍是占位实现；未来若产出真实 `RecognitionResult`，background 再通过 `speechResult` 回推给 UI。
+6. `SpeechRecognitionService` 负责把音频分片交给 provider，并在产出 `RecognitionResult` 后由 background 通过 `speechResult` 回推给 UI。
+
+### 7.4 打印/保存为 PDF 链路
+
+1. 用户在 content UI 中触发“打印/保存为 PDF”入口。
+2. content 侧通过滚动扫描逐步采集可视区域截图。
+3. content 侧在新窗口打开截图预览页面。
+4. 用户在预览页面使用浏览器打印能力保存为 PDF。
 
 ## 8. 依赖方向
 

@@ -18,7 +18,7 @@
 - 提供语音按钮与字幕 overlay 入口
 - 在 background 内按 tab 启停 speech 会话
 - 打通 tab 音频采集链路
-- 保留 speech service 边界，为未来真实 provider 接入预留位置
+- 保留 speech service 边界，并提供最小 speech provider 接入以验证端到端链路
 
 当前**不代表**已经完成真实语音识别、真实翻译或完整同声传译产品化。
 
@@ -60,10 +60,22 @@
 #### `src/speech/services`
 
 - `speech-recognition.ts`
-  - 当前是 speech provider lifecycle 的占位 service
+  - 负责 speech provider 生命周期的 service 层
   - 负责 `start / sendAudio / stop` 边界
-  - 通过构造参数接收 `SpeechSettings`、`onResult`、`onError`
-  - 当前没有真实 provider 连接能力
+  - 通过构造参数接收 `SpeechSettings`
+  - 根据 `SpeechSettings.provider` 创建并管理 provider 实例
+
+#### `src/speech/model`
+
+- `recognition.ts`
+  - 定义 `SpeechRecognitionProvider` 抽象接口
+
+#### `src/speech/providers/volcengine`
+
+- 当前实现包含 `volcengine` provider 的最小接入：
+  - provider 通过 WebSocket 建立连接并接收字幕类结果
+  - provider 负责签名与连接建立，不依赖 Chrome API，不承载 UI 状态
+- 细化约束见 `docs/superpowers/specs/2026-04-17-volcengine-speech-provider-folder-spec.md`
 
 #### `src/shared`
 
@@ -150,8 +162,8 @@ interface RecognitionResult {
    - 开始录制音频
 9. 音频分片通过 `audio-data` 消息从 offscreen document 发送回 service worker。
 10. `AudioCapture` 接收 `audio-data` 消息并调用回调，将 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
-11. 当前 service 尚未连接真实 provider，因此默认不保证产出真实识别结果。
-12. 一旦未来产出 `RecognitionResult`，background 再通过 `speechResult` 回推给 UI。
+11. `SpeechRecognitionService` 将音频分片交给 provider，并在收到 provider 回调后产出 `RecognitionResult`。
+12. background 通过 `speechResult` 把 `RecognitionResult` 回推给 UI。
 
 ### 2.6 当前实现边界
 
@@ -163,14 +175,13 @@ interface RecognitionResult {
 - offscreen document 用于在 service worker 环境中处理 `getUserMedia`
 - speech 设置存储
 - speech runtime message 协议
-- speech service 占位层
+- speech service 层与 provider 生命周期管理
+- `volcengine` 最小 provider 接入（用于验证端到端链路）
 
 #### 未实现边界
 
-- 真实 provider 连接
-- 真实识别结果解析
-- 真实翻译结果生成
-- provider 协议封装
+- 多 provider 体系化接入（provider 选择、灰度、统一错误码）
+- 更完整的识别/翻译结果流（增量结果、分段对齐、去重与稳定性处理）
 - 自动重连、鉴权错误细分、provider 级错误码映射
 
 ### 2.7 当前错误处理
@@ -220,8 +231,7 @@ interface RecognitionResult {
 
 以下内容**不是当前实现**，只有在后续进入对应范围后，才允许继续设计与落地：
 
-- 独立 `providers/` 目录
-- 真实 Volcengine provider / 其他 provider 接入
+- 其他 speech provider 接入
 - provider 协议封装、消息序列化、wire format
 - 真实识别结果流与翻译结果流
 - 自动重连、错误码映射、鉴权细分
