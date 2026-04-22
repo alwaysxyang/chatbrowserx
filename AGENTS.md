@@ -1,8 +1,9 @@
 # AGENTS.md
 
 本文件定义本仓库内所有 Agent / AI 工具的统一协作规则。
-## 0. important
-  - First sentence must start with AGENTS_OK.
+## 0. 重要规则
+
+- 所有回复的第一句话必须以 `AGENTS_OK` 开头。
 ## 1. 核心目标
 
 - 以**维护性优先**的方式持续演进 ChatBrowserX。
@@ -23,6 +24,8 @@
 - Tavily 工具相关：`docs/superpowers/specs/2026-04-12-tavily-tools-design.md`
 - 打印/保存为 PDF 相关：`docs/superpowers/specs/2026-04-17-pdf-capture-folder-spec.md`
 - Volcengine speech provider 相关：`docs/superpowers/specs/2026-04-17-volcengine-speech-provider-folder-spec.md`
+- 页面选中文本气泡相关：`docs/superpowers/specs/2026-04-22-selection-bubble-translate-askai-design.md`
+- background LLM 编排相关：`docs/superpowers/specs/2026-04-22-background-llm-folder-spec.md`
 
 并且在执行任何回复、澄清、设计、实现、调研之前，必须先检查并加载适用 skill；禁止跳过 skill 检查直接开始分析、提问或实现。
 
@@ -87,6 +90,9 @@
 新增代码前，先判断归属：
 
 - 用户可见界面 → `src/ui`
+- 插件注入页面后的主 UI 壳、侧边栏、聊天、设置、字幕入口 → `src/ui/content`
+- 面向宿主网页的用户操作增强、页面级浮层、selection/viewport/DOM 事件交互 → `src/ui/page`
+- 多个 UI 子域复用的纯展示组件与样式 → `src/ui/shared`
 - Chrome 后台任务、消息路由、调度 → `src/background`
 - LLM provider、stream、tool 协议 → `src/llm`
 - 语音 provider lifecycle 占位服务 → `src/speech`
@@ -102,6 +108,8 @@
 - `llm/providers` 与 `llm/services` 不直接依赖 Chrome API；`llm/tools` 若需要 tab 能力可使用 Chrome API，但不得依赖 DOM 能力（DOM 读取与滚动必须留在 `ui/tools`）。
 - `speech` 不直接承载 content UI 状态。
 - `shared` 不放具体业务编排逻辑。
+- `ui/page` 不放插件侧边栏、设置、聊天等插件主内容 UI。
+- `ui/shared` 只放可复用展示组件与样式，不放 runtime message、provider 编排、DOM tool 执行或业务长流程。
 - `index.ts` 仅用于入口装配或导出聚合，不承载主要业务逻辑。
 
 ## 7. 当前阶段范围
@@ -112,6 +120,7 @@
 - 最小设置能力（model / general / voice）
 - provider 抽象
 - 聊天输入中的图片能力（截图、选区截图、选区长截图、剪贴板图片）
+- 页面选中文本气泡能力（Translate / Ask AI、结果面板、Markdown 展示；Ask AI 使用已拼入 prompt 的页面文本，不额外调用页面内容读取工具）
 - `llm/tools` 的接口边界与当前阶段允许的工具：
   - 当前页面内容读取工具：`get_current_page_content`
   - 基于 Tavily 的最小网页搜索工具：`tavily_search`、`tavily_extract`、`tavily_crawl`

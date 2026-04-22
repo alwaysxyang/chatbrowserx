@@ -22,11 +22,33 @@ interface BubbleAnchor {
   placement: BubblePlacement;
 }
 
+interface PointerPoint {
+  x: number;
+  y: number;
+}
+
+const clickMovementThreshold = 4;
+const bubbleViewportMargin = 16;
+const bubbleViewportGap = 10;
+const maxBubbleWidth = 420;
+const maxEstimatedPanelHeight = 370;
+
 /**
  * Clamps a number between a minimum and maximum.
  */
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+/**
+ * Calculates the straight-line distance between two viewport pointer points.
+ *
+ * @param start - The initial pointer position.
+ * @param end - The final pointer position.
+ * @returns The distance in CSS pixels.
+ */
+function getPointerDistance(start: PointerPoint, end: PointerPoint): number {
+  return Math.hypot(end.x - start.x, end.y - start.y);
 }
 
 /**
@@ -65,19 +87,34 @@ function readSelectionSnapshot(): { text: string; rect: DOMRect } | null {
 }
 
 /**
- * Computes a near-selection anchor with basic viewport clamping.
+ * Computes a near-selection anchor while keeping the floating bubble inside the viewport.
  */
 function computeAnchor(rect: DOMRect): BubbleAnchor {
   const centerX = rect.left + rect.width / 2;
   const viewportWidth = window.innerWidth || 1024;
   const viewportHeight = window.innerHeight || 768;
+  const bubbleWidth = Math.min(maxBubbleWidth, Math.max(0, viewportWidth - bubbleViewportMargin * 2));
+  const halfBubbleWidth = bubbleWidth / 2;
+  const minLeft = bubbleViewportMargin + halfBubbleWidth;
+  const maxLeft = Math.max(minLeft, viewportWidth - bubbleViewportMargin - halfBubbleWidth);
+  const left = clamp(centerX, minLeft, maxLeft);
+  const estimatedPanelHeight = Math.min(
+    maxEstimatedPanelHeight,
+    Math.max(120, viewportHeight - bubbleViewportMargin * 2 - bubbleViewportGap),
+  );
+  const spaceAbove = rect.top - bubbleViewportMargin - bubbleViewportGap;
+  const spaceBelow = viewportHeight - rect.bottom - bubbleViewportMargin - bubbleViewportGap;
+  const placement: BubblePlacement = spaceAbove >= estimatedPanelHeight || spaceAbove > spaceBelow ? 'above' : 'below';
 
-  const left = clamp(centerX, 16, viewportWidth - 16);
-  const preferAbove = rect.top > 90;
-  const placement: BubblePlacement = preferAbove ? 'above' : 'below';
-  const top = placement === 'above' ? rect.top : Math.min(viewportHeight - 16, rect.bottom);
+  if (placement === 'above') {
+    const minTop = bubbleViewportMargin + bubbleViewportGap + estimatedPanelHeight;
+    const maxTop = Math.max(minTop, viewportHeight - bubbleViewportMargin);
+    return { left, top: clamp(rect.top, minTop, maxTop), placement };
+  }
 
-  return { left, top, placement };
+  const minTop = bubbleViewportMargin - bubbleViewportGap;
+  const maxTop = Math.max(minTop, viewportHeight - bubbleViewportMargin - bubbleViewportGap - estimatedPanelHeight);
+  return { left, top: clamp(rect.bottom, minTop, maxTop), placement };
 }
 
 /**
@@ -106,6 +143,7 @@ function isEventInsideBubble(event: Event, root: HTMLElement | null): boolean {
 export function SelectionBubble() {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const activeRequestIdRef = useRef<string | null>(null);
+  const outsidePointerDownRef = useRef<PointerPoint | null>(null);
 
   const [selectionText, setSelectionText] = useState<string>('');
   const [anchor, setAnchor] = useState<BubbleAnchor | null>(null);
@@ -160,6 +198,14 @@ export function SelectionBubble() {
   useEffect(() => {
     const onMouseUp = (event: MouseEvent) => {
       if (isEventInsideBubble(event, rootRef.current)) return;
+      const outsidePointerDown = outsidePointerDownRef.current;
+      outsidePointerDownRef.current = null;
+      if (
+        outsidePointerDown &&
+        getPointerDistance(outsidePointerDown, { x: event.clientX, y: event.clientY }) <= clickMovementThreshold
+      ) {
+        return;
+      }
       refreshFromSelection();
     };
     const onKeyUp = (event: KeyboardEvent) => {
@@ -183,6 +229,7 @@ export function SelectionBubble() {
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
       if (isEventInsideBubble(event, rootRef.current)) return;
+      outsidePointerDownRef.current = hasSelection ? { x: event.clientX, y: event.clientY } : null;
       hideBubble();
     };
 
@@ -190,7 +237,7 @@ export function SelectionBubble() {
     return () => {
       document.removeEventListener('mousedown', onPointerDown);
     };
-  }, [hideBubble]);
+  }, [hasSelection, hideBubble]);
 
   useEffect(() => {
     const listener = (message: unknown) => {

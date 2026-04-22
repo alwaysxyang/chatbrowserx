@@ -27,4 +27,20 @@ describe('selection prompts', () => {
     expect(prompt).toContain('Page Content');
     expect(prompt).toContain('S');
   });
+
+  it('tells ask-ai not to call page content tools because context is already included', () => {
+    const prompt = buildAskAiPrompt({
+      selectedText: 'Selected',
+      pageTitle: 'Title',
+      pageUrl: 'https://example.com',
+      pageText: 'Already included page text',
+      targetLanguageName: 'English',
+      maxPageChars: 100,
+    });
+
+    expect(prompt).toContain('Do not call get_current_page_content');
+    expect(prompt).toContain('Do not call any page reading or page content tools');
+    expect(prompt).toContain('Page Content');
+    expect(prompt).toContain('Already included page text');
+  });
 });

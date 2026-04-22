@@ -72,6 +72,7 @@
 
 - 工具条默认显示在选区上方（距离选区 8px），并进行视口边界 clamp。
 - 若上方空间不足，则显示在选区下方。
+- 气泡锚点必须根据浮层宽度与预计高度进行视口边界保护，靠近左右边缘、顶部或底部时不能让工具条或结果面板跑出可视区域。
 - 结果面板打开后隐藏工具条，整体保持为“靠近选区的气泡”形式，允许覆盖页面内容，但需保证可关闭与可复制。
 
 ### 5.3 结果面板
@@ -117,6 +118,7 @@
 
 - 分析选中文本时，必须结合页面内容（本轮策略为：把页面文本拼进 prompt）。
 - 页面内容不滚动：直接抓取当前页面 `innerText`。
+- prompt 必须明确说明页面内容已经包含在请求中，禁止模型调用 `get_current_page_content` 或任何页面内容读取工具，避免 Ask AI 再次触发页面滚动读取。
 - 为控制 token 与延迟，需要对页面文本做截断（默认 40k 字符，超出截断）。
 - 输出语言与 6.1 的目标语言一致。
 
@@ -124,6 +126,7 @@
 
 - system: “You are a helpful assistant.”
 - user:
+  - “Do not call `get_current_page_content` or any page reading tools. The current page content is already included below.”
   - “Analyze the Selected Text using the Page Content as context. Answer in <targetLanguageName>.”
   - “Page Title: …”
   - “Page URL: …”
@@ -163,8 +166,10 @@
 为同时支持 chat 与 selection 的流式回推，本轮将 `LlmOrchestrator` 调整为“可注入 stream 回调”的形式：
 
 - `complete(tabId, payload, onChunk?)`
-- orchestrator 内部仍保证“单 tab 单 in-flight + 新请求先 cancel + requestId 防误删”。
+- orchestrator 内部仍保证“同一实例内单 tab 单 in-flight + 新请求先 cancel + requestId 防误删”。
 - orchestrator 内部需在回调触发时校验当前 session 是否仍为该请求，避免旧请求残余 chunk 误回推。
+
+当前 `src/background/selection` 持有独立的 `LlmOrchestrator` 实例；该约束表示 selection 模块内部的 tab 维度请求互斥，不表示 chat 与 selection 之间共享一个全局锁。
 
 ## 9. 测试策略（最小集）
 

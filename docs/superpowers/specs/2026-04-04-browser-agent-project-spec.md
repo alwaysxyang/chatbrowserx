@@ -58,6 +58,12 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `docs/superpowers/specs/2026-04-10-refactoring-design.md`
   - 类型：归档文档
   - 用途：记录历史重构背景，不作为当前实现约束来源
+- `docs/superpowers/specs/2026-04-11-speech-state-persistence-design.md`
+  - 类型：归档文档
+  - 用途：记录早期 speech 状态持久化设想，不作为当前实现约束来源
+- `docs/superpowers/specs/2026-04-12-page-to-pdf-design.md`
+  - 类型：归档文档
+  - 用途：记录早期页面转 PDF 方案，当前约束以 `2026-04-17-pdf-capture-folder-spec.md` 为准
 
 ### 3.3 文档优先级
 
@@ -83,6 +89,10 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
   - 选区长截图
   - 剪贴板图片输入
   - 聊天图片预览
+- 页面选中文本气泡能力：
+  - Translate / Ask AI
+  - 结果面板与 Markdown 展示
+  - Ask AI 使用已拼入 prompt 的页面文本，不额外调用页面内容读取工具
 - `llm/tools` 的接口边界与首个页面内容读取工具
 - 基于 Tavily 的最小网页搜索工具：
   - `tavily_search`
@@ -93,7 +103,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
   - 字幕 overlay
   - background 语音编排
   - tab 音频采集链路
--  - 最小 speech provider 接入（当前包含 `volcengine`）
+  - 最小 speech provider 接入（当前包含 `volcengine`）
 - 设置持久化、聊天历史持久化、多语言 UI
 - 基于页面滚动 + 截图拼接的“打印/保存为 PDF”能力（仅用于用户主动触发的页面留存）
 
@@ -256,9 +266,10 @@ src/
 #### `src/background/speech`
 
 - 负责 speech 的 tab 维度编排。
-- 负责接收 `speechStart` / `speechStop` 消息。
+- 负责接收 `speechStart` / `speechStop` / `speechStateQuery` 消息。
 - 负责创建和清理每个 tab 对应的 `AudioCapture` 与 `SpeechRecognitionService`。
-- 负责把识别结果通过 `speechResult` 回推给 content script。
+- 负责把识别结果通过 `speechResult` 回推给 content script，并在识别失败时回推 `speechError`。
+- `speechStateQuery` 当前只查询 `SpeechOrchestrator` 的内存会话状态，不引入 storage 或 `webNavigation` 持久化链路。
 - 不负责字幕 UI 状态持久化。
 
 ### 6.3 `src/llm`
@@ -305,7 +316,7 @@ src/
 #### `src/shared/types`
 
 - 负责跨层共享类型。
-- 当前包括聊天类型、设置类型、speech 类型、runtime 消息协议。
+- 当前包括聊天类型、设置类型、speech 类型、selection 类型、runtime 消息协议。
 
 #### `src/shared/storage`
 
@@ -351,12 +362,14 @@ src/
 
 ### 7.3 Speech 链路
 
-1. 用户通过 `ShellRail` 触发开始 / 停止。
-2. `use-subtitle-controller` 发送 `speechStart` / `speechStop`。
-3. `background/speech/index.ts` 调用 `SpeechOrchestrator`。
-4. `SpeechOrchestrator` 读取 `speech-settings-repository`，创建 `AudioCapture` 与 `SpeechRecognitionService`。
-5. `AudioCapture` 负责 tab 音频采集并把 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
-6. `SpeechRecognitionService` 负责把音频分片交给 provider，并在产出 `RecognitionResult` 后由 background 通过 `speechResult` 回推给 UI。
+1. content script 挂载后，`use-subtitle-controller` 发送 `speechStateQuery`，用于从 background 内存会话恢复本地 listening 展示。
+2. 用户通过 `ShellRail` 触发开始 / 停止。
+3. `use-subtitle-controller` 发送 `speechStart` / `speechStop`。
+4. `background/speech/index.ts` 调用 `SpeechOrchestrator`。
+5. `SpeechOrchestrator` 读取 `speech-settings-repository`，创建 `AudioCapture` 与 `SpeechRecognitionService`。
+6. `AudioCapture` 负责 tab 音频采集并把 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
+7. `SpeechRecognitionService` 负责把音频分片交给 provider，并在产出 `RecognitionResult` 后由 background 通过 `speechResult` 回推给 UI。
+8. provider 或采集链路失败时，background 通过 `speechError` 通知 UI，并清理对应 tab 会话。
 
 ### 7.4 打印/保存为 PDF 链路
 
@@ -364,6 +377,14 @@ src/
 2. content 侧通过滚动扫描逐步采集可视区域截图。
 3. content 侧在新窗口打开截图预览页面。
 4. 用户在预览页面使用浏览器打印能力保存为 PDF。
+
+### 7.5 页面 selection 气泡链路
+
+1. `ui/page/selection` 监听页面 selection，并在选区附近渲染工具条。
+2. 用户触发 Translate 或 Ask AI 后，UI 构造 prompt 并发送 `selectionRequestType` 到 `background/selection`。
+3. Ask AI 在 UI 侧读取当前页面 `innerText` 并拼入 prompt，同时明确禁止模型再调用页面内容读取工具。
+4. `background/selection` 调用 `background/llm` 的 `LlmOrchestrator`，并通过 `selectionStreamChunkType` 回推流式 chunk。
+5. `ui/page/selection` 在结果面板中使用 `ui/shared/MessageMarkdown` 渲染结果。
 
 ## 8. 依赖方向
 

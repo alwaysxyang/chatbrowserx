@@ -1,239 +1,36 @@
-# Speech State Persistence and Lifecycle Management Design
+# Speech 状态持久化设计归档记录
 
-## Document Identity
+## 1. 文档身份
 
-- Document Type: Feature Spec
-- Constraint Level: Below main spec, above archived documents
-- Applicable Scope: `src/background/speech`, `src/ui/content/speech`, `src/shared/storage/speech-state-repository.ts`, `src/shared/types/runtime-messages.ts`
-- Parent Document: `docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md`
-- Related Document: `docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
+- 文档类型：归档文档
+- 约束级别：不直接约束当前实现
+- 适用范围：仅用于保留早期 speech 状态持久化设计背景
+- 上级文档：`docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md`
+- 当前约束来源：`docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
 
-## 1. Problem Statement
+本文件记录早期关于 speech 状态持久化与生命周期管理的设想。它不是当前实现的依据。
 
-Current speech recognition implementation has the following issues:
+## 2. 归档原因
 
-1. Recording state is lost when the page refreshes
-2. Recording stops when the chat panel is closed
-3. Recording state is not persisted across page navigations
-4. Each tab cannot maintain its own independent recording state
+早期方案曾设想引入以下能力：
 
-## 2. Requirements
+- `src/shared/storage/speech-state-repository.ts`
+- 基于 `chrome.webNavigation` 的页面导航监听
+- 录音状态写入 `chrome.storage.local`
+- 页面刷新或导航后的自动恢复
 
-1. **User manually stops or tab closes**: Only these actions should stop recording
-2. **Chat panel closure**: Recording should continue when chat panel is closed
-3. **Page refresh**: Recording should persist and UI should restore to recording state
-4. **Page navigation**: Detect refresh/navigation events, hide subtitle temporarily, and resume recording after page loads
+这些能力当前没有作为完整实现落地，也不属于主 spec 当前阶段的硬性范围。
 
-## 3. Design Approach
+当前代码中仅保留了一个轻量的 `speechStateQuery` 协议：content script 挂载后查询 `SpeechOrchestrator` 内存中的 tab 会话状态，用于恢复本地 listening 展示。该协议不提供 storage 持久化，不保证跨 service worker 生命周期或浏览器重启恢复。
 
-### 3.1 Chosen Approach: Background-Driven + Storage Persistence
+## 3. 当前使用规则
 
-**Core Concept**:
-- Background maintains recording state for each tab (in-memory Map)
-- State changes are synchronized to chrome.storage.local (indexed by tabId)
-- Content script queries background for current tab state on startup
-- During page refresh, background recording session remains active while new content script reconnects
+- 当前 speech 约束以 `2026-04-10-realtime-voice-feature-design.md` 为准。
+- 如果本文件与当前代码、主 spec 或 speech feature spec 不一致，必须忽略本文件。
+- 如需重新引入持久化、导航恢复或跨生命周期恢复能力，必须先更新主 spec 与 speech feature spec，再进入实现。
 
-**Why This Approach**:
-- Single source of truth (background) prevents UI/background inconsistency
-- Recording truly persists during page refresh (background session uninterrupted)
-- Chat panel closure does not affect background recording
-- Relatively simple implementation
+## 4. 历史保留内容
 
-**Trade-offs**:
-- Brief audio data loss during page refresh (content script re-injection takes time, typically < 1 second)
-- Requires content script reconnection logic
+本归档文档保留的历史意图是：让 speech 会话在页面刷新、聊天面板关闭或 tab 切换时拥有更明确的生命周期语义。
 
-## 4. Architecture Design
-
-### 4.1 State Storage
-
-**New Repository: speech-state-repository.ts**
-
-```typescript
-interface SpeechState {
-  isRecording: boolean;
-  timestamp: number;
-}
-
-// Storage structure: { [tabId: string]: SpeechState }
-
-// API:
-- getSpeechState(tabId: number): Promise<SpeechState | null>
-- setSpeechState(tabId: number, isRecording: boolean): Promise<void>
-- removeSpeechState(tabId: number): Promise<void>
-- getAllSpeechStates(): Promise<Record<string, SpeechState>>
-```
-
-**Background Memory State**:
-- `SpeechOrchestrator` already maintains `sessions: Map<tabId, TabSession>`
-- This Map represents "active recording sessions"
-- Synchronize to storage when state changes
-
-**Synchronization Timing**:
-- Recording starts → Write to storage `{ isRecording: true }`
-- Recording stops (user manual) → Write to storage `{ isRecording: false }`
-- Tab closes → Remove from storage
-
-### 4.2 Page Lifecycle Handling
-
-**Background Tab Event Listeners**:
-
-1. `chrome.tabs.onRemoved` (existing):
-   - Stop recording and clean up storage when tab closes
-
-2. `chrome.webNavigation.onBeforeNavigate` (new):
-   - Detect page refresh/navigation
-   - Check if top-level frame (frameId === 0)
-   - If tab is recording, keep background session running
-   - Do not stop recording
-
-3. `chrome.webNavigation.onCommitted` (new):
-   - Page navigation completed
-   - Content script will be re-injected
-   - Wait for new content script to send "restore state" request
-
-**Content Script Startup Flow**:
-
-1. Content script loads, immediately sends `speechStateQuery` message to background
-2. Background returns current tab's recording state
-3. If state is `isRecording: true`:
-   - UI displays subtitle overlay (listening state)
-   - Re-establish message listener with background
-   - Background recording session already running, continue receiving `speechResult`
-
-**Chat Panel Closure Handling**:
-- Chat panel closure only hides UI, content script remains active
-- Subtitle overlay is independent of chat panel, continues to display
-- Background recording session unaffected
-
-### 4.3 Message Protocol Extension
-
-**New Message Types**:
-
-```typescript
-// Query current tab's recording state
-const speechStateQueryType = 'chatbrowserx.speech.state.query';
-
-interface SpeechStateQueryMessage {
-  type: typeof speechStateQueryType;
-}
-
-interface SpeechStateQueryResponse extends RuntimeResponse<{
-  isRecording: boolean;
-}> {}
-```
-
-**Message Flow**:
-
-1. **Content script startup**:
-   - Send `speechStateQuery` → Background returns `{ isRecording: true/false }`
-   - Decide whether to show listening state based on response
-
-2. **User clicks start recording**:
-   - Content script sends `speechStart` → Background starts recording
-   - Background writes to storage `{ isRecording: true }`
-   - Returns success response
-
-3. **User clicks stop recording**:
-   - Content script sends `speechStop` → Background stops recording
-   - Background writes to storage `{ isRecording: false }`
-   - Returns success response
-
-4. **Page refresh**:
-   - New content script sends `speechStateQuery`
-   - Background returns `{ isRecording: true }` (read from storage)
-   - Content script restores UI state, continues receiving `speechResult`
-
-### 4.4 Per-Tab State Isolation
-
-**Design**:
-- Each tab maintains independent recording state
-- Tab A starts recording → Tab B remains stopped by default
-- Switching back to Tab A → Recording state preserved
-
-**Implementation**:
-- Storage uses tabId as key: `{ "123": { isRecording: true }, "456": { isRecording: false } }`
-- Background `sessions` Map uses tabId as key
-- Content script only queries its own tab's state
-
-## 5. Error Handling and Edge Cases
-
-### 5.1 Audio Continuity During Page Refresh
-
-- Background's `AudioCapture` and `SpeechRecognitionService` sessions remain active
-- But `speechResult` messages will fail to send before content script re-injection
-- Recognition results during this period will be lost (typically < 1 second)
-- This is an acceptable trade-off; seamless continuity requires complex buffering
-
-### 5.2 Tab Close vs Page Refresh Distinction
-
-- `chrome.tabs.onRemoved` - Actual tab closure, stop recording and clean up storage
-- `chrome.webNavigation.onBeforeNavigate` - Page navigation, keep recording
-- No additional heartbeat mechanism needed, rely on Chrome API events
-
-### 5.3 Storage Read/Write Failures
-
-- When storage operations fail, fall back to in-memory state
-- State will be lost after page refresh, but does not affect current session
-- Log errors, do not block main flow
-
-### 5.4 Content Script Duplicate Injection
-
-- If content script is injected multiple times on same page (theoretically should not happen)
-- Background's `sessions` Map uses tabId as key, naturally deduplicated
-- Multiple content scripts can all receive `speechResult`, but UI state controlled by last one
-
-### 5.5 Service Worker Suspension
-
-- Chrome may suspend idle service workers
-- Recording session will be interrupted (Manifest V3 limitation)
-- Next time content script queries state, will find background has no session but storage shows `isRecording: true`
-- Automatically restart recording session in this case
-
-## 6. Implementation Scope
-
-### 6.1 New Files
-
-- `src/shared/storage/speech-state-repository.ts` - Recording state persistence
-
-### 6.2 Modified Files
-
-- `src/shared/types/runtime-messages.ts` - Add `speechStateQuery` message type
-- `src/background/speech/index.ts` - Add `webNavigation` listeners and state query handler
-- `src/background/speech/speech-orchestrator.ts` - Synchronize storage on start/stop
-- `src/ui/content/speech/use-subtitle-controller.ts` - Query state on startup and restore
-- `manifest.config.ts` - Add `webNavigation` permission
-
-### 6.3 Unchanged Parts
-
-- Core logic of `AudioCapture` and `SpeechRecognitionService` unchanged
-- Subtitle overlay rendering logic unchanged
-- Existing `speechStart`/`speechStop`/`speechResult` message protocol unchanged
-
-## 7. Testing Scenarios
-
-1. Start recording → Refresh page → Verify recording continues and UI restores
-2. Start recording → Close chat panel → Verify recording continues
-3. Start recording → Close tab → Verify storage cleanup
-4. Tab A starts recording → Switch to Tab B → Verify Tab B is stopped by default
-5. Start recording → Wait for service worker suspension → Refresh page → Verify automatic recovery
-
-## 8. Spec Updates
-
-This design will be integrated into `docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`:
-- Add state persistence section
-- Add lifecycle management section
-- Add message protocol extension section
-- Update current implementation boundary
-
-## 9. Future Considerations
-
-**Not in Current Scope**:
-- Recording history/playback
-- Cross-session state persistence (browser restart)
-- Multi-window state synchronization
-- Recording pause/resume functionality
-- Audio buffering during content script reconnection
-
-These features may be considered in future iterations if needed.
+这些方向可以作为后续讨论背景，但不能直接作为实现任务或测试依据。

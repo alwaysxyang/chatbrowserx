@@ -28,8 +28,9 @@
 
 - `use-subtitle-controller.ts`
   - 负责本地字幕状态
+  - 负责挂载时发送 `speechStateQuery`，从 background 内存会话恢复 listening 展示
   - 负责发送 `speechStart` / `speechStop`
-  - 负责消费 `speechResult`
+  - 负责消费 `speechResult` / `speechError`
 - `SubtitleOverlay.tsx`
   - 负责字幕 overlay 的 portal 挂载
   - 负责拖拽位置维护
@@ -41,7 +42,7 @@
 
 - `index.ts`
   - 注册 speech runtime message listener
-  - 负责 `speechStart` / `speechStop` 请求入口
+  - 负责 `speechStart` / `speechStop` / `speechStateQuery` 请求入口
 - `speech-orchestrator.ts`
   - 按 tab 维护会话
   - 负责创建与清理 `AudioCapture`、`SpeechRecognitionService`
@@ -80,10 +81,9 @@
 #### `src/shared`
 
 - `src/shared/types/speech.ts`
-  - 定义 `SpeechSettings`、语言枚举、`RecognitionResult`
+  - 定义 speech runtime 消息协议、`RecognitionResult`、`SpeechRuntimeResponse`、`SpeechStateQueryResponse`
 - `src/shared/types/runtime-messages.ts`
-  - 定义 `speechStartRequestType`、`speechStopRequestType`、`speechResultType`
-  - 定义 `SpeechRuntimeResponse = RuntimeResponse<null>`
+  - 提供 `RuntimeMessage`、`RuntimeResponse` 与通用响应解析能力
 - `src/shared/storage/speech-settings-repository.ts`
   - 负责语音设置持久化
 
@@ -93,6 +93,8 @@
 const speechStartRequestType = 'chatbrowserx.speech.start';
 const speechStopRequestType = 'chatbrowserx.speech.stop';
 const speechResultType = 'chatbrowserx.speech.result';
+const speechErrorType = 'chatbrowserx.speech.error';
+const speechStateQueryType = 'chatbrowserx.speech.state.query';
 
 interface SpeechStartRequestMessage {
   type: typeof speechStartRequestType;
@@ -107,14 +109,29 @@ interface SpeechResultMessage {
   payload: RecognitionResult;
 }
 
+interface SpeechErrorMessage {
+  type: typeof speechErrorType;
+  payload: {
+    error: string;
+  };
+}
+
+interface SpeechStateQueryMessage {
+  type: typeof speechStateQueryType;
+}
+
 type SpeechRuntimeResponse = RuntimeResponse<null>;
+type SpeechStateQueryResponse = RuntimeResponse<{
+  isRecording: boolean;
+}>;
 ```
 
 说明：
 
 - `speechStart` 当前不携带设置；background 在启动时自行读取 `speech-settings-repository`。
 - `speechStop` 当前返回成功响应，UI 收到后清空本地字幕状态。
-- 当前没有单独的 speech runtime error push 消息。
+- `speechStateQuery` 当前只查询 `SpeechOrchestrator.isRecording(tabId)` 的内存状态，用于 content script 重新挂载时恢复本地 listening 展示；它不是 storage 持久化或跨 service worker 生命周期恢复机制。
+- `speechError` 是 background 向 UI 推送的错误消息；UI 收到后清空本地字幕状态。
 
 ### 2.4 当前数据结构
 
@@ -146,24 +163,28 @@ interface RecognitionResult {
 
 ### 2.5 当前运行链路
 
-1. 用户点击 `ShellRail` 语音按钮。
-2. `use-subtitle-controller` 更新本地 listening 状态，并发送 `speechStart`。
-3. `background/speech/index.ts` 调用 `SpeechOrchestrator.start(tabId)`。
-4. `SpeechOrchestrator` 读取 `speech-settings-repository`。
-5. `SpeechOrchestrator` 创建 `AudioCapture` 与 `SpeechRecognitionService`。
-6. `SpeechRecognitionService.start()` 启动 service 生命周期。
-7. `AudioCapture.start(tabId, onAudioData, chunkInterval?)` 执行以下步骤：
+1. content script 挂载后，`use-subtitle-controller` 发送 `speechStateQuery`。
+2. `background/speech/index.ts` 返回当前 tab 是否存在内存中的 speech 会话。
+3. 如果存在会话，UI 恢复 listening 展示；如果不存在，会话仍保持空闲状态。
+4. 用户点击 `ShellRail` 语音按钮。
+5. `use-subtitle-controller` 更新本地 listening 状态，并发送 `speechStart`。
+6. `background/speech/index.ts` 调用 `SpeechOrchestrator.start(tabId)`。
+7. `SpeechOrchestrator` 读取 `speech-settings-repository`。
+8. `SpeechOrchestrator` 创建 `AudioCapture` 与 `SpeechRecognitionService`。
+9. `SpeechRecognitionService.start()` 启动 service 生命周期。
+10. `AudioCapture.start(tabId, onAudioData, chunkInterval?)` 执行以下步骤：
    - 通过 `chrome.tabCapture.getMediaStreamId` 获取 stream ID
    - 确保 offscreen document 存在（如不存在则创建）
    - 向 offscreen document 发送 `start-capture` 消息
-8. offscreen document 接收消息后：
+11. offscreen document 接收消息后：
    - 使用 stream ID 调用 `navigator.mediaDevices.getUserMedia`
    - 创建 `AudioContext` 和 `MediaRecorder`
    - 开始录制音频
-9. 音频分片通过 `audio-data` 消息从 offscreen document 发送回 service worker。
-10. `AudioCapture` 接收 `audio-data` 消息并调用回调，将 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
-11. `SpeechRecognitionService` 将音频分片交给 provider，并在收到 provider 回调后产出 `RecognitionResult`。
-12. background 通过 `speechResult` 把 `RecognitionResult` 回推给 UI。
+12. 音频分片通过 `audio-data` 消息从 offscreen document 发送回 service worker。
+13. `AudioCapture` 接收 `audio-data` 消息并调用回调，将 `ArrayBuffer` 交给 `SpeechRecognitionService.sendAudio(...)`。
+14. `SpeechRecognitionService` 将音频分片交给 provider，并在收到 provider 回调后产出 `RecognitionResult`。
+15. background 通过 `speechResult` 把 `RecognitionResult` 回推给 UI。
+16. 若 provider 或采集链路失败，background 通过 `speechError` 把错误回推给 UI，并停止对应 tab 的会话。
 
 ### 2.6 当前实现边界
 
@@ -175,6 +196,7 @@ interface RecognitionResult {
 - offscreen document 用于在 service worker 环境中处理 `getUserMedia`
 - speech 设置存储
 - speech runtime message 协议
+- speech 内存状态查询协议
 - speech service 层与 provider 生命周期管理
 - `volcengine` 最小 provider 接入（用于验证端到端链路）
 
@@ -188,12 +210,14 @@ interface RecognitionResult {
 
 - `speechStart` 启动失败时，通过 `SpeechRuntimeResponse` 返回错误。
 - `speechStop` 当前总是返回成功响应；若无会话，background 静默结束。
+- `speechStateQuery` 在缺少 tab ID 时返回错误；正常情况下返回 `{ isRecording }`。
 - `AudioCapture.start(...)` 重复启动时抛出 `Audio capture already started`。
 - offscreen document 中的 `getUserMedia` 失败时，通过 `audio-error` 消息通知 service worker。
 - offscreen document 中的 `MediaRecorder` 错误通过 `audio-error` 消息通知 service worker。
 - `SpeechRecognitionService.start()` 重复启动时抛出 `Speech recognition already running`。
 - `SpeechRecognitionService.sendAudio(...)` 在 service 未运行时只记录 warning，不抛错。
 - UI 在启动失败时回滚 listening 状态；停止时无论成功或失败都会清空本地字幕状态。
+- UI 收到 `speechError` 后清空本地字幕状态。
 
 ### 2.8 当前 UI 与文案
 
@@ -235,6 +259,7 @@ interface RecognitionResult {
 - provider 协议封装、消息序列化、wire format
 - 真实识别结果流与翻译结果流
 - 自动重连、错误码映射、鉴权细分
+- 基于 storage 与 `webNavigation` 的 speech 状态持久化和跨导航恢复
 - 语音历史记录、字幕导出、样式自定义、VAD、静音自动暂停等高级功能
 
 如果未来要引入上述内容，必须先更新本 feature spec 与主 spec，再改代码。

@@ -1,4 +1,4 @@
-# `src/background/llm` Folder Spec
+# `src/background/llm` 文件夹规范
 
 ## 1. 文档身份
 
@@ -20,7 +20,7 @@
 
 ### 3.1 允许做的事
 
-- 管理 tab 维度的 LLM in-flight 请求（创建、取消、清理）。
+- 管理调用方实例内 tab 维度的 LLM in-flight 请求（创建、取消、清理）。
 - 向调用方提供流式增量（chunk）回调，由调用方决定是否通过 `chrome.tabs.sendMessage` 转发给 content script。
 - 读取设置（如 `loadSettings`）并创建 `src/llm/services` 层的调用对象（如 `ChatCompletionService`）。
 
@@ -42,19 +42,27 @@
 
 ## 5. 运行链路（当前实现）
 
-- content script（`src/ui/content/chat`）通过 `chrome.runtime.sendMessage` 发送 `chatRequestType`。
-- `src/background/chat/index.ts` 接收消息并调用 `LlmOrchestrator.complete(tabId, payload, onChunk)`。
-- `LlmOrchestrator` 读取设置，调用 `ChatCompletionService.complete(...)`，并在收到 chunk 时调用 `onChunk`。
-- `src/background/chat/index.ts` 在其 `onChunk` 实现中转发 `chatStreamChunkType`。
+- `src/background/chat/index.ts` 与 `src/background/selection/index.ts` 各自持有独立的 `LlmOrchestrator` 实例。
+- 聊天链路：
+  - content script（`src/ui/content/chat`）通过 `chrome.runtime.sendMessage` 发送 `chatRequestType`。
+  - `src/background/chat/index.ts` 接收消息并调用 `LlmOrchestrator.complete(tabId, payload, onChunk)`。
+  - `src/background/chat/index.ts` 在其 `onChunk` 实现中转发 `chatStreamChunkType`。
+- selection 链路：
+  - content script（`src/ui/page/selection`）通过 `chrome.runtime.sendMessage` 发送 `selectionRequestType`。
+  - `src/background/selection/index.ts` 把 selection prompt 包装为 `{ history: [], input: prompt }`，再调用 `LlmOrchestrator.complete(tabId, payload, onChunk)`。
+  - `src/background/selection/index.ts` 在其 `onChunk` 实现中转发 `selectionStreamChunkType`，并带回 UI 生成的 `requestId`。
+- `LlmOrchestrator` 读取设置，调用 `ChatCompletionService.complete(...)`，并在收到 chunk 时调用调用方传入的 `onChunk`。
 - 取消链路：
-  - UI 发送 `chatCancelType`，或
-  - content script 断开 `chatSessionPortName` 端口连接，触发 background 侧取消。
+  - chat UI 发送 `chatCancelType`，或 selection UI 发送 `selectionCancelType`；
+  - content script 断开 `chatSessionPortName` 端口连接，触发对应 background 模块取消其持有的 orchestrator 实例。
 
 ## 6. Session 语义（tab 维度）
 
 ### 6.1 单 tab 单 in-flight
 
-同一个 `tabId` 在任一时刻最多允许存在 1 个 in-flight 的聊天请求。
+同一个 `LlmOrchestrator` 实例内，同一个 `tabId` 在任一时刻最多允许存在 1 个 in-flight 的聊天请求。
+
+当前 `src/background/chat` 与 `src/background/selection` 分别持有独立实例，因此该限制不是跨模块的全局锁。
 
 ### 6.2 新请求到来时的处理
 

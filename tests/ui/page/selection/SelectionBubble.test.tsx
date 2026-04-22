@@ -5,17 +5,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SelectionBubble } from '../../../../src/ui/page/selection/SelectionBubble';
 
 const originalGetSelection = window.getSelection;
+const originalInnerWidth = window.innerWidth;
+const originalInnerHeight = window.innerHeight;
 
 /**
  * Stubs a page text selection with a stable bounding box for SelectionBubble tests.
  */
-function stubPageSelection(text: string): void {
+function stubPageSelection(text: string, rect: DOMRect = new DOMRect(120, 120, 140, 24)): void {
   const textNode = document.createTextNode(text);
   document.body.appendChild(textNode);
 
   const range = {
-    getBoundingClientRect: () => new DOMRect(120, 120, 140, 24),
-    getClientRects: () => [new DOMRect(120, 120, 140, 24)],
+    getBoundingClientRect: () => rect,
+    getClientRects: () => [rect],
   };
 
   Object.defineProperty(window, 'getSelection', {
@@ -39,11 +41,33 @@ function stubEmptySelection(): void {
   });
 }
 
+/**
+ * Stubs viewport dimensions used by selection bubble placement.
+ */
+function stubViewport(width: number, height: number): void {
+  Object.defineProperty(window, 'innerWidth', {
+    configurable: true,
+    value: width,
+  });
+  Object.defineProperty(window, 'innerHeight', {
+    configurable: true,
+    value: height,
+  });
+}
+
 describe('SelectionBubble', () => {
   afterEach(() => {
     Object.defineProperty(window, 'getSelection', {
       configurable: true,
       value: originalGetSelection,
+    });
+    Object.defineProperty(window, 'innerWidth', {
+      configurable: true,
+      value: originalInnerWidth,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      configurable: true,
+      value: originalInnerHeight,
     });
     document.body.innerHTML = '';
   });
@@ -126,5 +150,54 @@ describe('SelectionBubble', () => {
 
     const dialog = await screen.findByRole('dialog', { name: 'Selection result' });
     expect(dialog.querySelector('strong')).toHaveTextContent('你好');
+  });
+
+  it('does not recreate the toolbar after a simple page click clears the existing selection', async () => {
+    stubPageSelection('Hello');
+
+    render(<SelectionBubble />);
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { clientX: 190, clientY: 132, bubbles: true }));
+    });
+
+    expect(await screen.findByRole('button', { name: '翻译' })).toBeInTheDocument();
+
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('mousedown', { clientX: 190, clientY: 132, bubbles: true }));
+    });
+    expect(screen.queryByRole('button', { name: '翻译' })).not.toBeInTheDocument();
+
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent('mouseup', { clientX: 190, clientY: 132, bubbles: true }));
+    });
+    stubEmptySelection();
+
+    expect(screen.queryByRole('button', { name: '翻译' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ask AI' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the floating bubble inside the left viewport edge', async () => {
+    stubViewport(1024, 768);
+    stubPageSelection('Hello', new DOMRect(0, 120, 10, 24));
+
+    render(<SelectionBubble />);
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+
+    const root = document.querySelector<HTMLElement>('.selection-bubble-root');
+    expect(Number.parseFloat(root?.style.left ?? '0')).toBeGreaterThanOrEqual(226);
+  });
+
+  it('places the bubble below the selection when there is not enough room above', async () => {
+    stubViewport(1024, 768);
+    stubPageSelection('Hello', new DOMRect(360, 100, 120, 24));
+
+    render(<SelectionBubble />);
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+
+    expect(document.querySelector('.selection-bubble-root')).toHaveAttribute('data-placement', 'below');
   });
 });
