@@ -37,6 +37,9 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md`
   - 类型：主 spec
   - 用途：全局目录、职责、依赖方向、范围约束
+- `docs/superpowers/specs/2026-04-22-background-llm-folder-spec.md`
+  - 类型：folder spec
+  - 用途：`src/background/llm` 的当前实现边界、依赖方向与 session 语义说明
 - `docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
   - 类型：feature spec
   - 用途：speech 子域的当前实现与未来设计说明
@@ -107,6 +110,7 @@ src/
   assets/
   background/
     chat/
+    llm/
     speech/
     index.ts
   llm/
@@ -205,6 +209,13 @@ src/
 - 负责流式响应转发、取消请求、tab 维度会话控制。
 - 负责聊天截图输入所需的后台截图桥接。
 - 不直接承载 provider 细节。
+
+#### `src/background/llm`
+
+- 放置 background 层可复用的 LLM 编排与 tab 维度 session 管理实现。
+- 允许依赖 `src/llm/services` 与 `src/shared`，并可使用 Chrome API（如 `chrome.tabs`）向 content script 回推流式消息。
+- 不直接依赖 `src/ui`，不包含 JSX，不承载 UI 状态。
+- 细化约束见 `docs/superpowers/specs/2026-04-22-background-llm-folder-spec.md`。
 
 #### `src/background/speech`
 

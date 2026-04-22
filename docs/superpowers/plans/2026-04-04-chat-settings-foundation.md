@@ -57,7 +57,7 @@
 
 **Files:**
 - Create: `src/background/messaging/messages.ts`
-- Create: `src/background/chat/chat-orchestrator.ts`
+- Create: `src/background/llm/llm-orchestrator.ts`
 - Create: `src/background/index.ts`
 
 - [ ] **Step 1: Define message contracts between UI and background**

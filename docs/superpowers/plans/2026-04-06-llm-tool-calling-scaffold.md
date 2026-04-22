@@ -47,7 +47,7 @@
 ### Task 4: Verify background integration still works with the new service signature
 
 **Files:**
-- Modify: `src/background/chat/chat-orchestrator.ts`
+- Modify: `src/background/llm/llm-orchestrator.ts`
 - Modify: `tests/background/index.test.ts`
 
 - [ ] **Step 1: Update background integration tests if the service contract changes**

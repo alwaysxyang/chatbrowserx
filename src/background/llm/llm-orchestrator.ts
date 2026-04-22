@@ -4,34 +4,39 @@ import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types
 import { chatStreamChunkType } from '../../shared/types/chat';
 
 interface ChatSession {
+  requestId: number;
   service: ChatCompletionService;
   controller: AbortController;
 }
 
 /**
- * Orchestrates chat completion requests
- * Manages chat sessions per tab and handles streaming responses
+ * Orchestrates LLM chat completion requests.
+ *
+ * Manages one in-flight chat request per tab and forwards streaming chunks to the content script.
  */
-export class ChatOrchestrator {
+export class LlmOrchestrator {
   private sessions = new Map<number, ChatSession>();
+  private nextRequestId = 1;
 
   /**
-   * Handles a chat completion request for the specified tab
-   * @param tabId - The tab ID making the request
-   * @param payload - The chat request payload
-   * @returns The chat response
+   * Handles a chat completion request for the specified tab.
+   * If a previous request exists for the same tab, it will be cancelled before starting the new one.
+   *
+   * @param tabId - The tab ID making the request.
+   * @param payload - The chat request payload.
+   * @returns The chat response.
    */
   async complete(tabId: number, payload: ChatRequestPayload): Promise<ChatResponsePayload> {
-    if (this.sessions.has(tabId)) {
-      throw new Error(`Chat request already in progress for tab ${tabId}`);
-    }
+    // Enforce "single in-flight per tab": stop the previous request if any.
+    this.cancel(tabId);
 
+    const requestId = this.nextRequestId++;
     const settings = await loadSettings();
     const controller = new AbortController();
     const service = new ChatCompletionService({
       settings: settings.model,
     });
-    this.sessions.set(tabId, { service, controller });
+    this.sessions.set(tabId, { requestId, service, controller });
 
     try {
       const reply = await service.complete(
@@ -45,13 +50,18 @@ export class ChatOrchestrator {
 
       return { reply };
     } finally {
-      this.sessions.delete(tabId);
+      // Avoid deleting a newer session that may have replaced this request.
+      const current = this.sessions.get(tabId);
+      if (current?.requestId === requestId) {
+        this.sessions.delete(tabId);
+      }
     }
   }
 
   /**
-   * Cancels an ongoing chat request for the specified tab
-   * @param tabId - The tab ID to cancel
+   * Cancels an ongoing chat request for the specified tab.
+   *
+   * @param tabId - The tab ID to cancel.
    */
   cancel(tabId: number): void {
     const session = this.sessions.get(tabId);
@@ -64,7 +74,7 @@ export class ChatOrchestrator {
   }
 
   /**
-   * Handles streaming chunks by forwarding to the content script
+   * Handles streaming chunks by forwarding them to the content script.
    */
   private handleStreamChunk(tabId: number, chunk: string): void {
     if (!chunk) return;
@@ -77,3 +87,4 @@ export class ChatOrchestrator {
       .catch(() => undefined);
   }
 }
+

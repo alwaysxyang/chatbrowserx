@@ -1,4 +1,4 @@
-import { ChatOrchestrator } from './chat-orchestrator';
+import { LlmOrchestrator } from '../llm/llm-orchestrator';
 import { registerScreenshotCaptureHandler } from './screenshot-capture';
 import {
   runtimeErrorResponse,
@@ -10,7 +10,7 @@ import {
   isChatRequestMessage,
 } from '../../shared/types/chat';
 
-const chatOrchestrator = new ChatOrchestrator();
+const llmOrchestrator = new LlmOrchestrator();
 
 /**
  * Initialize chat module
@@ -30,7 +30,7 @@ export function initChatModule(): void {
       return true;
     }
 
-    void toRuntimeResponse(chatOrchestrator.complete(tabId, message.payload)).then(sendResponse);
+    void toRuntimeResponse(llmOrchestrator.complete(tabId, message.payload)).then(sendResponse);
 
     return true;
   });
@@ -42,7 +42,7 @@ export function initChatModule(): void {
 
     const tabId = sender.tab?.id;
     if (tabId != null) {
-      chatOrchestrator.cancel(tabId);
+      llmOrchestrator.cancel(tabId);
     }
 
     return undefined;
@@ -59,7 +59,7 @@ export function initChatModule(): void {
     }
 
     port.onDisconnect.addListener(() => {
-      chatOrchestrator.cancel(tabId);
+      llmOrchestrator.cancel(tabId);
     });
   });
 }

@@ -46,8 +46,8 @@ describe('background action click', () => {
     const cancelMock = vi.fn();
     const completeMock = vi.fn();
 
-    vi.doMock('../../src/background/chat/chat-orchestrator', () => ({
-      ChatOrchestrator: vi.fn().mockImplementation(() => ({
+    vi.doMock('../../src/background/llm/llm-orchestrator', () => ({
+      LlmOrchestrator: vi.fn().mockImplementation(() => ({
         complete: completeMock,
         cancel: cancelMock,
       })),
