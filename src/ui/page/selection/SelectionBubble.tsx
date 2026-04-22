@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Copy } from 'lucide-react';
+import { Check, Copy, Languages, Sparkles } from 'lucide-react';
 import { loadSettings, defaultSettings } from '../../../shared/storage/settings-repository';
 import { translateMessage } from '../../../shared/i18n/i18n';
-import { copyMessageContent } from '../chat/copy-message-content';
+import { copyMessageContent } from '../../content/chat/copy-message-content';
+import { MessageMarkdown } from '../../shared/MessageMarkdown';
 import { getRuntimeResponseData } from '../../../shared/types/runtime-messages';
 import type { SelectionMode, SelectionRuntimeResponse } from '../../../shared/types/selection';
 import {
@@ -87,6 +88,19 @@ function createRequestId(): string {
 }
 
 /**
+ * Checks whether an event originated inside the active selection bubble.
+ *
+ * @param event - The document-level event to inspect.
+ * @param root - The bubble root element.
+ * @returns True when the event path includes the bubble root.
+ */
+function isEventInsideBubble(event: Event, root: HTMLElement | null): boolean {
+  if (!root) return false;
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  return path.includes(root);
+}
+
+/**
  * Selection-driven bubble UI for Translate / Ask AI with streaming output.
  */
 export function SelectionBubble() {
@@ -144,12 +158,17 @@ export function SelectionBubble() {
   }, [cancelActiveRequestAndResetPanel, hideBubble, selectionText]);
 
   useEffect(() => {
-    const onMouseUp = () => refreshFromSelection();
+    const onMouseUp = (event: MouseEvent) => {
+      if (isEventInsideBubble(event, rootRef.current)) return;
+      refreshFromSelection();
+    };
     const onKeyUp = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         hideBubble();
         return;
       }
+      if (isPanelOpen) return;
+      if (isEventInsideBubble(event, rootRef.current)) return;
       refreshFromSelection();
     };
 
@@ -159,14 +178,11 @@ export function SelectionBubble() {
       document.removeEventListener('mouseup', onMouseUp);
       document.removeEventListener('keyup', onKeyUp);
     };
-  }, [hideBubble, refreshFromSelection]);
+  }, [hideBubble, isPanelOpen, refreshFromSelection]);
 
   useEffect(() => {
     const onPointerDown = (event: MouseEvent) => {
-      const root = rootRef.current;
-      if (!root) return;
-      const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
-      if (path.includes(root)) return;
+      if (isEventInsideBubble(event, rootRef.current)) return;
       hideBubble();
     };
 
@@ -269,28 +285,34 @@ export function SelectionBubble() {
   return (
     <div ref={rootRef} className="selection-bubble-root" data-placement={anchor.placement} style={rootStyle}>
       <div className="selection-bubble-stack">
-        <div className="selection-toolbar" role="toolbar" aria-label="Selection toolbar">
-          <button
-            type="button"
-            className="selection-toolbar-button"
-            disabled={isSending}
-            onClick={() => void run('translate')}
-          >
-            {translateMessage('selection.toolbar.translate')}
-          </button>
-          <button
-            type="button"
-            className="selection-toolbar-button"
-            disabled={isSending}
-            onClick={() => void run('ask_ai')}
-          >
-            {translateMessage('selection.toolbar.askAi')}
-          </button>
-        </div>
+        {!isPanelOpen ? (
+          <div className="selection-toolbar" role="toolbar" aria-label="Selection toolbar">
+            <button
+              type="button"
+              className="selection-toolbar-button"
+              disabled={isSending}
+              onClick={() => void run('translate')}
+            >
+              <Languages className="selection-toolbar-icon" strokeWidth={2.1} />
+              <span>{translateMessage('selection.toolbar.translate')}</span>
+            </button>
+            <button
+              type="button"
+              className="selection-toolbar-button"
+              disabled={isSending}
+              onClick={() => void run('ask_ai')}
+            >
+              <Sparkles className="selection-toolbar-icon" strokeWidth={2.1} />
+              <span>{translateMessage('selection.toolbar.askAi')}</span>
+            </button>
+          </div>
+        ) : null}
 
         {isPanelOpen ? (
           <div className="selection-panel" role="dialog" aria-label="Selection result">
-            <div className="selection-panel-body">{content || translateMessage('chat.loading')}</div>
+            <div className="selection-panel-body">
+              <MessageMarkdown content={content || translateMessage('chat.loading')} />
+            </div>
             <div className="selection-panel-divider" />
             <div className="selection-panel-footer">
               <button
@@ -314,4 +336,3 @@ export function SelectionBubble() {
     </div>
   );
 }
-

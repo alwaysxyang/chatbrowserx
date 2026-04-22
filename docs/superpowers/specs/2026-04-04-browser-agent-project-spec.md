@@ -138,10 +138,12 @@ src/
     content/
       chat/
       pdf/
-      selection/
       settings/
       speech/
+    page/
+      selection/
     popup/
+    shared/
     tools/
 ```
 
@@ -153,8 +155,8 @@ src/
 
 #### `src/ui/content`
 
-- 负责 content script 场景下的主 UI。
-- 负责创建 Shadow Root、挂载 React 应用、组织聊天、设置和字幕 overlay 入口。
+- 负责 content script 场景下的插件主 UI 与注入入口。
+- 负责创建 Shadow Root、挂载 React 应用、组织聊天、设置、字幕 overlay 与页面操作入口。
 - 允许通过 hook 管理 UI 层局部状态与 background 消息交互。
 - 不直接依赖 provider 实现。
 - 不直接承担 Chrome 后台任务。
@@ -165,12 +167,6 @@ src/
 - 负责消息展示、输入区、图片输入、截图交互、聊天图片预览与流式文本展示。
 - 允许按职责拆分为 `clipboard/`、`message/`、`screenshot/` 等子目录。
 - 所有与聊天 provider 的交互必须经由 `background` + `llm/services`。
-
-#### `src/ui/content/selection`
-
-- 负责监听页面 selection，并在选区附近渲染“气泡工具条 + 结果面板”。
-- 负责 Ask AI 场景下的页面文本读取（不滚动，仅 `innerText` 的 best-effort 策略）。
-- 不直接依赖 provider 实现；模型请求必须经由 background。
 
 #### `src/ui/content/settings`
 
@@ -192,6 +188,29 @@ src/
 - 当前实现基于页面滚动 + 可视区域截图拼接，在新窗口打开预览并调用浏览器打印能力保存为 PDF。
 - 不提供 PDF 解析/阅读/编辑能力，不作为 LLM tool 暴露。
 - 细化约束见 `docs/superpowers/specs/2026-04-17-pdf-capture-folder-spec.md`。
+
+#### `src/ui/page`
+
+- 负责 content script 中面向宿主网页的用户操作增强。
+- 放置需要监听页面 selection、视口、DOM 或页面级用户事件，并直接在宿主网页上渲染浮层的 UI 能力。
+- 可以依赖 `src/shared`，可以通过 runtime message 与 `background` 交互。
+- 不负责插件侧边栏、设置、聊天等插件主内容 UI；这些能力仍归属 `src/ui/content`。
+- 不负责 LLM tool 执行逻辑；模型 tool 需要的 DOM 执行能力仍归属 `src/ui/tools`。
+- 不直接依赖 provider 实现，不承担后台长流程。
+
+#### `src/ui/page/selection`
+
+- 负责监听页面 selection，并在选区附近渲染“气泡工具条 + 结果面板”。
+- 负责 Ask AI 场景下的页面文本读取（不滚动，仅 `innerText` 的 best-effort 策略）。
+- 负责与 `src/background/selection` 通过 runtime message 交互，并展示流式结果。
+- 不直接依赖 provider 实现；模型请求必须经由 background。
+
+#### `src/ui/shared`
+
+- 负责多个 UI 子域复用的纯展示组件与样式。
+- 当前包括 `MessageMarkdown`，用于聊天消息与页面 selection 结果的 Markdown 渲染。
+- 可以依赖通用 UI 库与 `src/shared` 中的基础能力。
+- 不负责 runtime message、provider 编排、DOM 工具执行或业务长流程。
 
 #### `src/ui/popup`
 

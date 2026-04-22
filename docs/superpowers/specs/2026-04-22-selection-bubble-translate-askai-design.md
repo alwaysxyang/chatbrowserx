@@ -39,8 +39,10 @@
 
 ### 4.1 目录归属
 
-- UI：`src/ui/content/selection`
+- UI：`src/ui/page/selection`
   - 负责 selection 监听、气泡工具条与结果面板渲染、copy 交互、与 background 消息交互。
+- UI shared：`src/ui/shared/MessageMarkdown`
+  - 负责 selection 结果与 chat 消息共用的 Markdown 渲染。
 - Background：`src/background/selection`
   - 负责 selection 相关 runtime message 处理，调用 `src/background/llm/LlmOrchestrator` 完成请求、取消与流式回推。
 - Shared types：`src/shared/types/selection.ts`
@@ -70,13 +72,13 @@
 
 - 工具条默认显示在选区上方（距离选区 8px），并进行视口边界 clamp。
 - 若上方空间不足，则显示在选区下方。
-- 结果面板锚定在工具条下方/旁边，整体为“靠近选区的气泡”形式，允许覆盖页面内容，但需保证可关闭与可复制。
+- 结果面板打开后隐藏工具条，整体保持为“靠近选区的气泡”形式，允许覆盖页面内容，但需保证可关闭与可复制。
 
 ### 5.3 结果面板
 
 - 文本区域：
   - 默认空白，占位为“Loading/Generating”风格（与 chat 的 loading 文案保持一致风格即可）。
-  - 流式接收 chunk 并 append 展示。
+  - 流式接收 chunk 并 append 展示，文本内容使用与 chat 消息一致的 Markdown 组件渲染。
   - 收到最终结果时以最终文本为准（可选择覆盖或保持 append 的结果一致）。
 - 底部 toolbar：
   - 上方一条分隔横线。
@@ -169,4 +171,3 @@
 - `src/shared/types/selection.ts` 的 type guard 单测。
 - prompt 组装与语言映射的单测（不依赖 DOM）。
 - UI 侧状态更新（chunk append / copied 状态）做轻量单测（按现有 vitest/react testing library 模式）。
-

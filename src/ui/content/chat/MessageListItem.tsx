@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Bot, Check, CircleAlert, Copy, LoaderCircle, UserRound } from 'lucide-react';
 import { getChatMessageContentParts, getChatMessageTextContent, type ChatMessage } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
-import { MessageMarkdown } from './message-markdown';
+import { MessageMarkdown } from '../../shared/MessageMarkdown';
 import { copyMessageContent } from './copy-message-content';
 
 interface MessageListItemProps {

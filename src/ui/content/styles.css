@@ -2,7 +2,8 @@
 
 @import "./chat/chat.css";
 @import "./settings/settings.css";
-@import "./selection/selection.css";
+@import "../shared/message-markdown.css";
+@import "../page/selection/selection.css";
 
 :host {
   all: initial;

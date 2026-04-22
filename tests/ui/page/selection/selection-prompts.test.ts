@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAskAiPrompt, buildTranslatePrompt, resolveTargetLanguage } from '../../../../src/ui/content/selection/selection-prompts';
+import { buildAskAiPrompt, buildTranslatePrompt, resolveTargetLanguage } from '../../../../src/ui/page/selection/selection-prompts';
 
 describe('selection prompts', () => {
   it('maps system language using browser language', () => {
@@ -28,4 +28,3 @@ describe('selection prompts', () => {
     expect(prompt).toContain('S');
   });
 });
-

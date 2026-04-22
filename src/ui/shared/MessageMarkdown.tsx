@@ -44,6 +44,12 @@ interface MessageMarkdownProps {
   content: string;
 }
 
+/**
+ * Renders Markdown text with shared ChatBrowserX link and code styling.
+ *
+ * @param props - Markdown rendering inputs.
+ * @returns A Markdown-rendered React node tree.
+ */
 export function MessageMarkdown({ content }: MessageMarkdownProps) {
   return <Markdown options={markdownOptions}>{content}</Markdown>;
 }
