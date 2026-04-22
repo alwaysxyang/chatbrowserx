@@ -1,8 +1,10 @@
 import { panelCommandType } from '../shared/types/ui';
 import { initChatModule } from './chat';
+import { initSelectionModule } from './selection';
 import { initSpeechModule } from './speech';
 
 initChatModule();
+initSelectionModule();
 initSpeechModule();
 
 chrome.action.onClicked.addListener((tab) => {

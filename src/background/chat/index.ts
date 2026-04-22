@@ -8,6 +8,7 @@ import {
   chatSessionPortName,
   isChatCancelMessage,
   isChatRequestMessage,
+  chatStreamChunkType,
 } from '../../shared/types/chat';
 
 const llmOrchestrator = new LlmOrchestrator();
@@ -30,7 +31,18 @@ export function initChatModule(): void {
       return true;
     }
 
-    void toRuntimeResponse(llmOrchestrator.complete(tabId, message.payload)).then(sendResponse);
+    void toRuntimeResponse(llmOrchestrator.complete(tabId, message.payload, (chunk) => {
+      if (!chunk) {
+        return;
+      }
+
+      void chrome.tabs
+        .sendMessage(tabId, {
+          type: chatStreamChunkType,
+          payload: { content: chunk },
+        })
+        .catch(() => undefined);
+    })).then(sendResponse);
 
     return true;
   });

@@ -21,7 +21,7 @@
 ### 3.1 允许做的事
 
 - 管理 tab 维度的 LLM in-flight 请求（创建、取消、清理）。
-- 将流式增量（chunk）通过 `chrome.tabs.sendMessage` 转发给 content script。
+- 向调用方提供流式增量（chunk）回调，由调用方决定是否通过 `chrome.tabs.sendMessage` 转发给 content script。
 - 读取设置（如 `loadSettings`）并创建 `src/llm/services` 层的调用对象（如 `ChatCompletionService`）。
 
 ### 3.2 禁止做的事
@@ -38,13 +38,14 @@
 ## 4. 关键文件
 
 - `src/background/llm/llm-orchestrator.ts`
-  - `LlmOrchestrator`：管理 tab 维度聊天请求与取消，并将流式 chunk 转发到 content script。
+  - `LlmOrchestrator`：管理 tab 维度聊天请求与取消，并提供可注入的 `onChunk` 回调以支持不同模块的流式转发策略。
 
 ## 5. 运行链路（当前实现）
 
 - content script（`src/ui/content/chat`）通过 `chrome.runtime.sendMessage` 发送 `chatRequestType`。
-- `src/background/chat/index.ts` 接收消息并调用 `LlmOrchestrator.complete(tabId, payload)`。
-- `LlmOrchestrator` 读取设置，调用 `ChatCompletionService.complete(...)`，并在 `onChunk` 回调中转发 `chatStreamChunkType`。
+- `src/background/chat/index.ts` 接收消息并调用 `LlmOrchestrator.complete(tabId, payload, onChunk)`。
+- `LlmOrchestrator` 读取设置，调用 `ChatCompletionService.complete(...)`，并在收到 chunk 时调用 `onChunk`。
+- `src/background/chat/index.ts` 在其 `onChunk` 实现中转发 `chatStreamChunkType`。
 - 取消链路：
   - UI 发送 `chatCancelType`，或
   - content script 断开 `chatSessionPortName` 端口连接，触发 background 侧取消。

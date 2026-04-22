@@ -40,6 +40,9 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `docs/superpowers/specs/2026-04-22-background-llm-folder-spec.md`
   - 类型：folder spec
   - 用途：`src/background/llm` 的当前实现边界、依赖方向与 session 语义说明
+- `docs/superpowers/specs/2026-04-22-selection-bubble-translate-askai-design.md`
+  - 类型：feature spec
+  - 用途：选中文本“气泡工具条 + 翻译/Ask AI + 流式结果面板”的当前实现边界与链路说明
 - `docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
   - 类型：feature spec
   - 用途：speech 子域的当前实现与未来设计说明
@@ -111,6 +114,7 @@ src/
   background/
     chat/
     llm/
+    selection/
     speech/
     index.ts
   llm/
@@ -134,6 +138,7 @@ src/
     content/
       chat/
       pdf/
+      selection/
       settings/
       speech/
     popup/
@@ -160,6 +165,12 @@ src/
 - 负责消息展示、输入区、图片输入、截图交互、聊天图片预览与流式文本展示。
 - 允许按职责拆分为 `clipboard/`、`message/`、`screenshot/` 等子目录。
 - 所有与聊天 provider 的交互必须经由 `background` + `llm/services`。
+
+#### `src/ui/content/selection`
+
+- 负责监听页面 selection，并在选区附近渲染“气泡工具条 + 结果面板”。
+- 负责 Ask AI 场景下的页面文本读取（不滚动，仅 `innerText` 的 best-effort 策略）。
+- 不直接依赖 provider 实现；模型请求必须经由 background。
 
 #### `src/ui/content/settings`
 
@@ -216,6 +227,12 @@ src/
 - 允许依赖 `src/llm/services` 与 `src/shared`，并可使用 Chrome API（如 `chrome.tabs`）向 content script 回推流式消息。
 - 不直接依赖 `src/ui`，不包含 JSX，不承载 UI 状态。
 - 细化约束见 `docs/superpowers/specs/2026-04-22-background-llm-folder-spec.md`。
+
+#### `src/background/selection`
+
+- 负责选中文本相关的 runtime message 处理（`selection.*`）。
+- 负责把 selection 请求路由到 `src/background/llm` 的 LLM 编排（如 `LlmOrchestrator`），并将流式 chunk 回推给 content script。
+- 不承载 provider 细节，不包含 JSX。
 
 #### `src/background/speech`
 

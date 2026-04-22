@@ -70,6 +70,8 @@ export type MessageKey =
   | 'chat.toolbar.stopTooltip'
   | 'chat.message.copy'
   | 'chat.message.copied'
+  | 'selection.toolbar.translate'
+  | 'selection.toolbar.askAi'
   | 'chat.composer.placeholder'
   | 'chat.message.imageAlt'
   | 'tools.scroll.loading'
@@ -169,6 +171,8 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
   'chat.toolbar.stopTooltip': { zh: '中断当前回复', en: 'Stop current reply', ja: '現在の返信を中断' },
   'chat.message.copy': { zh: '复制消息', en: 'Copy message', ja: 'メッセージをコピー' },
   'chat.message.copied': { zh: '已复制', en: 'Copied', ja: 'コピーしました' },
+  'selection.toolbar.translate': { zh: '翻译', en: 'Translate', ja: '翻訳' },
+  'selection.toolbar.askAi': { zh: 'Ask AI', en: 'Ask AI', ja: 'Ask AI' },
   'chat.composer.placeholder': { zh: '问任何问题，@ 模型，/ 提示', en: 'Ask anything, @ model, / prompt', ja: '何でも質問、@ モデル、/ プロンプト' },
   'chat.message.imageAlt': { zh: '用户上传图片', en: 'Uploaded image', ja: 'アップロードされた画像' },
   'tools.scroll.loading': { zh: '滚动中…', en: 'Scrolling…', ja: 'スクロール中…' },

@@ -8,6 +8,7 @@ import { SettingsPanel } from './settings/SettingsPanel';
 import { ShellRail } from './ShellRail';
 import { SubtitleOverlay } from './speech/SubtitleOverlay';
 import { useSubtitleController } from './speech/use-subtitle-controller';
+import { SelectionBubble } from './selection/SelectionBubble';
 import { translateMessage } from '../../shared/i18n/i18n';
 import { normalizeHostnameForStorage } from './content-panel-state';
 import { requestVisibleTabScreenshot } from './content-screenshot-bridge';
@@ -61,6 +62,7 @@ export function ContentApp() {
 
   return (
     <>
+      <SelectionBubble />
       {isOpen && hasHydratedLanguage && (
         <aside
           ref={asideRef}
