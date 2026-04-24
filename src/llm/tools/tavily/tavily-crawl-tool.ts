@@ -2,7 +2,7 @@ import { registerTool, type LlmToolModule } from '../tool-registry';
 import {
   invokeTavilyEndpoint,
   resolveTavilyToolDefinition,
-} from '../shared/tavily-request';
+} from './tavily-request';
 import {
   readOptionalEnum,
   readOptionalInteger,

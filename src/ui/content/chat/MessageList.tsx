@@ -17,6 +17,7 @@ export function MessageList({ messages, isSending, onPreviewImage }: MessageList
     }
 
     listRef.current.scrollTop = listRef.current.scrollHeight;
+    listRef.current.scrollLeft = 0;
   }, [isSending, messages]);
 
   if (!messages.length && !isSending) {

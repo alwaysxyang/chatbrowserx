@@ -409,6 +409,7 @@ describe('ChatPanel', () => {
     const list = screen.getByTestId('message-list');
     Object.defineProperty(list, 'scrollHeight', { value: 480, configurable: true });
     Object.defineProperty(list, 'scrollTop', { value: 0, writable: true, configurable: true });
+    Object.defineProperty(list, 'scrollLeft', { value: 24, writable: true, configurable: true });
 
     rerender(
       <MessageList
@@ -418,5 +419,6 @@ describe('ChatPanel', () => {
     );
 
     expect(list.scrollTop).toBe(480);
+    expect(list.scrollLeft).toBe(0);
   });
 });

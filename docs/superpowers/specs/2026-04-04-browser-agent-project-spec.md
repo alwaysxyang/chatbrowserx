@@ -43,6 +43,9 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - `docs/superpowers/specs/2026-04-22-selection-bubble-translate-askai-design.md`
   - 类型：feature spec
   - 用途：选中文本“气泡工具条 + 翻译/Ask AI + 流式结果面板”的当前实现边界与链路说明
+- `docs/superpowers/specs/2026-04-23-page-interactables-tool-design.md`
+  - 类型：feature spec
+  - 用途：页面交互元素快照工具 `get_current_page_interactables` 与最小 ref 页面动作工具的当前实现边界与输出规范
 - `docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
   - 类型：feature spec
   - 用途：speech 子域的当前实现与未来设计说明
@@ -93,7 +96,15 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
   - Translate / Ask AI
   - 结果面板与 Markdown 展示
   - Ask AI 使用已拼入 prompt 的页面文本，不额外调用页面内容读取工具
-- `llm/tools` 的接口边界与首个页面内容读取工具
+- `llm/tools` 的接口边界与页面只读快照工具：
+  - `get_current_page_content`
+  - `get_current_page_interactables`
+- 最小 ref 页面动作工具：
+  - `page_mouse_move`
+  - `page_click`
+  - `page_type`
+  - `page_scroll`
+  - `page_drag`
 - 基于 Tavily 的最小网页搜索工具：
   - `tavily_search`
   - `tavily_extract`
@@ -114,7 +125,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。
 - PDF 解析/阅读/编辑能力
 - 通用滚动捕获能力（聊天输入中的选区长截图与“打印/保存为 PDF”链路除外）
 - 网络录制 / 页面流量分析
-- 除当前页面内容读取工具与 Tavily 搜索工具之外的其他具体工具实现
+- 除页面只读快照工具（`get_current_page_content`、`get_current_page_interactables`）、最小 ref 页面动作工具与 Tavily 搜索工具之外的其他具体工具实现
 
 ## 5. 当前目录结构
 
@@ -232,6 +243,8 @@ src/
 - 放置需要 content script / DOM 能力的工具执行逻辑。
 - 当前包括：
   - 当前页面内容读取工具的 content 侧执行逻辑
+  - 当前视窗交互元素快照工具的 content 侧执行逻辑
+  - 基于快照 `sid` + `ref` 的最小页面动作执行逻辑与虚拟鼠标展示
   - 页面滚动扫描与截图拼接所需的 DOM 辅助能力
 - 不负责 provider 协议、tool loop 或后台调度。
 
@@ -298,8 +311,8 @@ src/
 #### `src/llm/tools`
 
 - 定义工具抽象、工具注册与工具级接口。
-- 当前包括首个页面内容读取工具与 Tavily 网页搜索工具。
-- `src/llm/tools/shared` 负责多个工具可复用的参数读取与请求辅助，不承载具体工具 definition。
+- 当前包括页面内容读取工具、当前视窗交互元素快照工具、最小 `sid` + `ref` 页面动作工具与 Tavily 网页搜索工具。
+- `src/llm/tools/shared` 负责多个工具可复用的参数读取、active tab 解析等通用辅助，不承载具体工具 definition 或 provider 专属请求逻辑。
 - `src/llm/tools/tavily` 的细化约束见 `docs/superpowers/specs/2026-04-12-tavily-tools-design.md`。
 - 工具 `invoke()` 允许返回任意可序列化内容；统一由 tool loop 在写回模型前完成字符串化，工具模块本身不应重复手动序列化 JSON。
 

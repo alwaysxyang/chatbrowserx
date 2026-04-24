@@ -27,7 +27,7 @@
 
 ### 3.1 `src/llm/tools/tavily`
 
-该文件夹负责 Tavily 工具本身的 definition、参数装配与 Tavily 专属工具边界，不再承载跨工具复用的公共辅助模块。
+该文件夹负责 Tavily 工具本身的 definition、参数装配、请求执行与 Tavily 专属工具边界。
 
 当前关键文件：
 
@@ -39,19 +39,19 @@
   - 负责 `tavily_extract`
 - `src/llm/tools/tavily/tavily-crawl-tool.ts`
   - 负责 `tavily_crawl`
+- `src/llm/tools/tavily/tavily-request.ts`
+  - 负责 Tavily API key 读取
+  - 负责 Tavily 工具 definition 可见性判断
+  - 负责 Tavily HTTP 请求与错误处理
 
 ### 3.2 `src/llm/tools/shared`
 
-该文件夹负责多个 tool module 可复用的辅助能力，不承载某个具体工具的 definition。
+该文件夹负责多个 tool module 可复用的辅助能力，不承载某个具体工具的 definition 或 provider 专属请求逻辑。
 
 当前关键文件：
 
 - `src/llm/tools/shared/tool-arguments.ts`
   - 负责通用参数读取与基础校验
-- `src/llm/tools/shared/tavily-request.ts`
-  - 负责 Tavily API key 读取
-  - 负责 Tavily 工具 definition 可见性判断
-  - 负责 Tavily HTTP 请求与错误处理
 
 ### 3.3 依赖方向
 
@@ -61,6 +61,7 @@
 - 可以依赖 `src/shared/types`
 - 可以依赖 `src/llm/tools/tool-registry.ts`
 - 可以依赖 `src/llm/tools/shared`
+- 可以依赖 `src/shared/storage`
 - 不直接依赖 `src/ui`
 - 不直接依赖 Chrome tab / DOM 能力
 

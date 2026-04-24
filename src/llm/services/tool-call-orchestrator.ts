@@ -5,7 +5,7 @@ import {
   type ToolInvokeResult,
 } from '../tools/tool-registry';
 
-const defaultMaxIterations = 16;
+const defaultMaxIterations = 64;
 
 interface ToolCallOrchestratorOptions {
   provider: ChatCompletionProvider;

@@ -61,4 +61,6 @@ export function createDefaultToolRegistry(): ToolRegistry {
 }
 
 import './get-page-content-tool';
+import './get-page-interactables-tool';
+import './page-action-tools';
 import './tavily';

@@ -2,18 +2,8 @@ import {
   getPageContentToolRequestType,
   type GetPageContentToolPayload,
 } from '../../shared/types/tool';
+import { getActiveTabId } from './shared/active-tab';
 import { registerTool, type LlmToolModule } from './tool-registry';
-
-async function getActiveTabId(): Promise<number> {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
-
-  if (tabId == null) {
-    throw new Error('TOOL_TAB_UNAVAILABLE');
-  }
-
-  return tabId;
-}
 
 export function createGetPageContentTool(
 ): LlmToolModule {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { defaultSettings, saveSettings } from '../../../../src/shared/storage/settings-repository';
-import { invokeTavilyEndpoint } from '../../../../src/llm/tools/shared/tavily-request';
+import { invokeTavilyEndpoint } from '../../../../src/llm/tools/tavily/tavily-request';
 
 describe('invokeTavilyEndpoint', () => {
   it('loads the latest Tavily key and returns parsed JSON objects', async () => {

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "crypto-js": "^4.2.0",
+    "dom-accessibility-api": "^0.7.1",
     "lucide-react": "^0.511.0",
     "markdown-to-jsx": "^9.7.13",
     "react": "^18.3.1",

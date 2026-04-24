@@ -60,10 +60,15 @@ describe('tool registry', () => {
     const registry = createDefaultToolRegistry();
 
     expect(registry.getTool('get_current_page_content')).toBeDefined();
+    expect(registry.getTool('get_current_page_interactables')).toBeDefined();
+    expect(registry.getTool('page_click')).toBeDefined();
+    expect(registry.getTool('page_type')).toBeDefined();
+    expect(registry.getTool('page_scroll')).toBeDefined();
     expect(registry.getTool('tavily_search')).toBeDefined();
 
     const definitions = await registry.getDefinitions();
     expect(definitions.map((definition) => definition.function.name)).toContain('get_current_page_content');
+    expect(definitions.map((definition) => definition.function.name)).toContain('get_current_page_interactables');
     expect(definitions.map((definition) => definition.function.name)).not.toContain('tavily_search');
   });
 

@@ -18,12 +18,15 @@
   min-height: 0;
   flex-direction: column;
   gap: 7px;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding-right: 4px;
 }
 
 .message-row {
   display: flex;
+  width: 100%;
+  min-width: 0;
   align-items: flex-start;
   gap: 8px;
 }
@@ -38,7 +41,8 @@
 
 .message-stack {
   display: flex;
-  max-width: 78%;
+  min-width: 0;
+  max-width: min(78%, calc(100% - 46px));
   flex-direction: column;
   gap: 4px;
 }
@@ -80,6 +84,9 @@
 
 .message-card {
   position: relative;
+  box-sizing: border-box;
+  max-width: 100%;
+  min-width: 0;
   border-radius: 18px;
   padding: 9px 11px;
   line-height: 1.6;
@@ -87,17 +94,21 @@
   font-size: 13px;
   font-weight: 500;
   white-space: normal;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
 .message-content {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   flex-direction: column;
   gap: 8px;
 }
 
 .message-content p {
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .message-content p + p {
@@ -144,9 +155,11 @@
 }
 
 .message-content pre {
+  max-width: 100%;
   margin: 0;
   padding: 0;
   background: transparent;
+  overflow-x: auto;
 }
 
 .message-content code {

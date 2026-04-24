@@ -449,4 +449,5 @@ describe('ChatCompletionService', () => {
 
     mockRunToolCallOrchestrator.mockRestore();
   });
+
 });
