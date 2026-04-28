@@ -16,6 +16,7 @@ export type MessageKey =
   | 'settings.fields.apiKey'
   | 'settings.fields.tavilyApiKey'
   | 'settings.fields.model'
+  | 'settings.codex.fields.effort'
   | 'settings.codex.fields.accessToken'
   | 'settings.fields.systemPrompt'
   | 'settings.fields.maxHistory'
@@ -109,6 +110,7 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
   'settings.fields.apiKey': { zh: 'API Key', en: 'API Key', ja: 'API Key' },
   'settings.fields.tavilyApiKey': { zh: 'Tavily Key', en: 'Tavily Key', ja: 'Tavily Key' },
   'settings.codex.fields.accessToken': { zh: 'Codex ACCESS_TOKEN', en: 'Codex ACCESS_TOKEN', ja: 'Codex ACCESS_TOKEN' },
+  'settings.codex.fields.effort': { zh: 'effort', en: 'effort', ja: 'effort' },
   'settings.fields.model': { zh: 'Model', en: 'Model', ja: 'モデル' },
   'settings.fields.systemPrompt': { zh: 'System Prompt', en: 'System Prompt', ja: 'システムプロンプト' },
   'settings.fields.maxHistory': { zh: 'Max History', en: 'Max History', ja: '履歴上限' },

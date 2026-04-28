@@ -29,6 +29,7 @@ export class ChatCompletionService {
     return new CodexProvider({
       baseUrl: settings.codex.baseUrl,
       accessToken: settings.codex.accessToken,
+      effort: settings.codex.effort,
     });
   }
 

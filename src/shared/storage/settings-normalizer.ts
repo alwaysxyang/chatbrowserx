@@ -1,5 +1,7 @@
+import { isCodexReasoningEffort } from '../types/settings';
 import type {
     ChatProviderId,
+    CodexReasoningEffort,
     ModelSettings,
     Settings,
     UiLanguage,
@@ -24,6 +26,7 @@ export const defaultSettings: Settings = {
             accessToken: '',
             model: 'gpt-5.4',
             baseUrl: 'https://chatgpt.com/backend-api',
+            effort: 'high',
         },
     },
     general: {
@@ -56,6 +59,10 @@ function resolveProvider(value: unknown): ChatProviderId {
     return value === 'openai' || value === 'codex' ? value : defaultSettings.model.provider;
 }
 
+function resolveCodexEffort(value: unknown): CodexReasoningEffort {
+    return isCodexReasoningEffort(value) ? value : defaultSettings.model.codex.effort;
+}
+
 function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
     const model = raw ?? {};
     const provider = resolveProvider(model.provider);
@@ -84,6 +91,7 @@ function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
         readString(model.codex?.model) ??
         (provider === 'codex' ? readString(model.model) : undefined) ??
         defaultSettings.model.codex.model;
+    const codexEffort = resolveCodexEffort(model.codex?.effort ?? model.effort);
     const aliasModelName = provider === 'openai' ? openaiModelName : codexModelName;
 
     return {
@@ -101,6 +109,7 @@ function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
             accessToken: codexAccessToken,
             model: codexModelName,
             baseUrl: codexBaseUrl,
+            effort: codexEffort,
         },
     };
 }

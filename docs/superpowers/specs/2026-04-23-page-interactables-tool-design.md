@@ -34,11 +34,12 @@
 1. `src/llm/tools/get-page-interactables-tool.ts` 通过 `chrome.tabs.query` 获取当前激活 tab。
 2. background 侧工具通过 `chrome.tabs.sendMessage` 向当前 tab 发送 `chatbrowserx.tool.get-page-interactables.request`。
 3. `src/ui/tools/get-page-interactables-tool.ts` 在 content script 环境扫描当前页面 DOM 候选元素。
-4. content 侧使用 `dom-accessibility-api` 的 `computeAccessibleName()` 计算控件名称，并结合原生标签、`role`、`placeholder`、状态属性与几何信息生成快照。
-5. content 侧过滤禁用、隐藏、视窗外、尺寸过小、明显被遮挡的元素。
-6. content 侧对嵌套候选做去重，避免同一可点击行的父容器、文本层、图标层重复输出。
-7. 工具输出 compact payload，并**仅输出当前视窗（viewport）内**的候选。
-8. content 侧维护最近一次快照的 `sid` 与 `ref -> element` 映射，供最小动作工具校验快照一致性并解析目标元素。
+4. `src/ui/tools/dom-targets.ts` 提供快照与动作共用的 DOM 判定能力，包括隐藏、禁用、插件自身 UI、富代码编辑器、可写文本控件与内部输入目标解析。
+5. content 侧使用 `dom-accessibility-api` 的 `computeAccessibleName()` 计算控件名称，并结合原生标签、`role`、`placeholder`、状态属性与几何信息生成快照。
+6. content 侧过滤禁用、隐藏、视窗外、尺寸过小、明显被遮挡的元素。
+7. content 侧对嵌套候选做去重，避免同一可点击行的父容器、文本层、图标层重复输出。
+8. 工具输出 compact payload，并**仅输出当前视窗（viewport）内**的候选。
+9. content 侧维护最近一次快照的 `sid` 与 `ref -> element` 映射，供最小动作工具校验快照一致性并解析目标元素。
 
 ## 5. Tool 规范
 
@@ -140,6 +141,7 @@ interface PageInteractablesSnapshot {
 - 工具定义与 active tab 路由放在 `src/llm/tools`。
 - DOM 快照执行逻辑放在 `src/ui/tools`，因为该部分需要 content script / DOM 能力。
 - DOM 动作执行逻辑放在 `src/ui/tools`，因为该部分需要 content script / DOM 能力。
+- DOM 目标判定、可写控件下钻与插件自身 UI 过滤等快照和动作共用逻辑放在 `src/ui/tools/dom-targets.ts`，避免 `get-page-interactables-tool.ts` 与 `page-action-tool.ts` 各自维护不同规则。
 - 虚拟鼠标 overlay 放在 `src/ui/tools` 内部，只服务工具执行展示，不作为插件主 UI 或页面 selection 能力。
 - 动作工具不得导航、提交未知后台任务或突破当前页面 DOM 边界。
 - 输出用于模型“目标选择”，动作工具只能使用 `ref` 或滚动方向执行当前页面最小操作。

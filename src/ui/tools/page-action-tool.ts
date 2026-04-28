@@ -6,6 +6,7 @@ import {
   type PageActionToolResult,
 } from '../../shared/types/tool';
 import { isLatestInteractablesSnapshot, resolveLatestInteractableRef } from './get-page-interactables-tool';
+import { resolveTextTarget } from './dom-targets';
 import {
   showVirtualClickFeedback,
   showVirtualClickTarget,
@@ -124,55 +125,6 @@ function resolveStateElement(element: Element): Element {
  */
 function didStateChange(before: PageActionElementState | undefined, after: PageActionElementState | undefined): boolean {
   return JSON.stringify(before ?? {}) !== JSON.stringify(after ?? {});
-}
-
-/**
- * Returns true when an element can receive direct text writes.
- *
- * @param element - The element to inspect.
- * @returns True when `writeText` can write to the element.
- */
-function isWritableTextElement(element: Element): boolean {
-  if (element instanceof HTMLInputElement) {
-    const type = (element.type || 'text').toLowerCase();
-    return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
-  }
-
-  return element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement ||
-    (element instanceof HTMLElement && (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === ''));
-}
-
-/**
- * Returns true when a writable target is currently usable for text input.
- *
- * @param element - The candidate element.
- * @param windowObject - The window that owns the element.
- * @returns True when the element should receive `page_type` writes.
- */
-function isUsableTextTarget(element: Element, windowObject: Window): boolean {
-  if (!isWritableTextElement(element)) return false;
-  if ('disabled' in element && Boolean((element as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).disabled)) {
-    return false;
-  }
-
-  const htmlElement = element as HTMLElement;
-  const style = windowObject.getComputedStyle(htmlElement);
-  return !htmlElement.hidden && style.display !== 'none' && style.visibility !== 'hidden' && style.visibility !== 'collapse';
-}
-
-/**
- * Finds the best writable descendant for composite editor containers.
- *
- * @param element - The requested action target.
- * @param windowObject - The window that owns the element.
- * @returns A writable element when available.
- */
-function resolveTextTarget(element: Element, windowObject: Window): Element {
-  if (isUsableTextTarget(element, windowObject)) return element;
-  return Array.from(element.querySelectorAll(
-    '[contenteditable="true"], [contenteditable=""], textarea, select, input:not([type="hidden"])',
-  )).find((candidate) => isUsableTextTarget(candidate, windowObject)) ?? element;
 }
 
 /**

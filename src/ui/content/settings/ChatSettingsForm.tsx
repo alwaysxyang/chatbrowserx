@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
-import type { ModelSettings } from '../../../shared/types/settings';
+import { CODEX_REASONING_EFFORT_OPTIONS, type ModelSettings } from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import {
   getActiveProviderFormValues,
@@ -151,6 +151,25 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           onChange={(event) => updateProviderConnection({ model: event.target.value })}
         />
       </label>
+
+      {!activeProvider.isOpenAi ? (
+        <label>
+          <span>{translateMessage('settings.codex.fields.effort')}</span>
+          <select
+            aria-label={translateMessage('settings.codex.fields.effort')}
+            value={value.codex.effort}
+            onChange={(event) =>
+              onChange(updateCodexSettings(value, { effort: event.target.value as ModelSettings['codex']['effort'] }))
+            }
+          >
+            {CODEX_REASONING_EFFORT_OPTIONS.map((effort) => (
+              <option key={effort} value={effort}>
+                {effort}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
 
       <label>
         <span>{translateMessage('settings.fields.systemPrompt')}</span>

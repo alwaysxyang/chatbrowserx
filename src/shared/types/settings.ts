@@ -15,6 +15,13 @@ export type ChatProviderId = 'openai' | 'codex';
 export type UiLanguage = 'system' | 'zh' | 'en' | 'ja';
 
 /**
+ * Supported Codex reasoning effort options.
+ */
+export type CodexReasoningEffort = 'medium' | 'high' | 'low' | 'xhigh';
+
+export const CODEX_REASONING_EFFORT_OPTIONS: CodexReasoningEffort[] = ['medium', 'high', 'low', 'xhigh'];
+
+/**
  * OpenAI provider-specific configuration.
  */
 export interface OpenAIModelSettings {
@@ -36,6 +43,8 @@ export interface CodexModelSettings {
   model: string;
   /** Base URL for the Codex API endpoint */
   baseUrl: string;
+  /** Reasoning effort sent as reasoning.effort in Codex Responses requests */
+  effort: CodexReasoningEffort;
 }
 
 /**
@@ -144,4 +153,13 @@ export function isOpenAIProvider(settings: ModelSettings): settings is ModelSett
  */
 export function isCodexProvider(settings: ModelSettings): settings is ModelSettings & { provider: 'codex' } {
   return settings.provider === 'codex';
+}
+
+/**
+ * Check whether a value is a supported Codex reasoning effort.
+ * @param value - The unknown value to validate
+ * @returns true when the value can be used as Codex reasoning effort
+ */
+export function isCodexReasoningEffort(value: unknown): value is CodexReasoningEffort {
+  return typeof value === 'string' && CODEX_REASONING_EFFORT_OPTIONS.includes(value as CodexReasoningEffort);
 }

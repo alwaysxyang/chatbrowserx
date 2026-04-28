@@ -4,11 +4,44 @@ import type { ToolDefinition } from '../../../src/llm/tools/tool-registry';
 
 describe('CodexProvider', () => {
   it('throws MODEL_MISCONFIGURED when config is incomplete', async () => {
-    const provider = new CodexProvider({ baseUrl: '', accessToken: '' });
+    const provider = new CodexProvider({ baseUrl: '', accessToken: '', effort: 'high' });
 
     await expect(
       provider.completeChat({ model: 'm', messages: [] }, undefined, undefined),
     ).rejects.toThrow('MODEL_MISCONFIGURED');
+  });
+
+  it('sends Codex reasoning effort as Responses reasoning.effort', async () => {
+    const originalFetch = globalThis.fetch;
+    const mockFetch = vi.fn().mockResolvedValue(
+      new Response('data: [DONE]', {
+        status: 200,
+        headers: { 'Content-Type': 'text/event-stream' },
+      }),
+    );
+
+    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
+
+    const provider = new CodexProvider({
+      baseUrl: 'https://api.example.com',
+      accessToken: 'token',
+      effort: 'xhigh',
+    });
+
+    await provider.completeChat({
+      model: 'm',
+      messages: [{ role: 'user', content: 'think hard' }],
+    });
+
+    const request = mockFetch.mock.calls[0]?.[1] as RequestInit;
+
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      reasoning: {
+        effort: 'xhigh',
+      },
+    });
+
+    globalThis.fetch = originalFetch;
   });
 
   it('sends a POST request to /codex/responses with Responses-compatible body and parses streamed text deltas', async () => {
@@ -31,7 +64,7 @@ describe('CodexProvider', () => {
 
     globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token' });
+    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
 
     const tools: ToolDefinition[] = [
       {
@@ -126,7 +159,7 @@ describe('CodexProvider', () => {
 
     globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token' });
+    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
 
     const tools: ToolDefinition[] = [
       {
@@ -188,7 +221,7 @@ describe('CodexProvider', () => {
       }),
     ) as unknown as typeof globalThis.fetch;
 
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token' });
+    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
     const onChunk = vi.fn();
 
     const result = await provider.completeChat(
@@ -279,7 +312,7 @@ describe('CodexProvider', () => {
 
     globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
 
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token' });
+    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
 
     await expect(
       provider.completeChat({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
@@ -304,7 +337,7 @@ describe('CodexProvider', () => {
       ),
     ) as unknown as typeof globalThis.fetch;
 
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token' });
+    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
 
     await expect(
       provider.completeChat({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
@@ -329,7 +362,7 @@ describe('CodexProvider', () => {
       ),
     ) as unknown as typeof globalThis.fetch;
 
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token' });
+    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
 
     const result = await provider.completeChat({
       model: 'm',

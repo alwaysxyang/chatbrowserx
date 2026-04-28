@@ -23,6 +23,7 @@ const baseSettings: ModelSettings = {
     accessToken: 'codex-token',
     model: 'codex-secondary',
     baseUrl: 'https://codex.example.com',
+    effort: 'high',
   },
 };
 

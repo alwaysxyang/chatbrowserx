@@ -193,7 +193,7 @@ src/
 
 - 负责设置面板与表单交互。
 - 负责模型设置、通用设置、语音设置的展示、编辑、保存反馈。
-- 模型设置当前包括 provider 配置、system prompt、history 上限与 `Tavily Key`。
+- 模型设置当前包括 provider 配置、system prompt、history 上限与 `Tavily Key`；`codex` provider 额外包含 `effort`，取值为 `medium`、`high`、`low`、`xhigh`，默认值为 `high`。
 - 不直接访问 provider 实现。
 
 #### `src/ui/content/speech`
@@ -301,6 +301,7 @@ src/
 - 负责具体 provider 接入。
 - 当前存在 `openai`、`codex` 与 `shared` 子目录。
 - provider 特有协议、stream 解析、wire format 必须留在这里。
+- `codex` provider 使用 Responses 形态请求体，并把设置中的 `effort` 发送为 `reasoning.effort`。
 
 #### `src/llm/services`
 
@@ -329,7 +330,7 @@ src/
 #### `src/shared/types`
 
 - 负责跨层共享类型。
-- 当前包括聊天类型、设置类型、speech 类型、selection 类型、runtime 消息协议。
+- 当前包括聊天类型、设置类型、speech 类型、selection 类型、runtime 消息协议；设置类型中 `CodexModelSettings.effort` 表示 Codex reasoning effort。
 
 #### `src/shared/storage`
 

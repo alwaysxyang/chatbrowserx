@@ -71,4 +71,36 @@ describe('settings repository', () => {
     expect(settings.model.codex.baseUrl).toBe('https://legacy-codex.example.com');
     expect(settings.model.codex.model).toBe('codex-legacy');
   });
+
+  it('normalizes Codex reasoning effort and falls back to high for invalid values', async () => {
+    await chrome.storage.local.set({
+      'chatbrowserx.settings': {
+        model: {
+          provider: 'codex',
+          codex: {
+            effort: 'xhigh',
+          },
+        },
+      },
+    });
+
+    const settings = await loadSettings();
+
+    expect(settings.model.codex.effort).toBe('xhigh');
+
+    await chrome.storage.local.set({
+      'chatbrowserx.settings': {
+        model: {
+          provider: 'codex',
+          codex: {
+            effort: 'minimal',
+          },
+        },
+      },
+    });
+
+    const normalized = await loadSettings();
+
+    expect(normalized.model.codex.effort).toBe('high');
+  });
 });

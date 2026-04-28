@@ -3,6 +3,7 @@ import type {
   ChatCompletionProvider,
   ChatCompletionResult,
 } from '../../model/chat';
+import type { CodexReasoningEffort } from '../../../shared/types/settings';
 import { splitInstructionsAndInput, toCodexResponsesTools } from './wire-format';
 import { buildAssistantMessageResult, getProviderEndpoint, throwIfProviderMisconfigured } from '../shared/provider-response';
 import { readCodexResponsesStream } from './stream';
@@ -15,6 +16,7 @@ https://developers.openai.com/api/reference/resources/responses/methods/create
 export interface CodexProviderConfig {
   baseUrl: string;
   accessToken: string;
+  effort: CodexReasoningEffort;
 }
 
 export class CodexProvider implements ChatCompletionProvider {
@@ -33,6 +35,9 @@ export class CodexProvider implements ChatCompletionProvider {
       model: input.model,
       stream: true,
       store: false,
+      reasoning: {
+        effort: this.config.effort,
+      },
     };
 
     if (structuredInput.length) {

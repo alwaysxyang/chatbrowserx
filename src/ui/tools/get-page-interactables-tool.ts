@@ -3,6 +3,14 @@ import {
   isGetPageInteractablesToolRequestMessage,
   type GetPageInteractablesToolPayload,
 } from '../../shared/types/tool';
+import {
+  findNestedWritableControl,
+  isCodeEditorElement,
+  isDisabledElement,
+  isHiddenBySelfOrAncestor,
+  isOwnedByChatBrowserX,
+  isWritableTextElement,
+} from './dom-targets';
 
 const maxItems = 60;
 const maxNameChars = 120;
@@ -69,15 +77,6 @@ interface InteractablesDiagnostics {
   q: NonNullable<GetPageInteractablesToolPayload['d']>['q'];
   samples: NonNullable<GetPageInteractablesToolPayload['d']>['samples'];
 }
-
-const codeEditorSelector = [
-  '.monaco-editor',
-  '.cm-editor',
-  '.CodeMirror',
-  '.ace_editor',
-  '[data-mode-id]',
-].join(',');
-const ownedRootSelector = '#chatbrowserx-root,#chatbrowserx-page-action-overlay,#chatbrowserx-subtitle-container';
 
 type SnapshotMeta = NonNullable<GetPageInteractablesToolPayload['items'][number][4]>;
 
@@ -177,72 +176,6 @@ function addDiagnosticsSample(
 }
 
 /**
- * Checks whether an element or ancestor is hidden from users or the accessibility tree.
- *
- * @param element - The element to inspect.
- * @param windowObject - The window that owns the document.
- * @returns True if the element should be skipped.
- */
-function isHiddenBySelfOrAncestor(element: Element, windowObject: Window): boolean {
-  for (let current: Element | null = element; current; current = current.parentElement) {
-    const htmlElement = current as HTMLElement;
-    const style = windowObject.getComputedStyle(htmlElement);
-
-    if (
-      htmlElement.hidden ||
-      htmlElement.inert ||
-      current.getAttribute('aria-hidden') === 'true' ||
-      style.display === 'none' ||
-      style.visibility === 'hidden' ||
-      style.visibility === 'collapse' ||
-      style.opacity === '0'
-    ) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Returns true if the element is disabled for user interaction.
- *
- * @param element - The element to inspect.
- * @returns True when the element is disabled.
- */
-function isDisabledElement(element: Element): boolean {
-  if (element.getAttribute('aria-disabled') === 'true') return true;
-  if ('disabled' in element && Boolean((element as HTMLButtonElement | HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement).disabled)) {
-    return true;
-  }
-  return element.closest('fieldset[disabled]') !== null;
-}
-
-/**
- * Checks whether an element belongs to ChatBrowserX injected UI.
- *
- * @param element - The element to inspect.
- * @returns True when the element should not be exposed as page content.
- */
-function isOwnedByChatBrowserX(element: Element): boolean {
-  const root = element.getRootNode();
-  if (typeof ShadowRoot !== 'undefined' && root instanceof ShadowRoot && root.host instanceof Element) {
-    return root.host.matches(ownedRootSelector);
-  }
-  return element.matches(ownedRootSelector) || element.closest(ownedRootSelector) !== null;
-}
-
-/**
- * Checks whether an element is a known rich code editor container.
- *
- * @param element - The element to inspect.
- * @returns True when the element looks like a code editor surface.
- */
-function isCodeEditorElement(element: Element): boolean {
-  return element.matches(codeEditorSelector);
-}
-
-/**
  * Finds a nested checkbox or radio control inside a composite clickable row.
  *
  * @param element - The element to inspect.
@@ -251,47 +184,6 @@ function isCodeEditorElement(element: Element): boolean {
 function findNestedCheckableInput(element: Element): HTMLInputElement | undefined {
   const input = element.querySelector('input[type="checkbox"], input[type="radio"]');
   return input instanceof HTMLInputElement ? input : undefined;
-}
-
-/**
- * Finds a writable form control nested in a visible wrapper element.
- *
- * @param element - The wrapper candidate.
- * @param windowObject - The window that owns the document.
- * @returns The nested writable control when present.
- */
-function findNestedWritableControl(element: Element, windowObject: Window): Element | undefined {
-  const controls = Array.from(element.querySelectorAll(
-    'input:not([type="hidden"]),textarea,select,[contenteditable=""],[contenteditable="true"],[contenteditable=true]',
-  ));
-
-  return controls.find((control) => {
-    if (!(control instanceof HTMLElement) || isDisabledElement(control)) return false;
-    const style = windowObject.getComputedStyle(control);
-    if (control.hidden || style.display === 'none' || style.visibility === 'hidden' || style.visibility === 'collapse') {
-      return false;
-    }
-    if (control instanceof HTMLInputElement) {
-      const type = (control.type || 'text').toLowerCase();
-      return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
-    }
-    return true;
-  });
-}
-
-/**
- * Checks whether an element is itself a writable form control.
- *
- * @param element - The element to inspect.
- * @returns True when the element can accept text-like user input.
- */
-function isWritableControlElement(element: Element): boolean {
-  if (element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) return true;
-  if (element instanceof HTMLInputElement) {
-    const type = (element.type || 'text').toLowerCase();
-    return !['button', 'checkbox', 'color', 'file', 'hidden', 'image', 'radio', 'range', 'reset', 'submit'].includes(type);
-  }
-  return (element as HTMLElement).isContentEditable === true;
 }
 
 /**
@@ -306,7 +198,7 @@ function isWritableControlElement(element: Element): boolean {
 function isFocusedTextboxSurface(element: Element, role: string, rect: DOMRect, windowObject: Window): boolean {
   if (role !== 'textbox' && role !== 'searchbox') return false;
   const nestedWritable = findNestedWritableControl(element, windowObject);
-  if (!isWritableControlElement(element) && !nestedWritable && !isCodeEditorElement(element)) {
+  if (!isWritableTextElement(element) && !nestedWritable && !isCodeEditorElement(element)) {
     return false;
   }
   if (isCodeEditorElement(element)) return true;
