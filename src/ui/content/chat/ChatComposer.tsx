@@ -158,6 +158,8 @@ export function ChatComposer({
 
           if (event.key === 'Enter' && event.metaKey) {
             event.preventDefault();
+            event.stopPropagation();
+            event.nativeEvent.stopImmediatePropagation();
             if (!disabled && (value.trim() || imageUrls.length)) {
               onSubmit();
             }

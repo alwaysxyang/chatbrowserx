@@ -350,30 +350,44 @@ describe('ChatPanel', () => {
     const messages: ChatMessage[] = [];
 
     const onSendMessage = vi.fn(async () => '你好，我是助手');
-
-    render(
-      <ChatPanel
-        messages={messages}
-        isSending={false}
-        onSendMessage={onSendMessage}
-        onClearHistory={vi.fn()}
-      />,
-    );
-
-    const input = screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示');
-
-    await user.type(input, '快捷键');
-    await user.keyboard('{Meta>}{Enter}{/Meta}');
-
-    await waitFor(() => {
-      expect(onSendMessage).toHaveBeenCalledWith('快捷键');
+    const pageShortcutListener = vi.fn((event: KeyboardEvent) => {
+      if (event.key === 'Enter' && event.metaKey) {
+        event.preventDefault();
+      }
     });
+    document.addEventListener('keydown', pageShortcutListener);
 
-    expect(screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示')).toHaveValue('');
+    try {
+      render(
+        <ChatPanel
+          messages={messages}
+          isSending={false}
+          onSendMessage={onSendMessage}
+          onClearHistory={vi.fn()}
+        />,
+      );
 
-    expect(screen.queryByRole('button', { name: '打开设置' })).not.toBeInTheDocument();
-    expect(screen.queryByText('Agent Chat')).not.toBeInTheDocument();
-    expect(screen.queryByText('浏览器增强 Agent')).not.toBeInTheDocument();
+      const input = screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示');
+
+      await user.type(input, '快捷键');
+      await user.keyboard('{Meta>}{Enter}{/Meta}');
+
+      await waitFor(() => {
+        expect(onSendMessage).toHaveBeenCalledWith('快捷键');
+      });
+
+      expect(pageShortcutListener).not.toHaveBeenCalledWith(
+        expect.objectContaining({ key: 'Enter', metaKey: true }),
+      );
+
+      expect(screen.getByPlaceholderText('问任何问题，@ 模型，/ 提示')).toHaveValue('');
+
+      expect(screen.queryByRole('button', { name: '打开设置' })).not.toBeInTheDocument();
+      expect(screen.queryByText('Agent Chat')).not.toBeInTheDocument();
+      expect(screen.queryByText('浏览器增强 Agent')).not.toBeInTheDocument();
+    } finally {
+      document.removeEventListener('keydown', pageShortcutListener);
+    }
   });
 
   it('clears the draft when send fails', async () => {

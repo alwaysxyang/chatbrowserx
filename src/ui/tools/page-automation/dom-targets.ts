@@ -20,12 +20,23 @@ const writableTargetSelector = [
   '[contenteditable=true]',
 ].join(',');
 
-const codeEditorSelector = [
+const codeEditorRootSelector = [
   '.monaco-editor',
+  '.monaco-diff-editor',
   '.cm-editor',
   '.CodeMirror',
   '.ace_editor',
   '[data-mode-id]',
+].join(',');
+
+const codeEditorDescendantSelector = [
+  '.monaco-mouse-cursor-text',
+  '.view-lines',
+  '.view-line',
+  '.lines-content',
+  '.monaco-scrollable-element',
+  '.overflow-guard',
+  '.inputarea',
 ].join(',');
 
 const ownedRootSelector = '#chatbrowserx-root,#chatbrowserx-page-action-overlay,#chatbrowserx-subtitle-container';
@@ -87,13 +98,39 @@ export function isOwnedByChatBrowserX(element: Element): boolean {
 }
 
 /**
- * Checks whether an element is a known rich code editor container.
+ * Finds the stable editor surface for a known rich code editor element or descendant.
+ *
+ * @param element - The element to inspect.
+ * @returns The outer editor surface when present.
+ */
+export function findCodeEditorSurface(element: Element): Element | undefined {
+  if (element.matches(codeEditorRootSelector)) return element;
+
+  const root = element.closest(codeEditorRootSelector);
+  if (root) return root;
+
+  if (!element.matches(codeEditorDescendantSelector)) return undefined;
+
+  for (let current = element.parentElement; current; current = current.parentElement) {
+    if (
+      current.querySelector(codeEditorDescendantSelector) &&
+      current.querySelector(writableTargetSelector)
+    ) {
+      return current;
+    }
+  }
+
+  return undefined;
+}
+
+/**
+ * Checks whether an element is a known rich code editor surface.
  *
  * @param element - The element to inspect.
  * @returns True when the element looks like a code editor surface.
  */
 export function isCodeEditorElement(element: Element): boolean {
-  return element.matches(codeEditorSelector);
+  return findCodeEditorSurface(element) === element;
 }
 
 /**
@@ -149,5 +186,7 @@ export function findNestedWritableControl(element: Element, windowObject: Window
  */
 export function resolveTextTarget(element: Element, windowObject: Window): Element {
   if (isUsableTextTarget(element, windowObject)) return element;
+  const codeEditor = findCodeEditorSurface(element);
+  if (codeEditor) return findNestedWritableControl(codeEditor, windowObject) ?? codeEditor;
   return findNestedWritableControl(element, windowObject) ?? element;
 }

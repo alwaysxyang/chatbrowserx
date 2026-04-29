@@ -7,6 +7,7 @@ import {
   canScrollElement,
   didStateChange,
   dispatchMouseEvent,
+  readFocusedElement,
   readElementState,
   rectCenter,
   resolveActionTarget,
@@ -164,14 +165,31 @@ async function executeTypeAction(
   if ('ok' in target) return { ...target, action: payload.action, ref: payload.ref };
 
   const point = rectCenter(target.rect);
-  const textTarget = resolveTextTarget(target.element, windowObject);
-  const stateBefore = readElementState(textTarget);
+  const fallbackTextTarget = resolveTextTarget(target.element, windowObject);
   await showVirtualMouseMove(documentObject, point);
+  dispatchMouseEvent(target.element, 'mousedown', point);
+  dispatchMouseEvent(target.element, 'mouseup', point);
+  dispatchMouseEvent(target.element, 'click', point);
+  const focusedTextTarget = readFocusedElement(documentObject);
+  const textTargets = focusedTextTarget && focusedTextTarget !== fallbackTextTarget
+    ? [focusedTextTarget, fallbackTextTarget]
+    : [fallbackTextTarget];
   await showVirtualType(documentObject, target.rect);
-  if (!writeText(textTarget, payload.text ?? '', payload.clear)) {
+
+  let writtenTarget: Element | undefined;
+  let stateBefore = readElementState(textTargets[0]);
+  for (const textTarget of textTargets) {
+    stateBefore = readElementState(textTarget);
+    if (writeText(textTarget, payload.text ?? '', payload.clear)) {
+      writtenTarget = textTarget;
+      break;
+    }
+  }
+
+  if (!writtenTarget) {
     return { ok: false, action: 'type', ref: payload.ref, error: 'PAGE_ACTION_TARGET_NOT_TEXT_INPUT' };
   }
-  const stateAfter = readElementState(textTarget);
+  const stateAfter = readElementState(writtenTarget);
   return {
     ok: true,
     action: 'type',

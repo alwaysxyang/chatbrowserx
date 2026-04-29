@@ -62,6 +62,191 @@ describe('ui get page interactables tool', () => {
     expect(snapshot.sid).toMatch(/^s_/);
   });
 
+  it('infers names for icon-only controls from bounded icon tokens', () => {
+    document.body.innerHTML = `
+      <button id="like"><svg data-icon="thumbs-up" aria-hidden="true"></svg></button>
+      <button id="bookmark"><span class="lc-icon-bookmark"></span></button>
+      <button id="share"><span data-testid="share-button-icon"></span></button>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const like = document.getElementById('like')!;
+    const bookmark = document.getElementById('bookmark')!;
+    const share = document.getElementById('share')!;
+    setRect(like, makeRect(10, 20, 32, 32));
+    setRect(bookmark, makeRect(50, 20, 32, 32));
+    setRect(share, makeRect(90, 20, 32, 32));
+
+    spyElementFromPoint(document).mockImplementation((x) => {
+      if (x < 45) return like;
+      if (x < 85) return bookmark;
+      return share;
+    });
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', 'like', [10, 20, 32, 32]],
+      ['e2', 'button', 'bookmark', [50, 20, 32, 32]],
+      ['e3', 'button', 'share', [90, 20, 32, 32]],
+    ]);
+  });
+
+  it('keeps unlabeled controls visible with nearby compact context when no semantic token exists', () => {
+    document.body.innerHTML = `
+      <div>
+        <button id="count">32.2K</button>
+        <button id="unknown"><svg aria-hidden="true"><path d="M0 0" /></svg></button>
+      </div>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const count = document.getElementById('count')!;
+    const unknown = document.getElementById('unknown')!;
+    setRect(count, makeRect(10, 20, 64, 32));
+    setRect(unknown, makeRect(82, 20, 32, 32));
+
+    spyElementFromPoint(document).mockImplementation((x) => x < 80 ? count : unknown);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', '32.2K', [10, 20, 64, 32]],
+      ['e2', 'button', 'unlabeled button near 32.2K', [82, 20, 32, 32]],
+    ]);
+  });
+
+  it('combines nested icon semantics with visible button counts and removes the icon child', () => {
+    document.body.innerHTML = `
+      <button id="like">
+        <span id="like-icon" data-icon="thumbs-up" style="cursor: pointer"></span>
+        <span id="like-count">32.2K</span>
+      </button>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const like = document.getElementById('like')!;
+    const icon = document.getElementById('like-icon')!;
+    const count = document.getElementById('like-count')!;
+    setRect(like, makeRect(10, 20, 80, 32));
+    setRect(icon, makeRect(16, 28, 16, 16));
+    setRect(count, makeRect(38, 26, 46, 20));
+
+    spyElementFromPoint(document).mockImplementation((x) => x < 36 ? icon : count);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', 'like 32.2K', [10, 20, 80, 32]],
+    ]);
+  });
+
+  it('combines comment icon semantics with visible counts', () => {
+    document.body.innerHTML = `
+      <button id="comments">
+        <span id="comment-icon" data-icon="message-circle"></span>
+        <span id="comment-count">922</span>
+      </button>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const comments = document.getElementById('comments')!;
+    const icon = document.getElementById('comment-icon')!;
+    const count = document.getElementById('comment-count')!;
+    setRect(comments, makeRect(10, 20, 80, 32));
+    setRect(icon, makeRect(16, 28, 16, 16));
+    setRect(count, makeRect(38, 26, 32, 20));
+
+    spyElementFromPoint(document).mockImplementation((x) => x < 36 ? icon : count);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', 'comments 922', [10, 20, 80, 32]],
+    ]);
+  });
+
+  it('includes compact semantic icon controls even when they do not expose pointer cursor', () => {
+    document.body.innerHTML = `
+      <span id="open" data-icon="external-link"></span>
+      <span id="help" data-testid="help-circle"></span>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const open = document.getElementById('open')!;
+    const help = document.getElementById('help')!;
+    setRect(open, makeRect(10, 20, 28, 28));
+    setRect(help, makeRect(50, 20, 28, 28));
+
+    spyElementFromPoint(document).mockImplementation((x) => x < 40 ? open : help);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', 'open', [10, 20, 28, 28]],
+      ['e2', 'button', 'help', [50, 20, 28, 28]],
+    ]);
+  });
+
+  it('deduplicates semantic icon children under named compact parent controls', () => {
+    document.body.innerHTML = `
+      <button id="run" aria-label="Run">
+        <span id="play" data-icon="play" style="cursor: pointer"></span>
+      </button>
+      <a id="previous-link" href="/previous" aria-label="Prev Question">
+        <span id="previous-icon" data-icon="chevron-left" style="cursor: pointer"></span>
+      </a>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const run = document.getElementById('run')!;
+    const play = document.getElementById('play')!;
+    const previousLink = document.getElementById('previous-link')!;
+    const previousIcon = document.getElementById('previous-icon')!;
+    setRect(run, makeRect(10, 20, 32, 32));
+    setRect(play, makeRect(18, 28, 16, 16));
+    setRect(previousLink, makeRect(50, 20, 32, 32));
+    setRect(previousIcon, makeRect(58, 28, 16, 16));
+
+    spyElementFromPoint(document).mockImplementation((x) => x < 45 ? play : previousIcon);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', 'Run', [10, 20, 32, 32]],
+      ['e2', 'link', 'Prev Question', [50, 20, 32, 32]],
+    ]);
+  });
+
+  it('deduplicates unlabeled nested controls under a named parent target', () => {
+    document.body.innerHTML = `
+      <a id="logo-link" href="/" aria-label="LeetCode Logo">
+        <button id="logo-button"></button>
+      </a>
+    `;
+    window.innerWidth = 1024;
+    window.innerHeight = 768;
+
+    const logoLink = document.getElementById('logo-link')!;
+    const logoButton = document.getElementById('logo-button')!;
+    setRect(logoLink, makeRect(20, 13, 21, 22));
+    setRect(logoButton, makeRect(20, 13, 21, 20));
+
+    spyElementFromPoint(document).mockReturnValue(logoButton);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'link', 'LeetCode Logo', [20, 13, 21, 22]],
+    ]);
+  });
+
   it('filters disabled, hidden, offscreen, and covered controls', () => {
     document.body.innerHTML = `
       <button id="enabled">Enabled</button>
@@ -347,6 +532,54 @@ describe('ui get page interactables tool', () => {
     expect(snapshot.items).toEqual([
       ['e1', 'textbox', 'Code Editor', [30, 40, 700, 360], { t: 'code' }],
       ['e2', 'textbox', 'SQL editor', [30, 440, 700, 260], { t: 'code' }],
+    ]);
+  });
+
+  it('normalizes Monaco presentation line descendants to the editor surface', () => {
+    document.body.innerHTML = `
+      <div id="editor" class="monaco-editor" aria-label="Code Editor">
+        <textarea class="inputarea monaco-mouse-cursor-text" aria-label="Editor input"></textarea>
+        <div class="view-lines monaco-mouse-cursor-text" role="presentation" aria-hidden="true">
+          <div id="line" class="view-line">return true;</div>
+        </div>
+      </div>
+    `;
+    window.innerWidth = 1200;
+    window.innerHeight = 800;
+
+    const editor = document.getElementById('editor')!;
+    const line = document.getElementById('line')!;
+    setRect(editor, makeRect(30, 40, 797, 208));
+    setRect(line, makeRect(30, 48, 797, 20));
+    spyElementFromPoint(document).mockReturnValue(line);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'textbox', 'Code Editor', [30, 40, 797, 208], { t: 'code' }],
+    ]);
+  });
+
+  it('deduplicates overlapping editor accessibility textboxes against the code editor surface', () => {
+    document.body.innerHTML = `
+      <div id="editor" class="monaco-editor" aria-label="Code Editor"></div>
+      <textarea id="a11y-textarea" aria-label="Editor content;Press Alt+F1 for Accessibility Options."></textarea>
+    `;
+    window.innerWidth = 1200;
+    window.innerHeight = 800;
+
+    const editor = document.getElementById('editor')!;
+    const textarea = document.getElementById('a11y-textarea')!;
+    setRect(editor, makeRect(30, 40, 797, 208));
+    setRect(textarea, makeRect(30, 40, 797, 208));
+    spyElementFromPoint(document)
+      .mockReturnValueOnce(editor)
+      .mockReturnValueOnce(textarea);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'textbox', 'Code Editor', [30, 40, 797, 208], { t: 'code' }],
     ]);
   });
 

@@ -158,6 +158,196 @@ describe('page action content tool', () => {
     expect(inputListener).toHaveBeenCalledTimes(1);
   });
 
+  it('types into a Monaco input area when hit testing lands on presentation lines', async () => {
+    document.body.innerHTML = `
+      <div id="editor" class="monaco-editor" aria-label="Code Editor">
+        <textarea id="input" class="inputarea monaco-mouse-cursor-text" aria-label="Editor input">old code</textarea>
+        <div class="view-lines monaco-mouse-cursor-text" role="presentation" aria-hidden="true">
+          <div id="line" class="view-line">old code</div>
+        </div>
+      </div>
+    `;
+    const editor = document.getElementById('editor')!;
+    const input = document.getElementById('input') as HTMLTextAreaElement;
+    const line = document.getElementById('line')!;
+    const inputListener = vi.fn();
+    let selectedAll = false;
+    input.addEventListener('keydown', (event) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'a') {
+        selectedAll = true;
+      }
+    });
+    const pasteListener = vi.fn((event: ClipboardEvent) => {
+      const pastedText = event.clipboardData?.getData('text/plain') ?? '';
+      line.textContent = selectedAll ? pastedText : `${line.textContent ?? ''}${pastedText}`;
+      event.preventDefault();
+    });
+    input.addEventListener('input', inputListener);
+    input.addEventListener('paste', pasteListener);
+    setRect(editor, makeRect(10, 20, 797, 208));
+    setRect(input, makeRect(10, 20, 1, 1));
+    setRect(line, makeRect(10, 28, 797, 20));
+    spyElementFromPoint(document, line);
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'type',
+      ref: 'e1',
+      changed: true,
+      stateAfter: { value: 'new code' },
+    });
+    expect(input.value).toBe('new code');
+    expect(line.textContent).toBe('new code');
+    expect(selectedAll).toBe(true);
+    expect(pasteListener).toHaveBeenCalledTimes(1);
+    expect(inputListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes existing editor text before native clear insertion', async () => {
+    document.body.innerHTML = `
+      <div id="editor" class="monaco-editor" aria-label="Code Editor">
+        <textarea id="input" class="inputarea monaco-mouse-cursor-text" aria-label="Editor input"></textarea>
+        <div class="view-lines monaco-mouse-cursor-text" role="presentation" aria-hidden="true">
+          <div id="line" class="view-line">old code</div>
+        </div>
+      </div>
+    `;
+    const editor = document.getElementById('editor')!;
+    const input = document.getElementById('input') as HTMLTextAreaElement;
+    const line = document.getElementById('line')!;
+    let selectedAll = false;
+    let deletedExistingText = false;
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: vi.fn((command: string, _showUi?: boolean, value?: string) => {
+        if (document.activeElement !== input) return false;
+        if (command === 'selectAll') {
+          selectedAll = true;
+          return true;
+        }
+        if (command === 'delete') {
+          deletedExistingText = true;
+          input.value = '';
+          line.textContent = '';
+          return true;
+        }
+        if (command === 'insertText') {
+          const insertedText = String(value ?? '');
+          input.value = insertedText;
+          line.textContent = deletedExistingText ? insertedText : `${line.textContent ?? ''}${insertedText}`;
+          input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: insertedText }));
+          return true;
+        }
+        return false;
+      }),
+    });
+    editor.addEventListener('mousedown', () => {
+      input.focus();
+    });
+    setRect(editor, makeRect(10, 20, 797, 208));
+    setRect(input, makeRect(10, 20, 1, 1));
+    setRect(line, makeRect(10, 28, 797, 20));
+    spyElementFromPoint(document, line);
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'type',
+      ref: 'e1',
+      changed: true,
+      stateAfter: { value: 'new code' },
+    });
+    expect(document.execCommand).toHaveBeenCalledWith('insertText', false, 'new code');
+    expect(line.textContent).toBe('new code');
+    expect(selectedAll).toBe(true);
+    expect(deletedExistingText).toBe(true);
+  });
+
+  it('uses a rich editor bridge to replace code editor content when available', async () => {
+    document.body.innerHTML = `
+      <div id="editor" class="monaco-editor" aria-label="Code Editor">
+        <textarea id="input" class="inputarea monaco-mouse-cursor-text" aria-label="Editor input"></textarea>
+        <div class="view-lines monaco-mouse-cursor-text" role="presentation" aria-hidden="true">
+          <div id="line" class="view-line">old code</div>
+        </div>
+      </div>
+    `;
+    const editor = document.getElementById('editor')!;
+    const input = document.getElementById('input') as HTMLTextAreaElement;
+    const line = document.getElementById('line')!;
+    const execCommand = vi.fn(() => {
+      if (document.activeElement !== input) return false;
+      line.textContent = `old code${line.textContent ?? ''}`;
+      return true;
+    });
+    Object.defineProperty(document, 'execCommand', {
+      configurable: true,
+      value: execCommand,
+    });
+    document.addEventListener('chatbrowserx.rich-editor-write.request', (event) => {
+      const customEvent = event as CustomEvent<{ id: string; text: string; clear?: boolean }>;
+      input.value = customEvent.detail.text;
+      line.textContent = customEvent.detail.clear
+        ? customEvent.detail.text
+        : `${line.textContent ?? ''}${customEvent.detail.text}`;
+      input.dispatchEvent(new CustomEvent('chatbrowserx.rich-editor-write.result', {
+        detail: { id: customEvent.detail.id, ok: true },
+      }));
+    });
+    editor.addEventListener('mousedown', () => {
+      input.focus();
+    });
+    setRect(editor, makeRect(10, 20, 797, 208));
+    setRect(input, makeRect(10, 20, 1, 1));
+    setRect(line, makeRect(10, 28, 797, 20));
+    spyElementFromPoint(document, line);
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'type',
+      ref: 'e1',
+      changed: true,
+      stateAfter: { value: 'new code' },
+    });
+    expect(execCommand).not.toHaveBeenCalledWith('insertText', false, 'new code');
+    expect(line.textContent).toBe('new code');
+  });
+
+  it('types into the focused element after clicking a composite text surface', async () => {
+    document.body.innerHTML = `
+      <div id="surface" role="textbox" aria-label="Code editor">old code</div>
+      <textarea id="real-input">old code</textarea>
+    `;
+    const surface = document.getElementById('surface')!;
+    const input = document.getElementById('real-input') as HTMLTextAreaElement;
+    const inputListener = vi.fn(() => {
+      surface.textContent = input.value;
+    });
+    surface.addEventListener('mousedown', () => {
+      input.focus();
+    });
+    input.addEventListener('input', inputListener);
+    setRect(surface, makeRect(10, 20, 400, 220));
+    setRect(input, makeRect(0, 0, 1, 1));
+    spyElementFromPoint(document, surface);
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'type',
+      ref: 'e1',
+      changed: true,
+      stateBefore: { value: 'old code' },
+      stateAfter: { value: 'new code' },
+    });
+    expect(document.activeElement).toBe(input);
+    expect(input.value).toBe('new code');
+    expect(surface.textContent).toBe('new code');
+    expect(inputListener).toHaveBeenCalledTimes(1);
+  });
+
   it('types into the visible input inside a form wrapper when a hidden text input appears first', async () => {
     document.body.innerHTML = `
       <p id="wrapper" class="pass-form-item">

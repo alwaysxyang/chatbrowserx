@@ -18,6 +18,7 @@ import {
   type CandidateItem,
 } from './interactable-support';
 import {
+  findCodeEditorSurface,
   findNestedWritableControl,
   isCodeEditorElement,
   isDisabledElement,
@@ -125,7 +126,9 @@ export function readCurrentPageInteractables(
   documentObject: Document = document,
   windowObject: Window = window,
 ): GetPageInteractablesToolPayload {
-  const candidates = Array.from(documentObject.querySelectorAll(candidateSelector));
+  const candidates = Array.from(new Set(
+    Array.from(documentObject.querySelectorAll(candidateSelector)).map((element) => findCodeEditorSurface(element) ?? element),
+  ));
   const diagnostics = createDiagnostics();
   const items: CandidateItem[] = [];
 

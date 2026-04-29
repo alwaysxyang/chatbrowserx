@@ -11,6 +11,47 @@ const maxNameChars = 120;
 const maxHintChars = 80;
 export const diagnosticsVersion = 'aria-20260428.2';
 
+const semanticAttributeNames = [
+  'aria-label',
+  'title',
+  'alt',
+  'data-icon',
+  'data-testid',
+  'data-test-id',
+  'data-cy',
+  'data-tooltip',
+  'data-tooltip-content',
+  'id',
+  'class',
+];
+
+const semanticIconPatterns: Array<[RegExp, string]> = [
+  [/\b(thumbs?[-_\s]?down|vote[-_\s]?down|downvote|dislike)\b/, 'dislike'],
+  [/\b(thumbs?[-_\s]?up|vote[-_\s]?up|upvote|like)\b/, 'like'],
+  [/\b(bookmark|save[-_\s]?for[-_\s]?later)\b/, 'bookmark'],
+  [/\b(favorite|favourite|star)\b/, 'favorite'],
+  [/\b(comment|comments|chat|message|discussion)\b/, 'comments'],
+  [/\b(share|send)\b/, 'share'],
+  [/\b(external[-_\s]?link|open[-_\s]?in[-_\s]?new|open[-_\s]?new|launch)\b/, 'open'],
+  [/\b(help|question[-_\s]?circle|circle[-_\s]?help)\b/, 'help'],
+  [/\b(copy|clipboard)\b/, 'copy'],
+  [/\b(search|magnify|magnifier)\b/, 'search'],
+  [/\b(close|dismiss|xmark|times)\b/, 'close'],
+  [/\b(menu|hamburger|more[-_\s]?horizontal|more[-_\s]?vertical|ellipsis)\b/, 'menu'],
+  [/\b(prev|previous|chevron[-_\s]?left|arrow[-_\s]?left)\b/, 'previous'],
+  [/\b(next|chevron[-_\s]?right|arrow[-_\s]?right)\b/, 'next'],
+  [/\b(play)\b/, 'play'],
+  [/\b(pause)\b/, 'pause'],
+  [/\b(download)\b/, 'download'],
+  [/\b(upload)\b/, 'upload'],
+  [/\b(edit|pencil)\b/, 'edit'],
+  [/\b(delete|trash|remove)\b/, 'delete'],
+  [/\b(filter|funnel)\b/, 'filter'],
+  [/\b(settings|setting|gear|cog)\b/, 'settings'],
+  [/\b(expand|maximize)\b/, 'expand'],
+  [/\b(collapse|minimize)\b/, 'collapse'],
+];
+
 export const candidateSelector = [
   'a[href]',
   'button',
@@ -33,6 +74,12 @@ export const candidateSelector = [
   '[tabindex]',
   '[contenteditable=""]',
   '[contenteditable="true"]',
+  '[aria-label]',
+  '[title]',
+  '[data-icon]',
+  '[data-testid]',
+  '[data-test-id]',
+  '[data-cy]',
   '[onclick]',
   '[aria-controls]',
   '[aria-haspopup]',
@@ -87,6 +134,141 @@ function truncateText(value: string, maxChars: number): string {
   const normalized = value.replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxChars) return normalized;
   return normalized.slice(0, maxChars).trim();
+}
+
+/**
+ * Normalizes attribute-like values into words that semantic icon patterns can match.
+ *
+ * @param value - Raw attribute or SVG title text.
+ * @returns Lowercase text with separators normalized.
+ */
+function normalizeSemanticToken(value: string): string {
+  return value
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[#./:[\](){}]+/g, ' ')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Maps a bounded token string to a model-friendly control semantic when recognized.
+ *
+ * @param value - Attribute or title text to inspect.
+ * @returns A semantic action label when the token is recognized.
+ */
+function inferSemanticLabelFromToken(value: string): string | undefined {
+  const normalized = normalizeSemanticToken(value);
+  if (!normalized) return undefined;
+
+  return semanticIconPatterns.find(([pattern]) => pattern.test(normalized))?.[1];
+}
+
+/**
+ * Reads known semantic tokens from an element and a small descendant set.
+ *
+ * @param element - The candidate element.
+ * @returns A model-friendly icon/action label when available.
+ */
+function readIconSemanticName(element: Element): string | undefined {
+  const inspectTargets = [element, ...Array.from(element.querySelectorAll('*')).slice(0, 24)];
+
+  for (const target of inspectTargets) {
+    const svgTitle = target.tagName.toLowerCase() === 'title' ? truncateText(target.textContent ?? '', maxNameChars) : '';
+    const titleLabel = svgTitle ? inferSemanticLabelFromToken(svgTitle) : undefined;
+    if (titleLabel) return titleLabel;
+
+    for (const attributeName of semanticAttributeNames) {
+      const label = inferSemanticLabelFromToken(target.getAttribute(attributeName) ?? '');
+      if (label) return label;
+    }
+
+    const href = target.getAttribute('href') ?? target.getAttribute('xlink:href') ?? '';
+    const hrefLabel = inferSemanticLabelFromToken(href);
+    if (hrefLabel) return hrefLabel;
+  }
+
+  return undefined;
+}
+
+/**
+ * Checks whether an element directly exposes a known control semantic token.
+ *
+ * @param element - The candidate element.
+ * @returns True when a direct attribute can identify a compact icon control.
+ */
+function hasDirectSemanticControlToken(element: Element): boolean {
+  const directAttributeNames = [
+    'aria-label',
+    'title',
+    'alt',
+    'data-icon',
+    'data-testid',
+    'data-test-id',
+    'data-cy',
+  ];
+
+  for (const attributeName of directAttributeNames) {
+    if (inferSemanticLabelFromToken(element.getAttribute(attributeName) ?? '')) return true;
+  }
+
+  const href = element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? '';
+  return inferSemanticLabelFromToken(href) !== undefined;
+}
+
+/**
+ * Checks whether text is compact enough to serve as nearby context for an unlabeled control.
+ *
+ * @param value - Candidate nearby text.
+ * @returns True when the text is short and likely describes adjacent UI context.
+ */
+function isCompactNearbyContext(value: string): boolean {
+  if (!value || value.length > 32) return false;
+  return /^[\p{L}\p{N}\s.,:+#%()/&-]+$/u.test(value);
+}
+
+/**
+ * Reads nearby compact sibling text for unlabeled controls without scanning broad DOM content.
+ *
+ * @param element - The candidate element.
+ * @returns A bounded nearby label or count when present.
+ */
+function readNearbyCompactContext(element: Element): string | undefined {
+  const siblings = [
+    element.previousElementSibling,
+    element.nextElementSibling,
+  ];
+
+  for (const sibling of siblings) {
+    const text = truncateText(sibling?.textContent ?? '', 32);
+    if (isCompactNearbyContext(text)) return text;
+  }
+
+  return undefined;
+}
+
+/**
+ * Builds a conservative fallback label for interactables with no page-provided name.
+ *
+ * @param role - The inferred interactable role.
+ * @param element - The candidate element.
+ * @returns A generic label with nearby context when available.
+ */
+function buildUnlabeledControlName(role: string, element: Element): string {
+  const context = readNearbyCompactContext(element);
+  const genericName = `unlabeled ${role}`;
+  return context ? `${genericName} near ${context}` : genericName;
+}
+
+/**
+ * Checks whether a name was synthesized only to keep an unnamed control visible.
+ *
+ * @param name - Candidate name.
+ * @returns True when the name is an unlabeled-control fallback.
+ */
+function isUnlabeledFallbackName(name: string): boolean {
+  return name.startsWith('unlabeled ');
 }
 
 /**
@@ -246,6 +428,7 @@ export function inferRole(element: Element, windowObject: Window): string | null
   if (findNestedWritableControl(element, windowObject)) return 'textbox';
   if (readScrollAxis(element, windowObject)) return 'scrollarea';
   if (explicitRole) return null;
+  if (hasDirectSemanticControlToken(element)) return 'button';
   if (hasGenericClickAffordance(element, windowObject)) return 'button';
   return null;
 }
@@ -296,11 +479,21 @@ export function readControlName(element: Element, role: string, windowObject: Wi
   const ariaLabel = truncateText(element.getAttribute('aria-label') ?? '', maxNameChars);
   const title = truncateText(element.getAttribute('title') ?? '', maxNameChars);
   const visibleText = truncateText(element.textContent ?? '', maxNameChars);
+  const iconSemanticName = readIconSemanticName(element);
 
-  if (accessibleName && accessibleName !== title) return accessibleName;
+  if (accessibleName && accessibleName !== title) {
+    if (visibleText && iconSemanticName && accessibleName === visibleText) {
+      return truncateText(`${iconSemanticName} ${visibleText}`, maxNameChars);
+    }
+    return accessibleName;
+  }
   if (ariaLabel) return ariaLabel;
   if (role === 'scrollarea') return title || 'scrollable area';
+  if (visibleText && iconSemanticName) return truncateText(`${iconSemanticName} ${visibleText}`, maxNameChars);
   if (visibleText) return visibleText;
+
+  if (iconSemanticName) return iconSemanticName;
+  if (role) return buildUnlabeledControlName(role, element);
   return accessibleName || title;
 }
 
@@ -413,6 +606,65 @@ export function buildMeta(item: CandidateItem): SnapshotMeta | undefined {
 }
 
 /**
+ * Checks whether a nested semantic icon is only the visual glyph of a named parent control.
+ *
+ * @param parent - The ancestor candidate.
+ * @param child - The descendant candidate.
+ * @returns True when the child should be removed as duplicate icon noise.
+ */
+function isNestedDecorativeIconCandidate(parent: CandidateItem, child: CandidateItem): boolean {
+  if (!['button', 'link'].includes(parent.role)) return false;
+  if (child.role !== 'button' || !parent.name || isUnlabeledFallbackName(parent.name)) return false;
+  if (!readIconSemanticName(child.element)) return false;
+
+  const parentArea = parent.rect[2] * parent.rect[3];
+  const childArea = child.rect[2] * child.rect[3];
+  const isCompactChild = child.rect[2] <= 48 && child.rect[3] <= 48;
+
+  return parentArea > 0 && childArea > 0 && isCompactChild && childArea <= parentArea * 0.7;
+}
+
+/**
+ * Calculates how much two compact rectangles overlap relative to the smaller rectangle.
+ *
+ * @param first - First compact rectangle.
+ * @param second - Second compact rectangle.
+ * @returns Overlap ratio from 0 to 1.
+ */
+function rectOverlapRatio(first: CandidateItem['rect'], second: CandidateItem['rect']): number {
+  const left = Math.max(first[0], second[0]);
+  const top = Math.max(first[1], second[1]);
+  const right = Math.min(first[0] + first[2], second[0] + second[2]);
+  const bottom = Math.min(first[1] + first[3], second[1] + second[3]);
+  const width = Math.max(0, right - left);
+  const height = Math.max(0, bottom - top);
+  const overlapArea = width * height;
+  const firstArea = first[2] * first[3];
+  const secondArea = second[2] * second[3];
+  const smallerArea = Math.min(firstArea, secondArea);
+
+  return smallerArea > 0 ? overlapArea / smallerArea : 0;
+}
+
+/**
+ * Checks whether an accessibility textbox duplicates a richer code editor surface.
+ *
+ * @param codeEditor - Candidate representing the code editor surface.
+ * @param duplicate - Candidate that may duplicate the editor.
+ * @returns True when the duplicate should be removed.
+ */
+function isOverlappingCodeEditorTextboxDuplicate(codeEditor: CandidateItem, duplicate: CandidateItem): boolean {
+  if (codeEditor.inputType !== 'code') return false;
+  if (duplicate.inputType === 'code' || duplicate.role !== 'textbox') return false;
+
+  const duplicateName = duplicate.name.toLowerCase();
+  const looksLikeEditorAccessibilityNode = duplicateName.includes('editor content') ||
+    duplicateName.includes('accessibility options');
+
+  return looksLikeEditorAccessibilityNode && rectOverlapRatio(codeEditor.rect, duplicate.rect) >= 0.9;
+}
+
+/**
  * Checks whether a parent candidate already represents the child candidate.
  *
  * @param parent - The ancestor candidate.
@@ -420,10 +672,13 @@ export function buildMeta(item: CandidateItem): SnapshotMeta | undefined {
  * @returns True when the child would be duplicate noise in the snapshot.
  */
 function isNestedDuplicateCandidate(parent: CandidateItem, child: CandidateItem): boolean {
+  if (!parent.element.contains(child.element)) return false;
+  if (isUnlabeledFallbackName(child.name)) return true;
+  if (isNestedDecorativeIconCandidate(parent, child)) return true;
   if (parent.element.contains(child.element) && parent.role === 'button' && (child.role === 'checkbox' || child.role === 'radio')) {
     return true;
   }
-  if (parent.role !== child.role || !parent.element.contains(child.element)) return false;
+  if (parent.role !== child.role) return false;
   if (!child.name) return true;
   return parent.name === child.name || parent.name.includes(child.name);
 }
@@ -435,9 +690,14 @@ function isNestedDuplicateCandidate(parent: CandidateItem, child: CandidateItem)
  * @returns Deduplicated candidate items.
  */
 export function deduplicateNestedCandidates(items: CandidateItem[]): CandidateItem[] {
-  return items.filter((item, index) => !items.some((candidate, candidateIndex) => (
+  const nestedDeduped = items.filter((item, index) => !items.some((candidate, candidateIndex) => (
     candidateIndex !== index &&
     candidateIndex < index &&
     isNestedDuplicateCandidate(candidate, item)
+  )));
+
+  return nestedDeduped.filter((item) => !nestedDeduped.some((candidate) => (
+    candidate !== item &&
+    isOverlappingCodeEditorTextboxDuplicate(candidate, item)
   )));
 }

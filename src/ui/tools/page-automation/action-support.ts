@@ -7,6 +7,8 @@ import {
 import { isLatestInteractablesSnapshot, resolveLatestInteractableRef } from './snapshot-store';
 import type { ViewportPoint } from './virtual-cursor';
 
+export { writeText } from './text-writer';
+
 /**
  * Returns the center point of a DOM rectangle in viewport coordinates.
  *
@@ -157,64 +159,23 @@ export function didStateChange(
 }
 
 /**
- * Writes a value through the native DOM property setter so controlled inputs see the change.
+ * Returns the deepest focused element, including focus inside open shadow roots.
  *
- * @param element - The target form element.
- * @param value - The next value.
+ * @param documentObject - The document that owns the action.
+ * @returns The currently focused element, or undefined when focus is only on the page shell.
  */
-function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string): void {
-  const descriptor = Object.getOwnPropertyDescriptor(element, 'value');
-  const prototype = Object.getPrototypeOf(element) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-  const prototypeDescriptor = Object.getOwnPropertyDescriptor(prototype, 'value');
-  const setter = prototypeDescriptor?.set && descriptor?.set !== prototypeDescriptor.set
-    ? prototypeDescriptor.set
-    : descriptor?.set;
+export function readFocusedElement(documentObject: Document): Element | undefined {
+  let activeElement: Element | null = documentObject.activeElement;
 
-  if (setter) {
-    setter.call(element, value);
-    return;
+  while (activeElement?.shadowRoot?.activeElement) {
+    activeElement = activeElement.shadowRoot.activeElement;
   }
 
-  element.value = value;
-}
-
-/**
- * Writes text into an input-like element and dispatches form events.
- *
- * @param element - The target element.
- * @param text - Text to write.
- * @param clear - Whether to replace existing content.
- * @returns True when text was written.
- */
-export function writeText(element: Element, text: string, clear: boolean | undefined): boolean {
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    element.focus();
-    setNativeValue(element, clear ? text : `${element.value}${text}`);
-    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
+  if (!activeElement || activeElement === documentObject.body || activeElement === documentObject.documentElement) {
+    return undefined;
   }
 
-  if (element instanceof HTMLSelectElement) {
-    element.focus();
-    setNativeValue(element, text);
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  if (
-    element instanceof HTMLElement &&
-    (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === '')
-  ) {
-    element.focus();
-    element.textContent = clear ? text : `${element.textContent ?? ''}${text}`;
-    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  return false;
+  return activeElement;
 }
 
 /**

@@ -261,10 +261,12 @@ src/
 #### `src/ui/tools/page-automation`
 
 - 负责当前视窗交互元素快照、快照引用存储、基于 `sid` + `ref` 的页面动作执行与虚拟鼠标展示。
-- 当前包括交互元素扫描、候选元素判定与去重、异常诊断、DOM 目标判定、动作执行、动作状态读取、滚动执行、文本写入、最近快照存储、虚拟鼠标展示与 content 侧 runtime listener 注册。
+- 当前包括交互元素扫描、候选元素判定与去重、异常诊断、DOM 目标判定、动作执行、动作状态读取、滚动执行、文本写入、富代码编辑器模型写入桥接、最近快照存储、虚拟鼠标展示与 content 侧 runtime listener 注册。
 - `interactable-scanner.ts` 只负责编排当前视窗快照扫描流程；候选角色推断、命名、几何过滤、元数据、去重与诊断由 `interactable-support.ts` 承载。
-- `action-executor.ts` 只负责编排页面动作分发；目标解析、状态遥测、文本写入、滚动执行与鼠标事件几何由 `action-support.ts` 承载。
-- 只在 content script 环境访问宿主页面 DOM。
+- `action-executor.ts` 只负责编排页面动作分发；目标解析、状态遥测、滚动执行与鼠标事件几何由 `action-support.ts` 承载。
+- `text-writer.ts` 只负责统一文本写入入口，并按能力顺序选择富代码编辑器桥接、浏览器原生编辑命令或 DOM fallback。
+- `rich-editor-bridge-main.ts` 作为 `MAIN` world content script，只负责通过宿主页面已暴露的富代码编辑器 API 执行模型写入，并通过 DOM 事件与 isolated content script 通信。
+- 默认只在 isolated content script 环境访问宿主页面 DOM；需要页面 JavaScript 上下文的富代码编辑器模型写入能力必须收敛在 `rich-editor-bridge-main.ts` 这类窄桥接文件内。
 - 不负责页面全文读取、PDF 滚动采集、模型工具 definition 或 provider 编排。
 
 ### 6.2 `src/background`

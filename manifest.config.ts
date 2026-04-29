@@ -26,6 +26,12 @@ export default defineManifest({
   content_scripts: [
     {
       matches: ['<all_urls>'],
+      js: ['src/ui/tools/page-automation/rich-editor-bridge-main.ts'],
+      run_at: 'document_idle',
+      world: 'MAIN',
+    },
+    {
+      matches: ['<all_urls>'],
       js: ['src/ui/content/index.tsx'],
       run_at: 'document_idle',
     },
