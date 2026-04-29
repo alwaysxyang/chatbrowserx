@@ -1,10 +1,15 @@
 import {
   getPageContentToolRequestType,
   type GetPageContentToolPayload,
-} from '../../shared/types/tool';
-import { getActiveTabId } from './shared/active-tab';
+} from '../../shared/types/tools';
+import { sendActiveTabToolMessage } from './shared/tab-message-tool';
 import { registerTool, type LlmToolModule } from './tool-registry';
 
+/**
+ * Creates the current-page content reader LLM tool.
+ *
+ * @returns The registered LLM tool module.
+ */
 export function createGetPageContentTool(
 ): LlmToolModule {
   return {
@@ -22,10 +27,9 @@ export function createGetPageContentTool(
       },
     }),
     invoke: async () => {
-      const tabId = await getActiveTabId();
-      const response = await chrome.tabs.sendMessage(tabId, {
+      const response = await sendActiveTabToolMessage<GetPageContentToolPayload>({
         type: getPageContentToolRequestType,
-      }) as GetPageContentToolPayload;
+      });
 
       return response;
     },

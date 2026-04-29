@@ -150,6 +150,7 @@ src/
     i18n/
     storage/
     types/
+      tools/
   speech/
     model/
     providers/
@@ -166,6 +167,8 @@ src/
     popup/
     shared/
     tools/
+      page-automation/
+      page-content/
 ```
 
 ## 6. 目录职责边界
@@ -248,6 +251,22 @@ src/
   - 页面滚动扫描与截图拼接所需的 DOM 辅助能力
 - 不负责 provider 协议、tool loop 或后台调度。
 
+#### `src/ui/tools/page-content`
+
+- 负责页面只读内容与滚动扫描相关的 DOM 能力。
+- 当前包括当前页面文本读取、主滚动容器识别与 `scanPage` 滚动扫描辅助。
+- 可以被 `src/ui/tools/get-page-content-tool.ts` 与 `src/ui/content/pdf` 复用。
+- 不负责页面动作、虚拟鼠标、模型工具定义或 background 调度。
+
+#### `src/ui/tools/page-automation`
+
+- 负责当前视窗交互元素快照、快照引用存储、基于 `sid` + `ref` 的页面动作执行与虚拟鼠标展示。
+- 当前包括交互元素扫描、候选元素判定与去重、异常诊断、DOM 目标判定、动作执行、动作状态读取、滚动执行、文本写入、最近快照存储、虚拟鼠标展示与 content 侧 runtime listener 注册。
+- `interactable-scanner.ts` 只负责编排当前视窗快照扫描流程；候选角色推断、命名、几何过滤、元数据、去重与诊断由 `interactable-support.ts` 承载。
+- `action-executor.ts` 只负责编排页面动作分发；目标解析、状态遥测、文本写入、滚动执行与鼠标事件几何由 `action-support.ts` 承载。
+- 只在 content script 环境访问宿主页面 DOM。
+- 不负责页面全文读取、PDF 滚动采集、模型工具 definition 或 provider 编排。
+
 ### 6.2 `src/background`
 
 `src/background` 是插件后台任务层，负责 Chrome 生命周期、消息分发、跨 tab 协调与长流程任务调度。
@@ -313,7 +332,7 @@ src/
 
 - 定义工具抽象、工具注册与工具级接口。
 - 当前包括页面内容读取工具、当前视窗交互元素快照工具、最小 `sid` + `ref` 页面动作工具与 Tavily 网页搜索工具。
-- `src/llm/tools/shared` 负责多个工具可复用的参数读取、active tab 解析等通用辅助，不承载具体工具 definition 或 provider 专属请求逻辑。
+- `src/llm/tools/shared` 负责多个工具可复用的参数读取、active tab 解析、active tab content script message 发送等通用辅助，不承载具体工具 definition 或 provider 专属请求逻辑。
 - `src/llm/tools/tavily` 的细化约束见 `docs/superpowers/specs/2026-04-12-tavily-tools-design.md`。
 - 工具 `invoke()` 允许返回任意可序列化内容；统一由 tool loop 在写回模型前完成字符串化，工具模块本身不应重复手动序列化 JSON。
 
@@ -331,6 +350,12 @@ src/
 
 - 负责跨层共享类型。
 - 当前包括聊天类型、设置类型、speech 类型、selection 类型、runtime 消息协议；设置类型中 `CodexModelSettings.effort` 表示 Codex reasoning effort。
+
+#### `src/shared/types/tools`
+
+- 负责模型工具与 content script 工具执行之间共享的消息协议与 payload 类型。
+- 当前包括页面内容读取、页面交互元素快照与页面动作工具协议。
+- 只放跨层协议类型与类型守卫，不放工具实现、DOM 逻辑、Chrome 调度或 provider 编排。
 
 #### `src/shared/storage`
 

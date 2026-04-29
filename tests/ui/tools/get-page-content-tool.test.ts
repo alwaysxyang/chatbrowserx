@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readCurrentPageContent, registerGetPageContentToolListener } from '../../../src/ui/tools/get-page-content-tool';
-import * as sharedTools from '../../../src/ui/tools/shared';
+import * as contentReader from '../../../src/ui/tools/page-content/content-reader';
 
 describe('ui get page content tool', () => {
   afterEach(() => {
@@ -28,7 +28,7 @@ describe('ui get page content tool', () => {
   });
 
   it('reads body text through scroll capture flow', async () => {
-    const readPageContentSpy = vi.spyOn(sharedTools, 'readPageContent').mockResolvedValue('Scrolled text');
+    const readPageContentSpy = vi.spyOn(contentReader, 'readPageContent').mockResolvedValue('Scrolled text');
     const documentObject = document.implementation.createHTMLDocument('Current page');
 
     const pageContent = await readCurrentPageContent(
@@ -43,7 +43,7 @@ describe('ui get page content tool', () => {
 
   it('registers a listener that responds with page content payload', async () => {
     const addListenerMock = chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>;
-    const readPageContentSpy = vi.spyOn(sharedTools, 'readPageContent').mockResolvedValue('Page body');
+    const readPageContentSpy = vi.spyOn(contentReader, 'readPageContent').mockResolvedValue('Page body');
 
     document.title = 'Current page';
     window.history.replaceState({}, '', '/page');

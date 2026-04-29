@@ -1,4 +1,4 @@
-import { scanPage } from '../../tools/scroll';
+import { scanPage } from '../../tools/page-content/page-scanner';
 import { requestVisibleTabScreenshot } from '../content-screenshot-bridge';
 
 const MAX_SCREENSHOTS = 50;

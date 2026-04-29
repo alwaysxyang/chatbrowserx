@@ -1,36 +1,17 @@
 import { computeAccessibleName } from 'dom-accessibility-api';
-import {
-  isGetPageInteractablesToolRequestMessage,
-  type GetPageInteractablesToolPayload,
-} from '../../shared/types/tool';
+import type { GetPageInteractablesToolPayload } from '../../../shared/types/tools';
 import {
   findNestedWritableControl,
   isCodeEditorElement,
-  isDisabledElement,
-  isHiddenBySelfOrAncestor,
-  isOwnedByChatBrowserX,
   isWritableTextElement,
 } from './dom-targets';
 
-const maxItems = 60;
+export const maxItems = 60;
 const maxNameChars = 120;
 const maxHintChars = 80;
-const diagnosticsVersion = 'aria-20260428.2';
-const interactiveRoles = new Set([
-  'button',
-  'link',
-  'textbox',
-  'searchbox',
-  'checkbox',
-  'radio',
-  'combobox',
-  'menuitem',
-  'tab',
-  'switch',
-  'slider',
-  'option',
-]);
-const candidateSelector = [
+export const diagnosticsVersion = 'aria-20260428.2';
+
+export const candidateSelector = [
   'a[href]',
   'button',
   'input:not([type="hidden"])',
@@ -60,7 +41,22 @@ const candidateSelector = [
   '[style*="cursor: pointer" i]',
 ].join(',');
 
-interface CandidateItem {
+const interactiveRoles = new Set([
+  'button',
+  'link',
+  'textbox',
+  'searchbox',
+  'checkbox',
+  'radio',
+  'combobox',
+  'menuitem',
+  'tab',
+  'switch',
+  'slider',
+  'option',
+]);
+
+export interface CandidateItem {
   element: Element;
   role: string;
   name: string;
@@ -73,26 +69,12 @@ interface CandidateItem {
   rect: [number, number, number, number];
 }
 
-interface InteractablesDiagnostics {
+export interface InteractablesDiagnostics {
   q: NonNullable<GetPageInteractablesToolPayload['d']>['q'];
   samples: NonNullable<GetPageInteractablesToolPayload['d']>['samples'];
 }
 
 type SnapshotMeta = NonNullable<GetPageInteractablesToolPayload['items'][number][4]>;
-
-let latestSnapshotRefs = new Map<string, Element>();
-let latestSnapshotSid: string | undefined;
-let snapshotSequence = 0;
-
-/**
- * Creates a short content-script-local snapshot ID.
- *
- * @returns A compact snapshot ID for matching refs to the latest scan.
- */
-function createSnapshotSid(): string {
-  snapshotSequence += 1;
-  return `s_${snapshotSequence.toString(36)}`;
-}
 
 /**
  * Truncates text to a token-bounded single-line value.
@@ -112,7 +94,7 @@ function truncateText(value: string, maxChars: number): string {
  *
  * @returns Mutable diagnostics counters.
  */
-function createDiagnostics(): InteractablesDiagnostics {
+export function createDiagnostics(): InteractablesDiagnostics {
   return {
     q: {
       total: 0,
@@ -140,7 +122,7 @@ function createDiagnostics(): InteractablesDiagnostics {
  * @param role - Optional inferred role.
  * @param rect - Optional compact rectangle.
  */
-function addDiagnosticsSample(
+export function addDiagnosticsSample(
   diagnostics: InteractablesDiagnostics,
   element: Element,
   reason: string,
@@ -181,34 +163,9 @@ function addDiagnosticsSample(
  * @param element - The element to inspect.
  * @returns The nested checkable input when present.
  */
-function findNestedCheckableInput(element: Element): HTMLInputElement | undefined {
+export function findNestedCheckableInput(element: Element): HTMLInputElement | undefined {
   const input = element.querySelector('input[type="checkbox"], input[type="radio"]');
   return input instanceof HTMLInputElement ? input : undefined;
-}
-
-/**
- * Returns true when a text candidate is a focused form field surface instead of a broad form container.
- *
- * @param element - The candidate element.
- * @param role - The inferred role.
- * @param rect - Candidate geometry.
- * @param windowObject - The window that owns the document.
- * @returns True when covered hit-testing can be relaxed for this element.
- */
-function isFocusedTextboxSurface(element: Element, role: string, rect: DOMRect, windowObject: Window): boolean {
-  if (role !== 'textbox' && role !== 'searchbox') return false;
-  const nestedWritable = findNestedWritableControl(element, windowObject);
-  if (!isWritableTextElement(element) && !nestedWritable && !isCodeEditorElement(element)) {
-    return false;
-  }
-  if (isCodeEditorElement(element)) return true;
-
-  const tagName = element.tagName.toLowerCase();
-  const className = typeof element.className === 'string' ? element.className : '';
-  const isKnownFormRow = tagName === 'p' || tagName === 'label' || className.includes('pass-form-item');
-  const isCompactSurface = rect.height <= 160 && rect.width <= Math.min(windowObject.innerWidth * 0.85, 1000);
-
-  return nestedWritable !== undefined && nestedWritable !== element && (isKnownFormRow || isCompactSurface);
 }
 
 /**
@@ -218,7 +175,7 @@ function isFocusedTextboxSurface(element: Element, role: string, rect: DOMRect, 
  * @param windowObject - The window that owns the document.
  * @returns The scroll axis when the element can scroll.
  */
-function readScrollAxis(element: Element, windowObject: Window): 'x' | 'y' | 'xy' | undefined {
+export function readScrollAxis(element: Element, windowObject: Window): 'x' | 'y' | 'xy' | undefined {
   const htmlElement = element as HTMLElement;
   const style = windowObject.getComputedStyle(htmlElement);
   const overflowY = ['auto', 'scroll', 'overlay'].includes(style.overflowY);
@@ -262,7 +219,7 @@ function hasGenericClickAffordance(element: Element, windowObject: Window): bool
  * @param windowObject - The window that owns the document.
  * @returns A compact role name for model consumption, or null when unsupported.
  */
-function inferRole(element: Element, windowObject: Window): string | null {
+export function inferRole(element: Element, windowObject: Window): string | null {
   if (isCodeEditorElement(element)) return 'textbox';
 
   const explicitRole = element.getAttribute('role')?.trim().split(/\s+/)[0]?.toLowerCase();
@@ -299,7 +256,7 @@ function inferRole(element: Element, windowObject: Window): string | null {
  * @param element - The candidate element.
  * @returns A bounded hint string when available.
  */
-function readValueHint(element: Element): string | undefined {
+export function readValueHint(element: Element): string | undefined {
   const nestedWritable = findNestedWritableControl(element, element.ownerDocument.defaultView ?? window);
   if (nestedWritable && nestedWritable !== element) {
     return readValueHint(nestedWritable);
@@ -322,7 +279,7 @@ function readValueHint(element: Element): string | undefined {
  * @param element - The candidate element.
  * @returns A bounded control name.
  */
-function readControlName(element: Element, role: string, windowObject: Window): string {
+export function readControlName(element: Element, role: string, windowObject: Window): string {
   const nestedWritable = findNestedWritableControl(element, windowObject);
   if (!isCodeEditorElement(element) && nestedWritable && nestedWritable !== element) {
     const nestedAccessibleName = truncateText(computeAccessibleName(nestedWritable), maxNameChars);
@@ -354,8 +311,33 @@ function readControlName(element: Element, role: string, windowObject: Window): 
  * @param windowObject - The window that owns the document.
  * @returns True when any part of the rectangle is in the viewport.
  */
-function rectIntersectsViewport(rect: DOMRect, windowObject: Window): boolean {
+export function rectIntersectsViewport(rect: DOMRect, windowObject: Window): boolean {
   return rect.right > 0 && rect.bottom > 0 && rect.left < windowObject.innerWidth && rect.top < windowObject.innerHeight;
+}
+
+/**
+ * Returns true when a text candidate is a focused form field surface instead of a broad form container.
+ *
+ * @param element - The candidate element.
+ * @param role - The inferred role.
+ * @param rect - Candidate geometry.
+ * @param windowObject - The window that owns the document.
+ * @returns True when covered hit-testing can be relaxed for this element.
+ */
+function isFocusedTextboxSurface(element: Element, role: string, rect: DOMRect, windowObject: Window): boolean {
+  if (role !== 'textbox' && role !== 'searchbox') return false;
+  const nestedWritable = findNestedWritableControl(element, windowObject);
+  if (!isWritableTextElement(element) && !nestedWritable && !isCodeEditorElement(element)) {
+    return false;
+  }
+  if (isCodeEditorElement(element)) return true;
+
+  const tagName = element.tagName.toLowerCase();
+  const className = typeof element.className === 'string' ? element.className : '';
+  const isKnownFormRow = tagName === 'p' || tagName === 'label' || className.includes('pass-form-item');
+  const isCompactSurface = rect.height <= 160 && rect.width <= Math.min(windowObject.innerWidth * 0.85, 1000);
+
+  return nestedWritable !== undefined && nestedWritable !== element && (isKnownFormRow || isCompactSurface);
 }
 
 /**
@@ -389,7 +371,7 @@ function isTopmostAtCenter(element: Element, rect: DOMRect, documentObject: Docu
  * @param windowObject - The window that owns the document.
  * @returns True when the candidate is visible enough for interaction.
  */
-function passesHitTest(
+export function passesHitTest(
   element: Element,
   role: string,
   rect: DOMRect,
@@ -406,7 +388,7 @@ function passesHitTest(
  * @param rect - The DOM rectangle.
  * @returns A compact `[x, y, width, height]` tuple.
  */
-function compactRect(rect: DOMRect): [number, number, number, number] {
+export function compactRect(rect: DOMRect): [number, number, number, number] {
   return [Math.round(rect.left), Math.round(rect.top), Math.round(rect.width), Math.round(rect.height)];
 }
 
@@ -417,7 +399,7 @@ function compactRect(rect: DOMRect): [number, number, number, number] {
  * @param hint - The optional value hint.
  * @returns Compact metadata or undefined when no metadata is useful.
  */
-function buildMeta(item: CandidateItem): SnapshotMeta | undefined {
+export function buildMeta(item: CandidateItem): SnapshotMeta | undefined {
   const meta: SnapshotMeta = {};
 
   if (item.hint) meta.h = item.hint;
@@ -452,173 +434,10 @@ function isNestedDuplicateCandidate(parent: CandidateItem, child: CandidateItem)
  * @param items - Candidate items in DOM order.
  * @returns Deduplicated candidate items.
  */
-function deduplicateNestedCandidates(items: CandidateItem[]): CandidateItem[] {
+export function deduplicateNestedCandidates(items: CandidateItem[]): CandidateItem[] {
   return items.filter((item, index) => !items.some((candidate, candidateIndex) => (
     candidateIndex !== index &&
     candidateIndex < index &&
     isNestedDuplicateCandidate(candidate, item)
   )));
-}
-
-/**
- * Reads a compact snapshot of interactable elements in the current viewport.
- *
- * @param documentObject - The document to scan.
- * @param windowObject - The window that owns the document.
- * @returns A token-bounded interactables snapshot.
- */
-export function readCurrentPageInteractables(
-  documentObject: Document = document,
-  windowObject: Window = window,
-): GetPageInteractablesToolPayload {
-  const candidates = Array.from(documentObject.querySelectorAll(candidateSelector));
-  const diagnostics = createDiagnostics();
-  const items: CandidateItem[] = [];
-
-  for (const element of candidates) {
-    diagnostics.q.total += 1;
-    if (element.tagName.toLowerCase() === 'p') diagnostics.q.p += 1;
-
-    const nestedWritable = findNestedWritableControl(element, windowObject);
-    if (
-      element.matches('input:not([type="hidden"]),textarea,select,[contenteditable=""],[contenteditable="true"],[contenteditable=true]') ||
-      nestedWritable
-    ) {
-      diagnostics.q.writable += 1;
-    }
-    if (nestedWritable && nestedWritable !== element) diagnostics.q.wrappers += 1;
-
-    if (isOwnedByChatBrowserX(element)) {
-      diagnostics.q.owned += 1;
-      addDiagnosticsSample(diagnostics, element, 'owned');
-      continue;
-    }
-    if (isHiddenBySelfOrAncestor(element, windowObject)) {
-      diagnostics.q.hidden += 1;
-      addDiagnosticsSample(diagnostics, element, 'hidden');
-      continue;
-    }
-    if (isDisabledElement(element)) {
-      diagnostics.q.disabled += 1;
-      addDiagnosticsSample(diagnostics, element, 'disabled');
-      continue;
-    }
-
-    const role = inferRole(element, windowObject);
-    if (!role) {
-      diagnostics.q.noRole += 1;
-      addDiagnosticsSample(diagnostics, element, 'noRole');
-      continue;
-    }
-
-    const rect = element.getBoundingClientRect();
-    const compactedRect = compactRect(rect);
-    if (rect.width < 2 || rect.height < 2 || !rectIntersectsViewport(rect, windowObject)) {
-      diagnostics.q.small += 1;
-      addDiagnosticsSample(diagnostics, element, 'small', role, compactedRect);
-      continue;
-    }
-    if (!passesHitTest(element, role, rect, documentObject, windowObject)) {
-      diagnostics.q.covered += 1;
-      addDiagnosticsSample(diagnostics, element, 'covered', role, compactedRect);
-      continue;
-    }
-
-    const writableControl = findNestedWritableControl(element, windowObject);
-    const scrollAxis = readScrollAxis(element, windowObject);
-    const name = readControlName(element, role, windowObject);
-    const hint = readValueHint(element);
-
-    const nestedCheckable = findNestedCheckableInput(element);
-
-    items.push({
-      element,
-      role,
-      name,
-      hint,
-      inputType: isCodeEditorElement(element)
-        ? 'code'
-        : element instanceof HTMLInputElement
-          ? element.type
-          : writableControl instanceof HTMLInputElement
-            ? writableControl.type
-          : undefined,
-      checked: element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
-        ? element.checked
-        : nestedCheckable?.checked,
-      expanded: element.getAttribute('aria-expanded') === 'true' ? true : undefined,
-      pressed: element.getAttribute('aria-pressed') === 'true' ? true : undefined,
-      scrollAxis,
-      rect: compactedRect,
-    });
-    diagnostics.q.kept += 1;
-    addDiagnosticsSample(diagnostics, element, 'kept', role, compactedRect);
-  }
-
-  const deduplicatedItems = deduplicateNestedCandidates(items);
-
-  deduplicatedItems.sort((a, b) => a.rect[1] - b.rect[1] || a.rect[0] - b.rect[0]);
-
-  latestSnapshotRefs = new Map<string, Element>();
-  latestSnapshotSid = createSnapshotSid();
-
-  const payload: GetPageInteractablesToolPayload = {
-    v: [Math.floor(windowObject.innerWidth), Math.floor(windowObject.innerHeight)],
-    sid: latestSnapshotSid,
-    items: deduplicatedItems.slice(0, maxItems).map((item, index) => {
-      const ref = `e${index + 1}`;
-      latestSnapshotRefs.set(ref, item.element);
-      const tuple: GetPageInteractablesToolPayload['items'][number] = [ref, item.role, item.name, item.rect];
-      const meta = buildMeta(item);
-      if (meta) tuple.push(meta);
-      return tuple;
-    }),
-  };
-
-  const hasTextbox = payload.items.some((item) => item[1] === 'textbox' || item[1] === 'searchbox');
-  if (!hasTextbox && payload.items.length <= 8 && diagnostics.q.writable > 0) {
-    payload.d = {
-      ver: diagnosticsVersion,
-      q: diagnostics.q,
-      samples: diagnostics.samples,
-    };
-  }
-
-  return payload;
-}
-
-/**
- * Checks whether a page action references the latest interactables snapshot.
- *
- * @param sid - The snapshot ID supplied by the action request.
- * @returns True when the snapshot ID matches the latest snapshot.
- */
-export function isLatestInteractablesSnapshot(sid: string | undefined): boolean {
-  return sid !== undefined && sid === latestSnapshotSid;
-}
-
-/**
- * Resolves an element from the latest interactables snapshot.
- *
- * @param ref - The snapshot ref.
- * @returns The element when it is still known.
- */
-export function resolveLatestInteractableRef(ref: string): Element | undefined {
-  return latestSnapshotRefs.get(ref);
-}
-
-/**
- * Registers the content-script listener for page interactables tool requests.
- */
-export function registerGetPageInteractablesToolListener(): void {
-  const listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (message, _sender, sendResponse) => {
-    if (!isGetPageInteractablesToolRequestMessage(message)) {
-      return undefined;
-    }
-
-    sendResponse(readCurrentPageInteractables(document, window));
-    return true;
-  };
-
-  chrome.runtime.onMessage.addListener(listener);
 }

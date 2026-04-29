@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readCurrentPageInteractables } from '../../../src/ui/tools/get-page-interactables-tool';
-import { executePageAction, registerPageActionToolListener } from '../../../src/ui/tools/page-action-tool';
+import { executePageAction } from '../../../src/ui/tools/page-automation/action-executor';
+import { readCurrentPageInteractables } from '../../../src/ui/tools/page-automation/interactable-scanner';
+import { registerPageActionToolListener } from '../../../src/ui/tools/page-automation/runtime-listeners';
 
 function makeRect(x: number, y: number, width: number, height: number): DOMRect {
   return {

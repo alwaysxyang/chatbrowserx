@@ -1,8 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   readCurrentPageInteractables,
+} from '../../../src/ui/tools/page-automation/interactable-scanner';
+import {
   registerGetPageInteractablesToolListener,
-} from '../../../src/ui/tools/get-page-interactables-tool';
+} from '../../../src/ui/tools/page-automation/runtime-listeners';
 
 function makeRect(x: number, y: number, width: number, height: number): DOMRect {
   return {

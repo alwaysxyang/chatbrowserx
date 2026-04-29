@@ -2,71 +2,15 @@ import {
   pageActionToolRequestType,
   type PageActionToolRequestPayload,
   type PageActionToolResult,
-} from '../../shared/types/tool';
-import { getActiveTabId } from './shared/active-tab';
+} from '../../shared/types/tools';
+import {
+  readOptionalBoolean,
+  readOptionalPositiveNumber,
+  readOptionalRawString,
+  readRequiredRawString,
+} from './shared/tool-arguments';
+import { sendActiveTabToolMessage } from './shared/tab-message-tool';
 import { registerTool, type LlmToolModule, type ToolDefinition } from './tool-registry';
-
-/**
- * Reads a required string argument from a tool payload.
- *
- * @param args - The tool arguments object.
- * @param key - The argument key.
- * @returns The string value.
- */
-function readRequiredString(args: Record<string, unknown>, key: string): string {
-  const value = args[key];
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
-  }
-  return value;
-}
-
-/**
- * Reads an optional boolean argument from a tool payload.
- *
- * @param args - The tool arguments object.
- * @param key - The argument key.
- * @returns The boolean value when present.
- */
-function readOptionalBoolean(args: Record<string, unknown>, key: string): boolean | undefined {
-  const value = args[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== 'boolean') {
-    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
-  }
-  return value;
-}
-
-/**
- * Reads an optional string argument from a tool payload.
- *
- * @param args - The tool arguments object.
- * @param key - The argument key.
- * @returns The string value when present.
- */
-function readOptionalString(args: Record<string, unknown>, key: string): string | undefined {
-  const value = args[key];
-  if (value === undefined) return undefined;
-  if (typeof value !== 'string' || value.length === 0) {
-    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
-  }
-  return value;
-}
-
-/**
- * Reads an optional positive numeric amount from a tool payload.
- *
- * @param args - The tool arguments object.
- * @returns The amount when present.
- */
-function readOptionalAmount(args: Record<string, unknown>): number | undefined {
-  const value = args.amount;
-  if (value === undefined) return undefined;
-  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
-    throw new Error('TOOL_ARGUMENT_INVALID:amount');
-  }
-  return value;
-}
 
 /**
  * Sends a page action request to the active tab content script.
@@ -77,11 +21,10 @@ function readOptionalAmount(args: Record<string, unknown>): number | undefined {
 async function invokePageAction(
   payload: PageActionToolRequestPayload,
 ): Promise<PageActionToolResult> {
-  const tabId = await getActiveTabId();
-  return await chrome.tabs.sendMessage(tabId, {
+  return await sendActiveTabToolMessage<PageActionToolResult>({
     type: pageActionToolRequestType,
     ...payload,
-  }) as PageActionToolResult;
+  });
 }
 
 /**
@@ -130,8 +73,8 @@ export function createPageMouseMoveTool(): LlmToolModule {
     ),
     invoke: async (args) => invokePageAction({
       action: 'mouse_move',
-      sid: readRequiredString(args, 'sid'),
-      ref: readRequiredString(args, 'ref'),
+      sid: readRequiredRawString(args, 'sid'),
+      ref: readRequiredRawString(args, 'ref'),
     }),
   };
 }
@@ -152,8 +95,8 @@ export function createPageClickTool(): LlmToolModule {
     ),
     invoke: async (args) => invokePageAction({
       action: 'click',
-      sid: readRequiredString(args, 'sid'),
-      ref: readRequiredString(args, 'ref'),
+      sid: readRequiredRawString(args, 'sid'),
+      ref: readRequiredRawString(args, 'ref'),
     }),
   };
 }
@@ -179,9 +122,9 @@ export function createPageTypeTool(): LlmToolModule {
     ),
     invoke: async (args) => invokePageAction({
       action: 'type',
-      sid: readRequiredString(args, 'sid'),
-      ref: readRequiredString(args, 'ref'),
-      text: readRequiredString(args, 'text'),
+      sid: readRequiredRawString(args, 'sid'),
+      ref: readRequiredRawString(args, 'ref'),
+      text: readRequiredRawString(args, 'text'),
       clear: readOptionalBoolean(args, 'clear'),
     }),
   };
@@ -207,17 +150,17 @@ export function createPageScrollTool(): LlmToolModule {
       ['direction'],
     ),
     invoke: async (args) => {
-      const direction = readRequiredString(args, 'direction');
+      const direction = readRequiredRawString(args, 'direction');
       if (!['up', 'down', 'left', 'right'].includes(direction)) {
         throw new Error('TOOL_ARGUMENT_INVALID:direction');
       }
       const payload: PageActionToolRequestPayload = {
         action: 'scroll',
         direction: direction as PageActionToolRequestPayload['direction'],
-        amount: readOptionalAmount(args),
+        amount: readOptionalPositiveNumber(args, 'amount'),
       };
-      const sid = readOptionalString(args, 'sid');
-      const ref = readOptionalString(args, 'ref');
+      const sid = readOptionalRawString(args, 'sid');
+      const ref = readOptionalRawString(args, 'ref');
       if (sid) payload.sid = sid;
       if (ref) payload.ref = ref;
       return invokePageAction(payload);
@@ -245,9 +188,9 @@ export function createPageDragTool(): LlmToolModule {
     ),
     invoke: async (args) => invokePageAction({
       action: 'drag',
-      sid: readRequiredString(args, 'sid'),
-      fromRef: readRequiredString(args, 'fromRef'),
-      toRef: readRequiredString(args, 'toRef'),
+      sid: readRequiredRawString(args, 'sid'),
+      fromRef: readRequiredRawString(args, 'fromRef'),
+      toRef: readRequiredRawString(args, 'toRef'),
     }),
   };
 }

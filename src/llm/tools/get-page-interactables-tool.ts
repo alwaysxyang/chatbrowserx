@@ -1,6 +1,9 @@
-import {type GetPageInteractablesToolPayload, getPageInteractablesToolRequestType,} from '../../shared/types/tool';
-import {getActiveTabId} from './shared/active-tab';
-import {type LlmToolModule, registerTool} from './tool-registry';
+import {
+  getPageInteractablesToolRequestType,
+  type GetPageInteractablesToolPayload,
+} from '../../shared/types/tools';
+import { sendActiveTabToolMessage } from './shared/tab-message-tool';
+import { registerTool, type LlmToolModule } from './tool-registry';
 
 /**
  * Creates the current-page interactables snapshot LLM tool.
@@ -24,10 +27,9 @@ export function createGetPageInteractablesTool(): LlmToolModule {
       },
     }),
     invoke: async () => {
-      const tabId = await getActiveTabId();
-      return await chrome.tabs.sendMessage(tabId, {
+      return await sendActiveTabToolMessage<GetPageInteractablesToolPayload>({
         type: getPageInteractablesToolRequestType,
-      }) as GetPageInteractablesToolPayload;
+      });
     },
   };
 }

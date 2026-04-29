@@ -1,21 +1,11 @@
 import {
-  isPageActionToolRequestMessage,
   type PageActionElementState,
   type PageActionScrollState,
   type PageActionToolRequestPayload,
   type PageActionToolResult,
-} from '../../shared/types/tool';
-import { isLatestInteractablesSnapshot, resolveLatestInteractableRef } from './get-page-interactables-tool';
-import { resolveTextTarget } from './dom-targets';
-import {
-  showVirtualClickFeedback,
-  showVirtualClickTarget,
-  showVirtualDrag,
-  showVirtualMouseMove,
-  showVirtualScroll,
-  showVirtualType,
-  type ViewportPoint,
-} from './page-action-overlay';
+} from '../../../shared/types/tools';
+import { isLatestInteractablesSnapshot, resolveLatestInteractableRef } from './snapshot-store';
+import type { ViewportPoint } from './virtual-cursor';
 
 /**
  * Returns the center point of a DOM rectangle in viewport coordinates.
@@ -23,7 +13,7 @@ import {
  * @param rect - The DOM rectangle.
  * @returns The center point.
  */
-function rectCenter(rect: DOMRect): ViewportPoint {
+export function rectCenter(rect: DOMRect): ViewportPoint {
   return {
     x: rect.left + rect.width / 2,
     y: rect.top + rect.height / 2,
@@ -37,7 +27,7 @@ function rectCenter(rect: DOMRect): ViewportPoint {
  * @param type - The mouse event type.
  * @param point - The viewport point.
  */
-function dispatchMouseEvent(element: Element, type: string, point: ViewportPoint): void {
+export function dispatchMouseEvent(element: Element, type: string, point: ViewportPoint): void {
   element.dispatchEvent(new MouseEvent(type, {
     bubbles: true,
     cancelable: true,
@@ -45,6 +35,42 @@ function dispatchMouseEvent(element: Element, type: string, point: ViewportPoint
     clientY: point.y,
     buttons: type === 'mouseup' || type === 'click' ? 0 : 1,
   }));
+}
+
+/**
+ * Resolves a required ref to a currently usable element.
+ *
+ * @param ref - The latest snapshot ref.
+ * @param sid - The latest snapshot ID.
+ * @returns The element and rectangle, or an error result.
+ */
+export function resolveActionTarget(
+  ref: string | undefined,
+  sid: string | undefined,
+): { element: Element; rect: DOMRect } | PageActionToolResult {
+  if (!ref) {
+    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_REF_REQUIRED' };
+  }
+
+  if (!sid) {
+    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_SNAPSHOT_REQUIRED' };
+  }
+
+  if (!isLatestInteractablesSnapshot(sid)) {
+    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_SNAPSHOT_EXPIRED' };
+  }
+
+  const element = resolveLatestInteractableRef(ref);
+  if (!element) {
+    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_REF_NOT_FOUND' };
+  }
+
+  const rect = element.getBoundingClientRect();
+  if (rect.width < 2 || rect.height < 2) {
+    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_TARGET_UNAVAILABLE' };
+  }
+
+  return { element, rect };
 }
 
 /**
@@ -64,7 +90,7 @@ function truncateStateText(value: string): string {
  * @param element - The element to inspect.
  * @returns State fields that can help the model verify an action.
  */
-function readElementState(element: Element): PageActionElementState | undefined {
+export function readElementState(element: Element): PageActionElementState | undefined {
   const state: PageActionElementState = {};
 
   if (element instanceof HTMLInputElement) {
@@ -104,7 +130,7 @@ function readElementState(element: Element): PageActionElementState | undefined 
  * @param element - The action target or one of its descendants.
  * @returns The nearest stateful element or the original element.
  */
-function resolveStateElement(element: Element): Element {
+export function resolveStateElement(element: Element): Element {
   const label = element.closest('label') as HTMLLabelElement | null;
   if (label?.control) return label.control;
 
@@ -123,7 +149,10 @@ function resolveStateElement(element: Element): Element {
  * @param after - State after the action.
  * @returns True when at least one measurable field changed.
  */
-function didStateChange(before: PageActionElementState | undefined, after: PageActionElementState | undefined): boolean {
+export function didStateChange(
+  before: PageActionElementState | undefined,
+  after: PageActionElementState | undefined,
+): boolean {
   return JSON.stringify(before ?? {}) !== JSON.stringify(after ?? {});
 }
 
@@ -150,6 +179,45 @@ function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement | HTMLSe
 }
 
 /**
+ * Writes text into an input-like element and dispatches form events.
+ *
+ * @param element - The target element.
+ * @param text - Text to write.
+ * @param clear - Whether to replace existing content.
+ * @returns True when text was written.
+ */
+export function writeText(element: Element, text: string, clear: boolean | undefined): boolean {
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    element.focus();
+    setNativeValue(element, clear ? text : `${element.value}${text}`);
+    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  if (element instanceof HTMLSelectElement) {
+    element.focus();
+    setNativeValue(element, text);
+    element.dispatchEvent(new Event('input', { bubbles: true }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  if (
+    element instanceof HTMLElement &&
+    (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === '')
+  ) {
+    element.focus();
+    element.textContent = clear ? text : `${element.textContent ?? ''}${text}`;
+    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+
+  return false;
+}
+
+/**
  * Checks whether an element can scroll further in the requested direction.
  *
  * @param element - The candidate scroll container.
@@ -157,7 +225,11 @@ function setNativeValue(element: HTMLInputElement | HTMLTextAreaElement | HTMLSe
  * @param windowObject - The window that owns the element.
  * @returns True when the element is a usable scroll target.
  */
-function canScrollElement(element: Element, direction: PageActionToolRequestPayload['direction'], windowObject: Window): boolean {
+export function canScrollElement(
+  element: Element,
+  direction: PageActionToolRequestPayload['direction'],
+  windowObject: Window,
+): boolean {
   const htmlElement = element as HTMLElement;
   const style = windowObject.getComputedStyle(htmlElement);
   const canScrollY = ['auto', 'scroll', 'overlay'].includes(style.overflowY);
@@ -228,7 +300,7 @@ function findScrollableElement(
  * @param left - Horizontal delta.
  * @param top - Vertical delta.
  */
-function scrollElement(
+export function scrollElement(
   target: HTMLElement,
   left: number,
   top: number,
@@ -292,7 +364,7 @@ function scrollWindow(windowObject: Window, left: number, top: number): PageActi
  * @param left - Horizontal delta.
  * @param top - Vertical delta.
  */
-function scrollPageOrContainer(
+export function scrollPageOrContainer(
   documentObject: Document,
   windowObject: Window,
   direction: PageActionToolRequestPayload['direction'],
@@ -307,205 +379,4 @@ function scrollPageOrContainer(
   }
 
   return scrollElement(target, left, top, ref, fallback);
-}
-
-/**
- * Resolves a required ref to a currently usable element.
- *
- * @param ref - The latest snapshot ref.
- * @param sid - The latest snapshot ID.
- * @returns The element and rectangle, or an error result.
- */
-function resolveTarget(ref: string | undefined, sid: string | undefined): { element: Element; rect: DOMRect } | PageActionToolResult {
-  if (!ref) {
-    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_REF_REQUIRED' };
-  }
-
-  if (!sid) {
-    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_SNAPSHOT_REQUIRED' };
-  }
-
-  if (!isLatestInteractablesSnapshot(sid)) {
-    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_SNAPSHOT_EXPIRED' };
-  }
-
-  const element = resolveLatestInteractableRef(ref);
-  if (!element) {
-    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_REF_NOT_FOUND' };
-  }
-
-  const rect = element.getBoundingClientRect();
-  if (rect.width < 2 || rect.height < 2) {
-    return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_TARGET_UNAVAILABLE' };
-  }
-
-  return { element, rect };
-}
-
-/**
- * Writes text into an input-like element and dispatches form events.
- *
- * @param element - The target element.
- * @param text - Text to write.
- * @param clear - Whether to replace existing content.
- * @returns True when text was written.
- */
-function writeText(element: Element, text: string, clear: boolean | undefined): boolean {
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    element.focus();
-    setNativeValue(element, clear ? text : `${element.value}${text}`);
-    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  if (element instanceof HTMLSelectElement) {
-    element.focus();
-    setNativeValue(element, text);
-    element.dispatchEvent(new Event('input', { bubbles: true }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  if (
-    element instanceof HTMLElement &&
-    (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === '')
-  ) {
-    element.focus();
-    element.textContent = clear ? text : `${element.textContent ?? ''}${text}`;
-    element.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-    element.dispatchEvent(new Event('change', { bubbles: true }));
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Executes a minimal page action in the content script.
- *
- * @param payload - The action payload.
- * @param documentObject - The document to operate on.
- * @param windowObject - The window to operate on.
- * @returns A structured action result.
- */
-export async function executePageAction(
-  payload: PageActionToolRequestPayload,
-  documentObject: Document = document,
-  windowObject: Window = window,
-): Promise<PageActionToolResult> {
-  if (payload.action === 'scroll') {
-    const direction = payload.direction ?? 'down';
-    const amount = Math.min(Math.max(payload.amount ?? Math.round(windowObject.innerHeight * 0.7), 1), 2000);
-    const top = direction === 'up' ? -amount : direction === 'down' ? amount : 0;
-    const left = direction === 'left' ? -amount : direction === 'right' ? amount : 0;
-    await showVirtualScroll(documentObject, direction);
-
-    if (payload.ref) {
-      const target = resolveTarget(payload.ref, payload.sid);
-      if ('ok' in target) return { ...target, action: 'scroll', ref: payload.ref };
-      if (!canScrollElement(target.element, direction, windowObject)) {
-        return {
-          ok: true,
-          action: 'scroll',
-          ref: payload.ref,
-          scroll: scrollPageOrContainer(documentObject, windowObject, direction, left, top, payload.ref, true),
-        };
-      }
-      return {
-        ok: true,
-        action: 'scroll',
-        ref: payload.ref,
-        scroll: scrollElement(target.element as HTMLElement, left, top, payload.ref),
-      };
-    }
-
-    return {
-      ok: true,
-      action: 'scroll',
-      scroll: scrollPageOrContainer(documentObject, windowObject, direction, left, top),
-    };
-  }
-
-  if (payload.action === 'drag') {
-    const from = resolveTarget(payload.fromRef, payload.sid);
-    if ('ok' in from) return { ...from, action: 'drag', ref: payload.fromRef };
-    const to = resolveTarget(payload.toRef, payload.sid);
-    if ('ok' in to) return { ...to, action: 'drag', ref: payload.fromRef };
-
-    const fromPoint = rectCenter(from.rect);
-    const toPoint = rectCenter(to.rect);
-    await showVirtualDrag(documentObject, fromPoint, toPoint);
-    dispatchMouseEvent(from.element, 'mousedown', fromPoint);
-    dispatchMouseEvent(to.element, 'mousemove', toPoint);
-    dispatchMouseEvent(to.element, 'mouseup', toPoint);
-    return { ok: true, action: 'drag', ref: payload.fromRef };
-  }
-
-  const target = resolveTarget(payload.ref, payload.sid);
-  if ('ok' in target) return { ...target, action: payload.action, ref: payload.ref };
-
-  const point = rectCenter(target.rect);
-
-  if (payload.action === 'mouse_move') {
-    await showVirtualMouseMove(documentObject, point);
-    dispatchMouseEvent(target.element, 'mousemove', point);
-    return { ok: true, action: 'mouse_move', ref: payload.ref };
-  }
-
-  if (payload.action === 'click') {
-    const stateElement = resolveStateElement(target.element);
-    const stateBefore = readElementState(stateElement);
-    await showVirtualClickTarget(documentObject, point);
-    dispatchMouseEvent(target.element, 'mousedown', point);
-    dispatchMouseEvent(target.element, 'mouseup', point);
-    dispatchMouseEvent(target.element, 'click', point);
-    await showVirtualClickFeedback(documentObject, point);
-    const stateAfter = readElementState(stateElement);
-    return {
-      ok: true,
-      action: 'click',
-      ref: payload.ref,
-      changed: didStateChange(stateBefore, stateAfter),
-      ...(stateBefore ? { stateBefore } : {}),
-      ...(stateAfter ? { stateAfter } : {}),
-    };
-  }
-
-  if (payload.action === 'type') {
-    const textTarget = resolveTextTarget(target.element, windowObject);
-    const stateBefore = readElementState(textTarget);
-    await showVirtualMouseMove(documentObject, point);
-    await showVirtualType(documentObject, target.rect);
-    if (!writeText(textTarget, payload.text ?? '', payload.clear)) {
-      return { ok: false, action: 'type', ref: payload.ref, error: 'PAGE_ACTION_TARGET_NOT_TEXT_INPUT' };
-    }
-    const stateAfter = readElementState(textTarget);
-    return {
-      ok: true,
-      action: 'type',
-      ref: payload.ref,
-      changed: didStateChange(stateBefore, stateAfter),
-      ...(stateBefore ? { stateBefore } : {}),
-      ...(stateAfter ? { stateAfter } : {}),
-    };
-  }
-
-  return { ok: false, action: payload.action, ref: payload.ref, error: 'PAGE_ACTION_UNSUPPORTED' };
-}
-
-/**
- * Registers the content-script listener for page action tool requests.
- */
-export function registerPageActionToolListener(): void {
-  const listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (message, _sender, sendResponse) => {
-    if (!isPageActionToolRequestMessage(message)) {
-      return undefined;
-    }
-
-    void executePageAction(message, document, window).then(sendResponse);
-    return true;
-  };
-
-  chrome.runtime.onMessage.addListener(listener);
 }

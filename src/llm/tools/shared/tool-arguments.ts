@@ -20,6 +20,61 @@ export function readOptionalString(argumentsObject: Record<string, unknown>, key
 }
 
 /**
+ * Read a required non-empty string without trimming its returned value.
+ */
+export function readRequiredRawString(argumentsObject: Record<string, unknown>, key: string): string {
+  const value = argumentsObject[key];
+
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
+  }
+
+  return value;
+}
+
+/**
+ * Read an optional non-empty string without trimming its returned value.
+ */
+export function readOptionalRawString(argumentsObject: Record<string, unknown>, key: string): string | undefined {
+  const value = argumentsObject[key];
+
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
+  }
+
+  return value;
+}
+
+/**
+ * Read an optional boolean argument.
+ */
+export function readOptionalBoolean(argumentsObject: Record<string, unknown>, key: string): boolean | undefined {
+  const value = argumentsObject[key];
+
+  if (value === undefined) return undefined;
+  if (typeof value !== 'boolean') {
+    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
+  }
+
+  return value;
+}
+
+/**
+ * Read an optional positive finite number argument.
+ */
+export function readOptionalPositiveNumber(argumentsObject: Record<string, unknown>, key: string): number | undefined {
+  const value = argumentsObject[key];
+
+  if (value === undefined) return undefined;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`TOOL_ARGUMENT_INVALID:${key}`);
+  }
+
+  return value;
+}
+
+/**
  * Read an optional string-array argument from a tool invocation payload.
  */
 export function readOptionalStringArray(argumentsObject: Record<string, unknown>, key: string): string[] | undefined {

@@ -1,4 +1,4 @@
-import { translateMessage } from '../../shared/i18n/i18n';
+import { translateMessage } from '../../../shared/i18n/i18n';
 
 const toolScrollingToastTestId = 'tool-scrolling-toast';
 

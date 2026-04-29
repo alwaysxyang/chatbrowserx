@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setCurrentUiLanguage } from '../../../src/shared/i18n/current-language';
-import { findMainScrollContainer, scanPage } from '../../../src/ui/tools/scroll';
+import { findMainScrollContainer, scanPage } from '../../../src/ui/tools/page-content/page-scanner';
 
 function mockWindowScroll(initialY = 0) {
   const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');

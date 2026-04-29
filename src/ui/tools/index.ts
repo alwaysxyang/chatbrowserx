@@ -1,9 +1,7 @@
 import { registerGetPageContentToolListener } from './get-page-content-tool';
-import { registerGetPageInteractablesToolListener } from './get-page-interactables-tool';
-import { registerPageActionToolListener } from './page-action-tool';
+import { registerPageAutomationToolListeners } from './page-automation/runtime-listeners';
 
 export function registerTools(): void {
   registerGetPageContentToolListener();
-  registerGetPageInteractablesToolListener();
-  registerPageActionToolListener();
+  registerPageAutomationToolListeners();
 }

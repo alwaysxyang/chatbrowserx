@@ -7,7 +7,7 @@ import {
   showVirtualMouseMove,
   showVirtualScroll,
   showVirtualType,
-} from '../../../src/ui/tools/page-action-overlay';
+} from '../../../src/ui/tools/page-automation/virtual-cursor';
 
 function makeRect(x: number, y: number, width: number, height: number): DOMRect {
   return {

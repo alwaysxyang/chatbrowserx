@@ -4,7 +4,7 @@
 
 - 文档类型：feature spec
 - 约束级别：中
-- 适用范围：`src/llm/tools`（工具定义与 tab 路由）、`src/ui/tools`（content script 侧 DOM 快照与动作执行）、`src/shared/types`（消息协议）
+- 适用范围：`src/llm/tools`（工具定义与 tab 路由）、`src/ui/tools/page-automation`（content script 侧 DOM 快照与动作执行）、`src/shared/types/tools`（消息协议）
 - 目标读者：本仓库内的 Agent / 维护者
 
 本设计用于在**不发送整页 HTML**的前提下，让大模型以更低 token 成本理解“当前视窗里有哪些可交互元素”，并允许模型通过快照 `ref` 执行最小页面动作。
@@ -31,15 +31,15 @@
 
 新增 LLM Tool：`get_current_page_interactables`，由 background 侧工具定义与 content script 侧 DOM 快照执行共同组成：
 
-1. `src/llm/tools/get-page-interactables-tool.ts` 通过 `chrome.tabs.query` 获取当前激活 tab。
-2. background 侧工具通过 `chrome.tabs.sendMessage` 向当前 tab 发送 `chatbrowserx.tool.get-page-interactables.request`。
-3. `src/ui/tools/get-page-interactables-tool.ts` 在 content script 环境扫描当前页面 DOM 候选元素。
-4. `src/ui/tools/dom-targets.ts` 提供快照与动作共用的 DOM 判定能力，包括隐藏、禁用、插件自身 UI、富代码编辑器、可写文本控件与内部输入目标解析。
-5. content 侧使用 `dom-accessibility-api` 的 `computeAccessibleName()` 计算控件名称，并结合原生标签、`role`、`placeholder`、状态属性与几何信息生成快照。
+1. `src/llm/tools/get-page-interactables-tool.ts` 通过 `src/llm/tools/shared/tab-message-tool.ts` 向当前激活 tab 发送 `chatbrowserx.tool.get-page-interactables.request`。
+2. `src/ui/tools/page-automation/runtime-listeners.ts` 在 content script 环境注册页面交互快照与页面动作消息监听。
+3. `src/ui/tools/page-automation/interactable-scanner.ts` 在 content script 环境扫描当前页面 DOM 候选元素。
+4. `src/ui/tools/page-automation/dom-targets.ts` 提供快照与动作共用的 DOM 判定能力，包括隐藏、禁用、插件自身 UI、富代码编辑器、可写文本控件与内部输入目标解析。
+5. `src/ui/tools/page-automation/interactable-support.ts` 使用 `dom-accessibility-api` 的 `computeAccessibleName()` 计算控件名称，并结合原生标签、`role`、`placeholder`、状态属性与几何信息生成候选。
 6. content 侧过滤禁用、隐藏、视窗外、尺寸过小、明显被遮挡的元素。
-7. content 侧对嵌套候选做去重，避免同一可点击行的父容器、文本层、图标层重复输出。
+7. content 侧对嵌套候选做去重，避免同一可点击行的父容器、文本层、图标层重复输出；异常诊断计数与样本由 `src/ui/tools/page-automation/interactable-support.ts` 承载。
 8. 工具输出 compact payload，并**仅输出当前视窗（viewport）内**的候选。
-9. content 侧维护最近一次快照的 `sid` 与 `ref -> element` 映射，供最小动作工具校验快照一致性并解析目标元素。
+9. `src/ui/tools/page-automation/snapshot-store.ts` 维护最近一次快照的 `sid` 与 `ref -> element` 映射，供最小动作工具校验快照一致性并解析目标元素。
 
 ## 5. Tool 规范
 
@@ -139,10 +139,15 @@ interface PageInteractablesSnapshot {
 ## 8. 与目录边界一致性
 
 - 工具定义与 active tab 路由放在 `src/llm/tools`。
-- DOM 快照执行逻辑放在 `src/ui/tools`，因为该部分需要 content script / DOM 能力。
-- DOM 动作执行逻辑放在 `src/ui/tools`，因为该部分需要 content script / DOM 能力。
-- DOM 目标判定、可写控件下钻与插件自身 UI 过滤等快照和动作共用逻辑放在 `src/ui/tools/dom-targets.ts`，避免 `get-page-interactables-tool.ts` 与 `page-action-tool.ts` 各自维护不同规则。
-- 虚拟鼠标 overlay 放在 `src/ui/tools` 内部，只服务工具执行展示，不作为插件主 UI 或页面 selection 能力。
+- active tab 获取与 content script message 发送的共享辅助放在 `src/llm/tools/shared`。
+- DOM 快照执行逻辑放在 `src/ui/tools/page-automation/interactable-scanner.ts`，因为该部分需要 content script / DOM 能力。
+- DOM 快照的候选角色推断、可见性判定、名称读取、元数据构造、去重与异常诊断放在 `src/ui/tools/page-automation/interactable-support.ts`，避免扫描入口继续膨胀，同时避免过细文件分散。
+- DOM 动作执行编排放在 `src/ui/tools/page-automation/action-executor.ts`，因为该部分需要 content script / DOM 能力。
+- DOM 动作目标解析、状态遥测、滚动执行、文本写入与鼠标事件几何放在 `src/ui/tools/page-automation/action-support.ts`，避免动作入口重新成为混合职责文件，同时避免过细文件分散。
+- DOM 目标判定、可写控件下钻与插件自身 UI 过滤等快照和动作共用逻辑放在 `src/ui/tools/page-automation/dom-targets.ts`，避免快照扫描与动作执行各自维护不同规则。
+- 最近快照的 `sid` 与 `ref -> element` 映射放在 `src/ui/tools/page-automation/snapshot-store.ts`，避免扫描逻辑和动作逻辑互相持有隐式模块状态。
+- content 侧 runtime listener 注册放在 `src/ui/tools/page-automation/runtime-listeners.ts`，避免扫描、动作执行模块混入消息装配职责。
+- 虚拟鼠标 overlay 放在 `src/ui/tools/page-automation/virtual-cursor.ts` 内部，只服务工具执行展示，不作为插件主 UI 或页面 selection 能力。
 - 动作工具不得导航、提交未知后台任务或突破当前页面 DOM 边界。
 - 输出用于模型“目标选择”，动作工具只能使用 `ref` 或滚动方向执行当前页面最小操作。
 

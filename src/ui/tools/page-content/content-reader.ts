@@ -1,4 +1,4 @@
-import { scanPage } from './scroll';
+import { scanPage } from './page-scanner';
 
 export async function readPageContent(
   documentObject: Document,

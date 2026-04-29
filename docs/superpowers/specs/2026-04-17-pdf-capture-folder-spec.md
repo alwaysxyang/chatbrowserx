@@ -4,7 +4,7 @@
 
 - 文档类型：folder spec
 - 约束级别：低于主 spec，高于归档文档
-- 适用范围：`src/ui/content/pdf`、`src/ui/tools/scroll.ts`、`src/ui/content/content-screenshot-bridge.ts`、`src/background/chat/screenshot-capture.ts`
+- 适用范围：`src/ui/content/pdf`、`src/ui/tools/page-content/page-scanner.ts`、`src/ui/content/content-screenshot-bridge.ts`、`src/background/chat/screenshot-capture.ts`
 - 上级文档：`docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md`
 
 本文档约束“打印/保存为 PDF”能力的当前实现边界与依赖方向。该能力用于用户主动留存当前页面，不扩展为 PDF 解析/阅读/编辑能力。
@@ -25,9 +25,9 @@
   - 负责打开预览窗口与渲染截图列表。
   - 预览窗口内只提供“打印/保存为 PDF”按钮，调用 `window.print()`。
 
-#### `src/ui/tools`
+#### `src/ui/tools/page-content`
 
-- `scroll.ts`
+- `page-scanner.ts`
   - 负责寻找主滚动容器与执行滚动扫描（`scanPage`）。
   - 只提供 DOM 侧辅助能力，不包含与 background/LLM 相关的业务编排。
 

@@ -1,8 +1,8 @@
 import {
   isGetPageContentToolRequestMessage,
   type GetPageContentToolPayload,
-} from '../../shared/types/tool';
-import { readPageContent } from './shared';
+} from '../../shared/types/tools';
+import { readPageContent } from './page-content/content-reader';
 
 export async function readCurrentPageContent(
     documentObject: Document = document,
