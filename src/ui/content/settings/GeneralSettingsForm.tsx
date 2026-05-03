@@ -1,4 +1,4 @@
-import type { GeneralSettings } from '../../../shared/types/settings';
+import { UI_LANGUAGE_OPTIONS, type GeneralSettings } from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
 
 interface GeneralSettingsFormProps {
@@ -7,6 +7,9 @@ interface GeneralSettingsFormProps {
   onChange: (nextValue: GeneralSettings) => void;
 }
 
+/**
+ * Render general UI preferences.
+ */
 export function GeneralSettingsForm({ value, disabled, onChange }: GeneralSettingsFormProps) {
   return (
     <div className="settings-form">
@@ -23,10 +26,11 @@ export function GeneralSettingsForm({ value, disabled, onChange }: GeneralSettin
               })
             }
           >
-            <option value="system">{translateMessage('settings.language.system')}</option>
-            <option value="zh">{translateMessage('settings.language.zh')}</option>
-            <option value="en">{translateMessage('settings.language.en')}</option>
-            <option value="ja">{translateMessage('settings.language.ja')}</option>
+            {UI_LANGUAGE_OPTIONS.map((language) => (
+              <option key={language} value={language}>
+                {translateMessage(`settings.language.${language}`)}
+              </option>
+            ))}
           </select>
         </div>
       </label>

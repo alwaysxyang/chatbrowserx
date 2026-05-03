@@ -5,22 +5,22 @@
   cursor: crosshair;
   background: transparent;
   user-select: none;
-  /* 默认不拦截事件，让页面可以滚动 */
+  /* Do not intercept events by default so the page can scroll. */
   pointer-events: none;
 }
 
-/* 正在交互时（拖拽/移动/调整大小），需要拦截事件 */
+/* Intercept events while drawing, moving, or resizing the selection. */
 .screenshot-overlay.screenshot-overlay-interacting {
   pointer-events: auto;
 }
 
-/* 选择框和控制按钮始终可以交互 */
+/* Keep the selection box and controls interactive. */
 .screenshot-overlay .screenshot-selection,
 .screenshot-overlay .screenshot-controls {
   pointer-events: auto;
 }
 
-/* 长截图模式下，选择框不拦截事件，让页面可以滚动 */
+/* In long screenshot mode, let wheel events pass through the selection. */
 .screenshot-overlay.screenshot-overlay-long-mode .screenshot-selection {
   pointer-events: none;
 }
@@ -40,12 +40,12 @@
   box-sizing: border-box;
 }
 
-/* 长截图模式下，整个 overlay 不拦截事件，让页面可以滚动 */
+/* In long screenshot mode, the overlay does not intercept page scrolling. */
 .screenshot-overlay.screenshot-overlay-long-mode {
   pointer-events: none;
 }
 
-/* 但控制按钮需要能点击 */
+/* Controls must remain clickable in long screenshot mode. */
 .screenshot-overlay.screenshot-overlay-long-mode .screenshot-control-button {
   pointer-events: auto;
 }

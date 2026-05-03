@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   readCurrentPageInteractables,
 } from '../../../src/ui/tools/page-automation/interactable-scanner';
@@ -33,15 +33,25 @@ function spyElementFromPoint(documentObject: Document) {
   return vi.spyOn(documentObject, 'elementFromPoint');
 }
 
+/**
+ * Sets viewport dimensions for interactable geometry tests.
+ */
+function setViewportSize(width: number, height: number): void {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+}
+
 describe('ui get page interactables tool', () => {
+  beforeEach(() => {
+  });
+
   it('uses accessible names and returns a compact viewport snapshot', () => {
     document.body.innerHTML = `
       <span id="save-label">Save changes</span>
       <button id="save" aria-labelledby="save-label"></button>
       <input id="search" aria-label="Search site" placeholder="Search docs" />
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const save = document.getElementById('save')!;
     const search = document.getElementById('search')!;
@@ -68,8 +78,7 @@ describe('ui get page interactables tool', () => {
       <button id="bookmark"><span class="lc-icon-bookmark"></span></button>
       <button id="share"><span data-testid="share-button-icon"></span></button>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const like = document.getElementById('like')!;
     const bookmark = document.getElementById('bookmark')!;
@@ -100,8 +109,7 @@ describe('ui get page interactables tool', () => {
         <button id="unknown"><svg aria-hidden="true"><path d="M0 0" /></svg></button>
       </div>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const count = document.getElementById('count')!;
     const unknown = document.getElementById('unknown')!;
@@ -125,8 +133,7 @@ describe('ui get page interactables tool', () => {
         <span id="like-count">32.2K</span>
       </button>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const like = document.getElementById('like')!;
     const icon = document.getElementById('like-icon')!;
@@ -151,8 +158,7 @@ describe('ui get page interactables tool', () => {
         <span id="comment-count">922</span>
       </button>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const comments = document.getElementById('comments')!;
     const icon = document.getElementById('comment-icon')!;
@@ -175,8 +181,7 @@ describe('ui get page interactables tool', () => {
       <span id="open" data-icon="external-link"></span>
       <span id="help" data-testid="help-circle"></span>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const open = document.getElementById('open')!;
     const help = document.getElementById('help')!;
@@ -202,8 +207,7 @@ describe('ui get page interactables tool', () => {
         <span id="previous-icon" data-icon="chevron-left" style="cursor: pointer"></span>
       </a>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const run = document.getElementById('run')!;
     const play = document.getElementById('play')!;
@@ -230,8 +234,7 @@ describe('ui get page interactables tool', () => {
         <button id="logo-button"></button>
       </a>
     `;
-    window.innerWidth = 1024;
-    window.innerHeight = 768;
+    setViewportSize(1024, 768);
 
     const logoLink = document.getElementById('logo-link')!;
     const logoButton = document.getElementById('logo-button')!;
@@ -256,8 +259,7 @@ describe('ui get page interactables tool', () => {
       <button id="covered">Covered</button>
       <div id="cover"></div>
     `;
-    window.innerWidth = 800;
-    window.innerHeight = 600;
+    setViewportSize(800, 600);
 
     const enabled = document.getElementById('enabled')!;
     const disabled = document.getElementById('disabled')!;
@@ -290,8 +292,6 @@ describe('ui get page interactables tool', () => {
         <input id="username" type="text" placeholder="请设置用户名" />
       </p>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const wrapper = document.getElementById('wrapper')!;
     const username = document.getElementById('username')!;
@@ -313,8 +313,6 @@ describe('ui get page interactables tool', () => {
         <input id="phone" type="text" placeholder="可用于登录和找回密码" style="opacity: 0" />
       </p>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const wrapper = document.getElementById('phone-wrapper')!;
     const phone = document.getElementById('phone')!;
@@ -339,8 +337,6 @@ describe('ui get page interactables tool', () => {
         <button id="overlay-button">Overlay button</button>
       </div>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const pageButton = document.getElementById('page-button')!;
     const pluginButton = document.getElementById('plugin-button')!;
@@ -366,8 +362,6 @@ describe('ui get page interactables tool', () => {
       <button id="login">登录</button>
       <input id="TANGRAM__PSP_4__userName" type="text" placeholder="请设置用户名" />
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const login = document.getElementById('login')!;
     const username = document.getElementById('TANGRAM__PSP_4__userName')!;
@@ -404,8 +398,6 @@ describe('ui get page interactables tool', () => {
       </p>
       <div id="unrelated-overlay"></div>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const wrapper = document.getElementById('TANGRAM__PSP_4__userNameWrapper')!;
     const input = document.getElementById('TANGRAM__PSP_4__userName')!;
@@ -432,8 +424,6 @@ describe('ui get page interactables tool', () => {
       </div>
       <div id="unrelated-overlay"></div>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const regContent = document.getElementById('reg_content')!;
     const wrapper = document.getElementById('TANGRAM__PSP_4__userNameWrapper')!;
@@ -457,8 +447,7 @@ describe('ui get page interactables tool', () => {
       <div id="status" role="status">Saved</div>
       <div id="button" role="button" aria-label="Open menu"></div>
     `;
-    window.innerWidth = 800;
-    window.innerHeight = 600;
+    setViewportSize(800, 600);
 
     const status = document.getElementById('status')!;
     const button = document.getElementById('button')!;
@@ -481,8 +470,7 @@ describe('ui get page interactables tool', () => {
       <div id="css-pointer" class="css-pointer">CSS pointer</div>
       <div id="plain">Plain text</div>
     `;
-    window.innerWidth = 800;
-    window.innerHeight = 600;
+    setViewportSize(800, 600);
 
     const clickable = document.getElementById('clickable')!;
     const pointer = document.getElementById('pointer')!;
@@ -518,8 +506,6 @@ describe('ui get page interactables tool', () => {
         <div class="cm-content" contenteditable="true">select 1</div>
       </div>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const monaco = document.getElementById('monaco')!;
     const codemirror = document.getElementById('codemirror')!;
@@ -544,8 +530,6 @@ describe('ui get page interactables tool', () => {
         </div>
       </div>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const editor = document.getElementById('editor')!;
     const line = document.getElementById('line')!;
@@ -565,8 +549,6 @@ describe('ui get page interactables tool', () => {
       <div id="editor" class="monaco-editor" aria-label="Code Editor"></div>
       <textarea id="a11y-textarea" aria-label="Editor content;Press Alt+F1 for Accessibility Options."></textarea>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const editor = document.getElementById('editor')!;
     const textarea = document.getElementById('a11y-textarea')!;
@@ -589,8 +571,6 @@ describe('ui get page interactables tool', () => {
         <section id="content">Question 3 Question 4 Question 5</section>
       </main>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const questions = document.getElementById('questions')!;
     const content = document.getElementById('content')!;
@@ -616,8 +596,6 @@ describe('ui get page interactables tool', () => {
         <span id="dot" style="cursor: pointer"></span>
       </div>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const row = document.getElementById('row')!;
     const inner = document.getElementById('inner')!;
@@ -643,8 +621,6 @@ describe('ui get page interactables tool', () => {
         <span id="label">C. 员工收到礼盒应及时申报</span>
       </label>
     `;
-    window.innerWidth = 1200;
-    window.innerHeight = 800;
 
     const row = document.getElementById('row')!;
     const radio = document.getElementById('radio')!;
@@ -662,7 +638,7 @@ describe('ui get page interactables tool', () => {
   });
 
   it('registers a runtime listener for page interactables requests', async () => {
-    const addListenerMock = chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>;
+    const addListenerMock = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock();
     registerGetPageInteractablesToolListener();
 
     const listener = addListenerMock.mock.calls.at(-1)?.[0];

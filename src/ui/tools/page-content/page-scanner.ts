@@ -18,26 +18,26 @@ function getScrollingElement(documentObject: Document): HTMLElement | null {
   return (documentObject.scrollingElement as HTMLElement | null) ?? documentObject.documentElement ?? documentObject.body;
 }
 
-function isScrollableElement(element: HTMLElement): boolean {
-  const style = window.getComputedStyle(element);
+function isScrollableElement(element: HTMLElement, windowObject: Window): boolean {
+  const style = windowObject.getComputedStyle(element);
   const overflowY = style.overflowY;
   return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') && element.scrollHeight > element.clientHeight;
 }
 
-export function findMainScrollContainer(documentObject: Document = document): ScrollContainerInfo {
-  if (documentObject.documentElement.scrollHeight > window.innerHeight + 10) {
+export function findMainScrollContainer(documentObject: Document = document, windowObject: Window = window): ScrollContainerInfo {
+  if (documentObject.documentElement.scrollHeight > windowObject.innerHeight + 10) {
     return {
-      element: window,
+      element: windowObject,
       scrollHeight: documentObject.documentElement.scrollHeight,
-      clientHeight: window.innerHeight,
+      clientHeight: windowObject.innerHeight,
     };
   }
 
-  if (documentObject.body.scrollHeight > window.innerHeight + 10 && documentObject.body.style.overflowY !== 'hidden') {
+  if (documentObject.body.scrollHeight > windowObject.innerHeight + 10 && documentObject.body.style.overflowY !== 'hidden') {
     return {
-      element: window,
+      element: windowObject,
       scrollHeight: documentObject.body.scrollHeight,
-      clientHeight: window.innerHeight,
+      clientHeight: windowObject.innerHeight,
     };
   }
 
@@ -46,7 +46,7 @@ export function findMainScrollContainer(documentObject: Document = document): Sc
   let maxScore = 0;
 
   candidates.forEach((element) => {
-    if (!isScrollableElement(element)) {
+    if (!isScrollableElement(element, windowObject)) {
       return;
     }
 
@@ -75,9 +75,9 @@ export function findMainScrollContainer(documentObject: Document = document): Sc
   const scrollingElement = getScrollingElement(documentObject);
 
   return {
-    element: window,
+    element: windowObject,
     scrollHeight: scrollingElement?.scrollHeight ?? 0,
-    clientHeight: scrollingElement?.clientHeight ?? window.innerHeight,
+    clientHeight: scrollingElement?.clientHeight ?? windowObject.innerHeight,
   };
 }
 
@@ -123,7 +123,7 @@ export async function scanPage<T>({
   maxStableIterations = 3,
   onStep,
 }: ScanPageOptions<T>): Promise<T> {
-  const { element: scrollTarget } = findMainScrollContainer(documentObject);
+  const { element: scrollTarget } = findMainScrollContainer(documentObject, windowObject);
   const getScrollY = () => {
     if (scrollTarget === windowObject) return windowObject.scrollY;
     return (scrollTarget as HTMLElement).scrollTop;

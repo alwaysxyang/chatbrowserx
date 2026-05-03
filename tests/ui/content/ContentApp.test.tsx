@@ -88,7 +88,7 @@ describe('ContentApp', () => {
   });
 
   it('hides the sidebar while taking a screenshot and restores it after capture', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({
       ok: true,
       data: { dataUrl: 'data:image/png;base64,shot1' },
@@ -122,7 +122,7 @@ describe('ContentApp', () => {
   });
 
   it('renders image previews outside the sidebar so the page is dimmed instead of the plugin only', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({
       ok: true,
       data: { dataUrl: 'data:image/png;base64,shot1' },

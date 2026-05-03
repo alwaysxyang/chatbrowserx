@@ -19,6 +19,9 @@ interface ChatComposerProps {
   onPreviewImage?: (src: string) => void;
 }
 
+/**
+ * Renders the chat composer with text input, image paste handling, and command shortcuts.
+ */
 export function ChatComposer({
   value,
   disabled,
@@ -35,6 +38,9 @@ export function ChatComposer({
 }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
+  /**
+   * Resizes the textarea to fit current text up to a bounded height.
+   */
   const autoResize = () => {
     const element = textareaRef.current;
     if (!element) {
@@ -60,6 +66,9 @@ export function ChatComposer({
     onSubmit();
   };
 
+  /**
+   * Handles clipboard images, HTML image data URLs, and pasted HTML text.
+   */
   const handlePaste = (event: ReactClipboardEvent<HTMLTextAreaElement>) => {
     if (disabled) {
       return;
@@ -69,7 +78,6 @@ export function ChatComposer({
       return;
     }
 
-    // 首先尝试获取图片文件
     const imageFiles = getClipboardImageFiles(event.clipboardData);
     if (imageFiles.length) {
       event.preventDefault();
@@ -81,7 +89,6 @@ export function ChatComposer({
       return;
     }
 
-    // 如果没有图片文件，尝试从 HTML 中提取图片
     const html = event.clipboardData.getData('text/html');
     if (html) {
       const parser = new DOMParser();
@@ -91,7 +98,6 @@ export function ChatComposer({
       if (images.length > 0) {
         event.preventDefault();
 
-        // 提取所有图片的 data URL
         const dataUrls: string[] = [];
         images.forEach((img) => {
           const src = img.getAttribute('src');
@@ -104,17 +110,14 @@ export function ChatComposer({
           onAddImages(dataUrls);
         }
 
-        // 提取文本内容
         const textContent = doc.body.textContent?.trim();
         if (textContent) {
-          // 将文本插入到当前光标位置
           const textarea = event.currentTarget;
           const start = textarea.selectionStart;
           const end = textarea.selectionEnd;
           const newValue = value.substring(0, start) + textContent + value.substring(end);
           onChange(newValue);
 
-          // 设置光标位置到插入文本的末尾
           setTimeout(() => {
             textarea.selectionStart = textarea.selectionEnd = start + textContent.length;
           }, 0);

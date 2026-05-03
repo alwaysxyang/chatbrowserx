@@ -208,7 +208,6 @@ export class VolcengineProvider implements SpeechRecognitionProvider {
   }
 
   private handleClose(): void {
-    console.log('[VolcengineProvider] WebSocket closed');
     this.cleanup();
   }
 

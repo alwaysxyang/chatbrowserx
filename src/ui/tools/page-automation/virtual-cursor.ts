@@ -9,6 +9,15 @@ const settleDurationMs = 180;
 const cursorTransition = `transform ${moveDurationMs}ms ease, opacity 120ms ease, scale 120ms ease`;
 
 /**
+ * Waits for a short animation duration.
+ *
+ * @param durationMs - Duration to wait.
+ */
+function waitForAnimation(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs));
+}
+
+/**
  * Creates an SVG icon element for the virtual cursor.
  *
  * @param documentObject - The document that owns the icon.
@@ -125,11 +134,11 @@ function showCursor(cursor: HTMLElement): void {
  */
 async function hideCursor(cursor: HTMLElement): Promise<void> {
   if (cursor.dataset.hidden === 'true') return;
-  await new Promise((resolve) => setTimeout(resolve, settleDurationMs));
+  await waitForAnimation(settleDurationMs);
   cursor.dataset.hidden = 'true';
   cursor.style.opacity = '0';
   cursor.style.scale = '1';
-  await new Promise((resolve) => setTimeout(resolve, 120));
+  await waitForAnimation(120);
 }
 
 /**
@@ -156,7 +165,7 @@ async function moveVirtualCursor(documentObject: Document, point: ViewportPoint,
     showCursor(cursor);
     cursor.style.transform = nextTransform;
   }
-  await new Promise((resolve) => setTimeout(resolve, moveDurationMs));
+  await waitForAnimation(moveDurationMs);
 }
 
 /**
@@ -246,7 +255,7 @@ export async function showVirtualClickFeedback(documentObject: Document, point: 
     flash.style.transform = 'scale(2.6)';
     flash.style.opacity = '0';
   });
-  await new Promise((resolve) => setTimeout(resolve, 340));
+  await waitForAnimation(340);
   outerRipple.remove();
   innerRipple.remove();
   flash.remove();
@@ -285,7 +294,7 @@ export async function showVirtualType(documentObject: Document, rect: DOMRect): 
     'box-shadow:0 0 0 3px rgba(22,119,255,0.12)',
   ].join(';');
   root.appendChild(focus);
-  await new Promise((resolve) => setTimeout(resolve, 220));
+  await waitForAnimation(220);
   focus.remove();
   const cursor = root.querySelector<HTMLElement>('[data-role="virtual-cursor"]');
   if (cursor) await hideCursor(cursor);
@@ -319,7 +328,7 @@ export async function showVirtualDrag(documentObject: Document, from: ViewportPo
   ].join(';');
   root.appendChild(line);
   await moveVirtualCursor(documentObject, to, 'hand');
-  await new Promise((resolve) => setTimeout(resolve, 120));
+  await waitForAnimation(120);
   line.remove();
   const cursor = root.querySelector<HTMLElement>('[data-role="virtual-cursor"]');
   if (cursor) await hideCursor(cursor);
@@ -353,7 +362,7 @@ export async function showVirtualScroll(documentObject: Document, direction: str
     'box-shadow:0 0 0 4px rgba(22,119,255,0.1)',
   ].join(';');
   root.appendChild(cue);
-  await new Promise((resolve) => setTimeout(resolve, 220));
+  await waitForAnimation(220);
   cue.remove();
   const cursor = root.querySelector<HTMLElement>('[data-role="virtual-cursor"]');
   if (cursor) await hideCursor(cursor);

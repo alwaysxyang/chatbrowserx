@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
 import { CODEX_REASONING_EFFORT_OPTIONS, type ModelSettings } from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
 import {
   getActiveProviderFormValues,
+  updateActiveProviderConnection,
   updateCodexSettings,
   updateOpenAiSettings,
   updateProvider,
   updateSharedModelSettings,
 } from './model-settings-helpers';
+import { SecretField } from './SecretField';
 
 interface ChatSettingsFormProps {
   value: ModelSettings;
@@ -20,21 +20,7 @@ interface ChatSettingsFormProps {
  * Render the model settings form for provider credentials and shared model configuration.
  */
 export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsFormProps) {
-  const [showProviderCredential, setShowProviderCredential] = useState(false);
-  const [showTavilyApiKey, setShowTavilyApiKey] = useState(false);
   const activeProvider = getActiveProviderFormValues(value);
-
-  /**
-   * Update the fields that belong to the currently selected provider.
-   */
-  const updateProviderConnection = (nextValue: Partial<ModelSettings['openai']> | Partial<ModelSettings['codex']>) => {
-    if (activeProvider.isOpenAi) {
-      onChange(updateOpenAiSettings(value, nextValue as Partial<ModelSettings['openai']>));
-      return;
-    }
-
-    onChange(updateCodexSettings(value, nextValue as Partial<ModelSettings['codex']>));
-  };
 
   return (
     <div className="settings-form">
@@ -65,90 +51,38 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
         <input
           aria-label={translateMessage('settings.fields.apiBaseUrl')}
           value={activeProvider.baseUrl}
-          onChange={(event) => updateProviderConnection({ baseUrl: event.target.value })}
+          onChange={(event) => onChange(updateActiveProviderConnection(value, { baseUrl: event.target.value }))}
         />
       </label>
 
-      <label>
-        <span>
-          {activeProvider.isOpenAi
+      <SecretField
+        label={
+          activeProvider.isOpenAi
             ? translateMessage('settings.fields.apiKey')
-            : translateMessage('settings.codex.fields.accessToken')}
-        </span>
+            : translateMessage('settings.codex.fields.accessToken')
+        }
+        multiline={!activeProvider.isOpenAi}
+        toggleDisabled={disabled}
+        value={activeProvider.credential}
+        onChange={(nextCredential) =>
+          activeProvider.isOpenAi
+            ? onChange(updateOpenAiSettings(value, { apiKey: nextCredential }))
+            : onChange(updateCodexSettings(value, { accessToken: nextCredential }))
+        }
+      />
 
-        <div className="settings-input-with-icon">
-          {activeProvider.isOpenAi ? (
-            <input
-              aria-label={translateMessage('settings.fields.apiKey')}
-              type={showProviderCredential ? 'text' : 'password'}
-              value={activeProvider.credential}
-              onChange={(event) => onChange(updateOpenAiSettings(value, { apiKey: event.target.value }))}
-            />
-          ) : (
-            <textarea
-              aria-label={translateMessage('settings.codex.fields.accessToken')}
-              rows={5}
-              value={
-                showProviderCredential
-                  ? activeProvider.credential
-                  : '•'.repeat(activeProvider.credential ? activeProvider.credential.length : 8)
-              }
-              onChange={
-                showProviderCredential
-                  ? (event) => onChange(updateCodexSettings(value, { accessToken: event.target.value }))
-                  : undefined
-              }
-              readOnly={!showProviderCredential}
-            />
-          )}
-          <button
-            type="button"
-            className="settings-input-icon-button"
-            aria-label={
-              showProviderCredential ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')
-            }
-            onClick={() => setShowProviderCredential((current) => !current)}
-            disabled={disabled}
-          >
-            {showProviderCredential ? (
-              <EyeOff className="settings-input-icon" strokeWidth={2.1} />
-            ) : (
-              <Eye className="settings-input-icon" strokeWidth={2.1} />
-            )}
-          </button>
-        </div>
-      </label>
-
-      <label>
-        <span>{translateMessage('settings.fields.tavilyApiKey')}</span>
-        <div className="settings-input-with-icon">
-          <input
-            aria-label={translateMessage('settings.fields.tavilyApiKey')}
-            type={showTavilyApiKey ? 'text' : 'password'}
-            value={value.tavilyApiKey}
-            onChange={(event) => onChange(updateSharedModelSettings(value, 'tavilyApiKey', event.target.value))}
-          />
-          <button
-            type="button"
-            className="settings-input-icon-button"
-            aria-label={showTavilyApiKey ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')}
-            onClick={() => setShowTavilyApiKey((current) => !current)}
-            disabled={disabled}
-          >
-            {showTavilyApiKey ? (
-              <EyeOff className="settings-input-icon" strokeWidth={2.1} />
-            ) : (
-              <Eye className="settings-input-icon" strokeWidth={2.1} />
-            )}
-          </button>
-        </div>
-      </label>
+      <SecretField
+        label={translateMessage('settings.fields.tavilyApiKey')}
+        toggleDisabled={disabled}
+        value={value.tavilyApiKey}
+        onChange={(nextApiKey) => onChange(updateSharedModelSettings(value, 'tavilyApiKey', nextApiKey))}
+      />
       <label>
         <span>{translateMessage('settings.fields.model')}</span>
         <input
           aria-label={translateMessage('settings.fields.model')}
           value={activeProvider.model}
-          onChange={(event) => updateProviderConnection({ model: event.target.value })}
+          onChange={(event) => onChange(updateActiveProviderConnection(value, { model: event.target.value }))}
         />
       </label>
 
@@ -191,8 +125,6 @@ export function ChatSettingsForm({ value, disabled, onChange }: ChatSettingsForm
           onChange={(event) => onChange(updateSharedModelSettings(value, 'maxHistory', Number(event.target.value) || 1))}
         />
       </label>
-
-      {/* 底部操作统一放在 SettingsPanel 的 footer，不在 tab 内 */}
     </div>
   );
 }

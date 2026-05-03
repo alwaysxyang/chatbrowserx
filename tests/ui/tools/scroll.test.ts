@@ -226,7 +226,13 @@ describe('scroll helper', () => {
 
     await scanPage({
       documentObject,
-      windowObject: { scrollTo: vi.fn(), scrollBy: vi.fn() } as unknown as Window,
+      windowObject: {
+        getComputedStyle: window.getComputedStyle.bind(window),
+        innerHeight: window.innerHeight,
+        scrollBy: vi.fn(),
+        scrollTo: vi.fn(),
+        scrollY: 0,
+      } as unknown as Window,
       delayMs: 0,
       maxIterations: 1,
       callback: async () => 'done',

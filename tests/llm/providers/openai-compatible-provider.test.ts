@@ -1,32 +1,60 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { OpenAiCompatibleProvider } from '../../../src/llm/providers/openai/provider';
 import { defaultSettings } from '../../../src/shared/storage/settings-repository';
 import type { ToolDefinition } from '../../../src/llm/tools/tool-registry';
 
-describe('OpenAiCompatibleProvider', () => {
-  it('surfaces http failures even when the response is not json', async () => {
-    const originalFetch = globalThis.fetch;
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response('Bad gateway', {
-        status: 502,
-        headers: { 'Content-Type': 'text/plain' },
-      }),
-    );
+const originalFetch = globalThis.fetch;
 
-    const provider = new OpenAiCompatibleProvider({
-      baseUrl: defaultSettings.model.openai.baseUrl,
-      apiKey: 'k',
+/**
+ * Replaces global fetch with a mocked response.
+ *
+ * @param body - Response body.
+ * @param options - Optional response init.
+ * @returns The fetch mock.
+ */
+function mockFetchResponse(body: BodyInit, options: ResponseInit = {}): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+      ...options,
+    }),
+  );
+  globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+  return fetchMock;
+}
+
+/**
+ * Creates the default OpenAI-compatible provider used by these tests.
+ *
+ * @returns Test provider instance.
+ */
+function createProvider(): OpenAiCompatibleProvider {
+  return new OpenAiCompatibleProvider({
+    baseUrl: defaultSettings.model.openai.baseUrl,
+    apiKey: 'k',
+  });
+}
+
+describe('OpenAiCompatibleProvider', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('surfaces http failures even when the response is not json', async () => {
+    mockFetchResponse('Bad gateway', {
+      status: 502,
+      headers: { 'Content-Type': 'text/plain' },
     });
+
+    const provider = createProvider();
 
     await expect(
       provider.completeChat({ model: 'm', messages: [{ role: 'user', content: 'hello' }] }),
     ).rejects.toThrow('REQUEST_FAILED: 502');
-
-    globalThis.fetch = originalFetch;
   });
 
   it('sends registered tools and parses streamed tool call deltas', async () => {
-    const originalFetch = globalThis.fetch;
     const onChunk = vi.fn();
     const streamBody = [
       'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function","function":{"name":"get_page_summary","arguments":"{\\"url\\":\\"https://example.com\\"}"}}]}}]}\n',
@@ -50,17 +78,8 @@ describe('OpenAiCompatibleProvider', () => {
       },
     ];
 
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(streamBody, {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    );
-
-    const provider = new OpenAiCompatibleProvider({
-      baseUrl: defaultSettings.model.openai.baseUrl,
-      apiKey: 'k',
-    });
+    const fetchMock = mockFetchResponse(streamBody);
+    const provider = createProvider();
 
     const result = await provider.completeChat({
       model: 'm',
@@ -68,8 +87,8 @@ describe('OpenAiCompatibleProvider', () => {
       tools,
     }, onChunk);
 
-    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
-    const request = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as RequestInit;
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       model: 'm',
       tools,
@@ -94,23 +113,11 @@ describe('OpenAiCompatibleProvider', () => {
     });
     expect(onChunk).toHaveBeenCalledWith('Final answer');
 
-    globalThis.fetch = originalFetch;
   });
 
   it('serializes tool loop messages to the OpenAI-compatible wire format', async () => {
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response('data: {"choices":[{"delta":{"content":"done"}}]}\ndata: [DONE]\n', {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    );
-
-    const provider = new OpenAiCompatibleProvider({
-      baseUrl: defaultSettings.model.openai.baseUrl,
-      apiKey: 'k',
-    });
+    const fetchMock = mockFetchResponse('data: {"choices":[{"delta":{"content":"done"}}]}\ndata: [DONE]\n');
+    const provider = createProvider();
 
     await provider.completeChat({
       model: 'm',
@@ -138,7 +145,7 @@ describe('OpenAiCompatibleProvider', () => {
       ],
     });
 
-    const request = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as RequestInit;
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       messages: [
         {
@@ -165,24 +172,11 @@ describe('OpenAiCompatibleProvider', () => {
 
     expect(JSON.parse(String(request.body)).messages[0].toolCalls).toBeUndefined();
     expect(JSON.parse(String(request.body)).messages[1].toolCallId).toBeUndefined();
-
-    globalThis.fetch = originalFetch;
   });
 
   it('serializes mixed text and image user content parts', async () => {
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response('data: {"choices":[{"delta":{"content":"done"}}]}\ndata: [DONE]\n', {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    );
-
-    const provider = new OpenAiCompatibleProvider({
-      baseUrl: defaultSettings.model.openai.baseUrl,
-      apiKey: 'k',
-    });
+    const fetchMock = mockFetchResponse('data: {"choices":[{"delta":{"content":"done"}}]}\ndata: [DONE]\n');
+    const provider = createProvider();
 
     await provider.completeChat({
       model: 'm',
@@ -198,7 +192,7 @@ describe('OpenAiCompatibleProvider', () => {
       ],
     });
 
-    const request = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as RequestInit;
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       messages: [
         {
@@ -211,7 +205,5 @@ describe('OpenAiCompatibleProvider', () => {
         },
       ],
     });
-
-    globalThis.fetch = originalFetch;
   });
 });

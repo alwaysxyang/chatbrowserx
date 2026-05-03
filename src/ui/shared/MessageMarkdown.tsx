@@ -1,9 +1,14 @@
 import Markdown, { type MarkdownToJSX } from 'markdown-to-jsx';
+import type { ComponentPropsWithoutRef } from 'react';
+
+type MarkdownAnchorProps = ComponentPropsWithoutRef<'a'>;
+type MarkdownCodeProps = ComponentPropsWithoutRef<'code'>;
+type MarkdownPreProps = ComponentPropsWithoutRef<'pre'>;
 
 const markdownOptions: MarkdownToJSX.Options = {
   overrides: {
     a: {
-      component: ({ children, ...props }: any) => (
+      component: ({ children, ...props }: MarkdownAnchorProps) => (
         <a
           {...props}
           target="_blank"
@@ -15,7 +20,7 @@ const markdownOptions: MarkdownToJSX.Options = {
       ),
     },
     code: {
-      component: ({ children, className, ...props }: any) => {
+      component: ({ children, className, ...props }: MarkdownCodeProps) => {
         const isBlock = typeof className === 'string' && className.includes('lang-');
 
         return (
@@ -31,7 +36,7 @@ const markdownOptions: MarkdownToJSX.Options = {
       },
     },
     pre: {
-      component: ({ children, ...props }: any) => (
+      component: ({ children, ...props }: MarkdownPreProps) => (
         <pre {...props} className="message-markdown-pre">
           {children}
         </pre>

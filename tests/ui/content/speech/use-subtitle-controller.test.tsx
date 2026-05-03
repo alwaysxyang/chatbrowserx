@@ -1,22 +1,29 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
-import { describe, expect, it, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { speechResultType, speechStartRequestType, speechStopRequestType, speechStateQueryType } from '../../../../src/shared/types/speech';
 import { useSubtitleController } from '../../../../src/ui/content/speech/use-subtitle-controller';
 
+/**
+ * Suppresses console output for tests that intentionally exercise error paths.
+ *
+ * @returns The console error spy so tests can restore it after assertions.
+ */
+function silenceExpectedConsoleError(): ReturnType<typeof vi.spyOn> {
+  return vi.spyOn(console, 'error').mockImplementation(() => undefined);
+}
+
 describe('useSubtitleController', () => {
   beforeEach(() => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    // Mock the initial state query to return not recording
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: { isRecording: false } });
   });
 
   it('keeps subtitle state local instead of syncing through runtime messages', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
 
     renderHook(() => useSubtitleController());
 
     await waitFor(() => {
-      // Should only call once for initial state query
       expect(sendMessageMock).toHaveBeenCalledWith({ type: speechStateQueryType });
     });
 
@@ -34,18 +41,16 @@ describe('useSubtitleController', () => {
     });
 
     await waitFor(() => {
-      // Should still only have the initial query call
       expect(sendMessageMock).toHaveBeenCalledTimes(1);
     });
   });
 
   it('only sends runtime messages for starting and stopping recognition', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: null });
 
     const { result } = renderHook(() => useSubtitleController());
 
-    // Wait for initial query
     await waitFor(() => {
       expect(sendMessageMock).toHaveBeenCalledWith({ type: speechStateQueryType });
     });
@@ -71,7 +76,7 @@ describe('useSubtitleController', () => {
   });
 
   it('shows listening state without fake subtitle content while recognition is starting', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: null });
 
     const { result } = renderHook(() => useSubtitleController());
@@ -87,9 +92,39 @@ describe('useSubtitleController', () => {
     });
   });
 
+  it('ignores empty initial speech state responses without logging an error', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    sendMessageMock.mockResolvedValue({ ok: true, data: null });
+
+    renderHook(() => useSubtitleController());
+
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith({ type: speechStateQueryType });
+    });
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('ignores missing initial speech state responses without logging an error', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    sendMessageMock.mockResolvedValue(undefined);
+
+    renderHook(() => useSubtitleController());
+
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith({ type: speechStateQueryType });
+    });
+
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
+
   it('rolls subtitle state back when starting recognition fails', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    // First call is state query, second is start request
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    const consoleErrorSpy = silenceExpectedConsoleError();
     sendMessageMock
       .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
       .mockRejectedValueOnce(new Error('start failed'));
@@ -105,11 +140,12 @@ describe('useSubtitleController', () => {
       translationText: '',
       isActive: false,
     });
+    consoleErrorSpy.mockRestore();
   });
 
   it('rolls subtitle state back when background returns a failed start response', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    // First call is state query, second is start request
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    const consoleErrorSpy = silenceExpectedConsoleError();
     sendMessageMock
       .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
       .mockResolvedValueOnce({ ok: false, error: 'No tab ID' });
@@ -125,11 +161,12 @@ describe('useSubtitleController', () => {
       translationText: '',
       isActive: false,
     });
+    consoleErrorSpy.mockRestore();
   });
 
   it('clears subtitle state even when stopping recognition throws', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    // First: state query, second: start, third: stop
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    const consoleErrorSpy = silenceExpectedConsoleError();
     sendMessageMock
       .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
       .mockResolvedValueOnce({ ok: true, data: null })
@@ -150,11 +187,12 @@ describe('useSubtitleController', () => {
       translationText: '',
       isActive: false,
     });
+    consoleErrorSpy.mockRestore();
   });
 
   it('clears subtitle state even when background returns a failed stop response', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    // First: state query, second: start, third: stop
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    const consoleErrorSpy = silenceExpectedConsoleError();
     sendMessageMock
       .mockResolvedValueOnce({ ok: true, data: { isRecording: false } })
       .mockResolvedValueOnce({ ok: true, data: null })
@@ -175,5 +213,6 @@ describe('useSubtitleController', () => {
       translationText: '',
       isActive: false,
     });
+    consoleErrorSpy.mockRestore();
   });
 });

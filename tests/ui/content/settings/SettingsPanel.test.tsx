@@ -37,7 +37,6 @@ describe('SettingsPanel', () => {
     const saveButton = screen.getByRole('button', { name: '保存设置' });
     await user.click(saveButton);
 
-    // 等待保存流程（包含 1s sleep + saveSettings）完成
     await waitFor(async () => {
       const saved = await chrome.storage.local.get('chatbrowserx.settings');
       expect((saved['chatbrowserx.settings'] as { model: { model: string } }).model.model).toBe('new-model');
@@ -47,7 +46,7 @@ describe('SettingsPanel', () => {
 
   it('keeps user edits when async settings hydration finishes later', async () => {
     let resolveGet!: (value: Record<string, unknown>) => void;
-    const getMock = chrome.storage.local.get as unknown as ReturnType<typeof vi.fn>;
+    const getMock = globalThis.__chromeTestUtils.getStorageLocalGetMock();
 
     getMock.mockImplementationOnce(() => {
       return new Promise<Record<string, unknown>>((resolve) => {

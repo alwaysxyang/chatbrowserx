@@ -1,4 +1,4 @@
-/* Settings 页面及表单相关样式 */
+/* Settings page and form styles. */
 
 .settings-page {
   height: 100%;
@@ -77,8 +77,8 @@
 .settings-input-with-icon textarea {
   width: 100%;
   padding-right: 44px;
-  min-height: 110px; /* 约 5 行高度 */
-  padding-top: 4px;  /* 文本从顶部开始 */
+  min-height: 110px; /* Approximately five rows. */
+  padding-top: 4px;  /* Start text near the top edge. */
   resize: vertical;
 }
 

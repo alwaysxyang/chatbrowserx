@@ -18,6 +18,7 @@ describe('selection message guards', () => {
 
   it('rejects malformed selection request messages', () => {
     expect(isSelectionRequestMessage({ type: selectionRequestType, payload: {} })).toBe(false);
+    expect(isSelectionRequestMessage({ type: selectionRequestType })).toBe(false);
   });
 
   it('accepts selection stream chunk messages', () => {
@@ -31,4 +32,3 @@ describe('selection message guards', () => {
     expect(isSelectionCancelMessage({ type: selectionCancelType })).toBe(true);
   });
 });
-

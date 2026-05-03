@@ -62,23 +62,6 @@ function isControlsTarget(target: EventTarget | null): boolean {
 }
 
 /**
- * Check whether a viewport point is inside the current selection rectangle.
- *
- * @param rect - The active screenshot selection
- * @param clientX - The viewport X coordinate
- * @param clientY - The viewport Y coordinate
- * @returns True when the point lies inside the selection bounds
- */
-function isPointInsideSelection(rect: ScreenshotRect, clientX: number, clientY: number): boolean {
-  return (
-    clientX >= rect.left
-    && clientX <= rect.left + rect.width
-    && clientY >= rect.top
-    && clientY <= rect.top + rect.height
-  );
-}
-
-/**
  * Check whether an element visually intersects the current screenshot selection.
  *
  * @param element - The candidate scrolling element
@@ -94,6 +77,59 @@ function doesSelectionIntersectElement(element: Element, selection: ScreenshotRe
     rect.left > selectionRect.right ||
     rect.bottom < selectionRect.top ||
     rect.top > selectionRect.bottom
+  );
+}
+
+/**
+ * Build the floating controls position for the current selection.
+ *
+ * @param selection - The active screenshot selection
+ * @param viewportHeight - Current viewport height
+ * @returns CSS properties that center controls above or below the selection
+ */
+function buildControlsStyle(selection: ScreenshotRect, viewportHeight: number): CSSProperties {
+  const controlsHeight = 36;
+  const topOffset = 10;
+  const belowTop = selection.top + selection.height + topOffset;
+  const aboveTop = selection.top - controlsHeight - topOffset;
+  const top = belowTop <= viewportHeight - 44
+    ? belowTop
+    : Math.max(8, aboveTop);
+  const left = selection.left + selection.width / 2;
+
+  return {
+    left: `${left}px`,
+    top: `${top}px`,
+    transform: 'translateX(-50%)',
+  };
+}
+
+/**
+ * Return the center point of a screenshot selection.
+ *
+ * @param selection - The active screenshot selection
+ * @returns The viewport point at the center of the selection
+ */
+function getSelectionCenter(selection: ScreenshotRect): { x: number; y: number } {
+  return {
+    x: selection.left + selection.width / 2,
+    y: selection.top + selection.height / 2,
+  };
+}
+
+/**
+ * Check whether a scroll event target represents the document-level scroll surface.
+ *
+ * @param target - The scroll event target
+ * @returns True when the target is the window or document scrolling surface
+ */
+function isRootScrollTarget(target: EventTarget | null): boolean {
+  return (
+    target === document ||
+    target === window ||
+    target === document.documentElement ||
+    target instanceof Window ||
+    target === document.body
   );
 }
 
@@ -202,22 +238,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
     startLongMode,
     stopLongModeQueue,
   } = useLongScreenshotSession({ onCaptureVisibleTab: captureVisibleTabForLongMode });
-  const controlsStyle = useMemo(() => {
-    const controlsHeight = 36;
-    const topOffset = 10;
-    const belowTop = selection.top + selection.height + topOffset;
-    const aboveTop = selection.top - controlsHeight - topOffset;
-    const top = belowTop <= window.innerHeight - 44
-      ? belowTop
-      : Math.max(8, aboveTop);
-    const left = selection.left + selection.width / 2;
-
-    return {
-      left: `${left}px`,
-      top: `${top}px`,
-      transform: 'translateX(-50%)',
-    };
-  }, [selection]);
+  const controlsStyle = useMemo(() => buildControlsStyle(selection, window.innerHeight), [selection]);
 
   /**
    * Return the shadow host used to mount the content app, so hit testing can skip it.
@@ -264,7 +285,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
         return;
       }
 
-      if (!isPointInsideSelection(selection, event.clientX, event.clientY)) {
+      if (!isInsideSelection(event.clientX, event.clientY, selection)) {
         return;
       }
 
@@ -292,13 +313,7 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
 
       const scrollTarget = event.target;
 
-      if (
-        scrollTarget === document ||
-        scrollTarget === window ||
-        scrollTarget === document.documentElement ||
-        scrollTarget instanceof Window ||
-        scrollTarget === document.body
-      ) {
+      if (isRootScrollTarget(scrollTarget)) {
         queueWheelCapture(selection);
         return;
       }
@@ -472,13 +487,11 @@ export function ScreenshotOverlay({ onCaptureVisibleTab, onComplete, onCancel }:
               return;
             }
 
+            const center = getSelectionCenter(selection);
+
             startLongMode(
               selection,
-              resolveScreenshotScrollTargetAtPoint(
-                selection.left + selection.width / 2,
-                selection.top + selection.height / 2,
-                getIgnoredHitTestElements(),
-              ),
+              resolveScreenshotScrollTargetAtPoint(center.x, center.y, getIgnoredHitTestElements()),
             );
           }}
         >

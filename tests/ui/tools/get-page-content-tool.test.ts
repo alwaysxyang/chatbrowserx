@@ -2,6 +2,21 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { readCurrentPageContent, registerGetPageContentToolListener } from '../../../src/ui/tools/get-page-content-tool';
 import * as contentReader from '../../../src/ui/tools/page-content/content-reader';
 
+/**
+ * Creates the window surface used by page content scanning without invoking jsdom's unimplemented scroll methods.
+ *
+ * @returns A minimal window mock for content reader tests.
+ */
+function createPageContentWindowMock(): Window {
+  return {
+    getComputedStyle: window.getComputedStyle.bind(window),
+    innerHeight: window.innerHeight,
+    scrollBy: vi.fn(),
+    scrollTo: vi.fn(),
+    scrollY: 0,
+  } as unknown as Window;
+}
+
 describe('ui get page content tool', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -17,7 +32,7 @@ describe('ui get page content tool', () => {
     const pageContent = await readCurrentPageContent(
       documentObject,
       { href: 'https://example.com/page' } as Location,
-      { scrollTo: vi.fn() } as unknown as Window,
+      createPageContentWindowMock(),
     );
 
     expect(pageContent).toEqual({
@@ -34,7 +49,7 @@ describe('ui get page content tool', () => {
     const pageContent = await readCurrentPageContent(
       documentObject,
       { href: 'https://example.com/page' } as Location,
-      { scrollTo: vi.fn() } as unknown as Window,
+      createPageContentWindowMock(),
     );
 
     expect(readPageContentSpy).toHaveBeenCalledWith(documentObject, expect.anything());
@@ -42,7 +57,7 @@ describe('ui get page content tool', () => {
   });
 
   it('registers a listener that responds with page content payload', async () => {
-    const addListenerMock = chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>;
+    const addListenerMock = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock();
     const readPageContentSpy = vi.spyOn(contentReader, 'readPageContent').mockResolvedValue('Page body');
 
     document.title = 'Current page';

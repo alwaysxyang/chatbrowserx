@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VolcengineProvider } from '../../../../src/speech/providers/volcengine/provider';
 import type { RecognitionResult } from '../../../../src/shared/types/speech';
 
-// Mock WebSocket
+/**
+ * Test WebSocket that records outbound messages and exposes inbound event helpers.
+ */
 class MockWebSocket {
   static CONNECTING = 0;
   static OPEN = 1;
@@ -19,15 +21,12 @@ class MockWebSocket {
   private eventListeners: Map<string, Array<(e: any) => void>> = new Map();
 
   constructor(public url: string) {
-    // Simulate connection opening asynchronously
     setTimeout(() => {
       this.readyState = MockWebSocket.OPEN;
       const event = new Event('open');
 
-      // Trigger onopen handler
       this.onopen?.(event);
 
-      // Trigger addEventListener handlers
       const listeners = this.eventListeners.get('open') || [];
       listeners.forEach(listener => listener(event));
     }, 0);
@@ -53,13 +52,17 @@ class MockWebSocket {
     this.eventListeners.get(event)!.push(handler);
   }
 
-  // Helper to simulate receiving a message
+  /**
+   * Simulates an inbound WebSocket message from Volcengine.
+   */
   simulateMessage(data: any): void {
     const event = new MessageEvent('message', { data: JSON.stringify(data) });
     this.onmessage?.(event);
   }
 
-  // Helper to simulate an error
+  /**
+   * Simulates a WebSocket error event.
+   */
   simulateError(): void {
     const event = new Event('error');
     this.onerror?.(event);
@@ -73,14 +76,42 @@ describe('VolcengineProvider', () => {
   let mockWebSocketInstances: MockWebSocket[] = [];
   let originalWebSocket: typeof WebSocket;
 
-  beforeEach(() => {
-    // Save original WebSocket
-    originalWebSocket = global.WebSocket;
+  /**
+   * Creates a provider with the shared valid test configuration.
+   *
+   * @param options - Optional provider configuration overrides.
+   * @returns A Volcengine provider instance.
+   */
+  function createProvider(options: Partial<ConstructorParameters<typeof VolcengineProvider>[0]> = {}): VolcengineProvider {
+    return new VolcengineProvider({
+      accessKey: 'test-access-key',
+      secretKey: 'test-secret-key',
+      sourceLanguage: 'zh',
+      targetLanguages: ['en'],
+      ...options,
+    });
+  }
 
-    // Clear instances
+  /**
+   * Waits for the mock WebSocket open callback to run.
+   */
+  async function waitForMockWebSocketOpen(): Promise<void> {
+    await new Promise(resolve => setTimeout(resolve, 20));
+  }
+
+  /**
+   * Reads the first mock WebSocket created by the provider under test.
+   *
+   * @returns The created mock WebSocket instance.
+   */
+  function getMockWebSocket(): MockWebSocket {
+    return mockWebSocketInstances[0];
+  }
+
+  beforeEach(() => {
+    originalWebSocket = global.WebSocket;
     mockWebSocketInstances = [];
 
-    // Mock WebSocket constructor
     global.WebSocket = class extends MockWebSocket {
       constructor(url: string) {
         super(url);
@@ -88,7 +119,6 @@ describe('VolcengineProvider', () => {
       }
     } as any;
 
-    // Mock crypto for signature generation
     if (!global.crypto) {
       global.crypto = {
         subtle: {
@@ -101,36 +131,25 @@ describe('VolcengineProvider', () => {
   });
 
   afterEach(() => {
-    // Restore original WebSocket
     global.WebSocket = originalWebSocket;
     mockWebSocketInstances = [];
   });
 
   describe('start', () => {
     it('should establish WebSocket connection', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const provider = createProvider();
 
       const onResult = vi.fn();
       const onError = vi.fn();
 
       await provider.start(onResult, onError);
 
-      // Check that WebSocket was created
       expect(mockWebSocketInstances.length).toBe(1);
       expect(mockWebSocketInstances[0].url).toContain('wss://translate.volces.com');
     });
 
     it('should send configuration packet on connection', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
+      const provider = createProvider({
         hotWordList: [{ Word: 'test', Scale: 1.5 }],
       });
 
@@ -139,13 +158,10 @@ describe('VolcengineProvider', () => {
 
       await provider.start(onResult, onError);
 
-      // Wait for connection to open and config to be sent
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await waitForMockWebSocketOpen();
 
-      // Get the mock WebSocket instance
-      const ws = mockWebSocketInstances[0];
+      const ws = getMockWebSocket();
 
-      // Check that configuration packet was sent
       expect(ws.sentMessages.length).toBeGreaterThan(0);
       const configPacket = JSON.parse(ws.sentMessages[0]);
       expect(configPacket).toHaveProperty('Configuration');
@@ -157,12 +173,7 @@ describe('VolcengineProvider', () => {
     });
 
     it('should throw error if already started', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const provider = createProvider();
 
       const onResult = vi.fn();
       const onError = vi.fn();
@@ -177,30 +188,22 @@ describe('VolcengineProvider', () => {
 
   describe('sendAudio', () => {
     it('should send audio data as base64', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const provider = createProvider();
 
       const onResult = vi.fn();
       const onError = vi.fn();
 
       await provider.start(onResult, onError);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await waitForMockWebSocketOpen();
 
-      // Create test audio data
       const audioData = new ArrayBuffer(8);
       const view = new Uint8Array(audioData);
       view.set([1, 2, 3, 4, 5, 6, 7, 8]);
 
       provider.sendAudio(audioData);
 
-      // Get the mock WebSocket instance
-      const ws = mockWebSocketInstances[0];
+      const ws = getMockWebSocket();
 
-      // Check that audio packet was sent (after config packet)
       expect(ws.sentMessages.length).toBeGreaterThan(1);
       const audioPacket = JSON.parse(ws.sentMessages[ws.sentMessages.length - 1]);
       expect(audioPacket).toHaveProperty('AudioData');
@@ -208,68 +211,47 @@ describe('VolcengineProvider', () => {
     });
 
     it('should not send audio if not connected', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const provider = createProvider();
 
       const audioData = new ArrayBuffer(8);
 
-      // Should not throw, just log warning
       provider.sendAudio(audioData);
     });
   });
 
   describe('stop', () => {
     it('should send end packet and close connection', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const provider = createProvider();
 
       const onResult = vi.fn();
       const onError = vi.fn();
 
       await provider.start(onResult, onError);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await waitForMockWebSocketOpen();
 
       provider.stop();
 
-      // Get the mock WebSocket instance
-      const ws = mockWebSocketInstances[0];
+      const ws = getMockWebSocket();
 
-      // Check that end packet was sent
       const endPacket = JSON.parse(ws.sentMessages[ws.sentMessages.length - 1]);
       expect(endPacket).toEqual({ End: true });
 
-      // Check that connection was closed
       expect(ws.readyState).toBe(MockWebSocket.CLOSED);
     });
   });
 
   describe('message handling', () => {
     it('should process subtitle results', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const provider = createProvider();
 
       const onResult = vi.fn();
       const onError = vi.fn();
 
       await provider.start(onResult, onError);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await waitForMockWebSocketOpen();
 
-      // Get the mock WebSocket instance
-      const ws = mockWebSocketInstances[0];
+      const ws = getMockWebSocket();
 
-      // Simulate receiving a subtitle
       ws.simulateMessage({
         Subtitle: {
           Text: '你好',
@@ -281,7 +263,6 @@ describe('VolcengineProvider', () => {
         },
       });
 
-      // Check that onResult was called
       expect(onResult).toHaveBeenCalledWith({
         sourceText: '你好',
         translationText: undefined,
@@ -292,23 +273,17 @@ describe('VolcengineProvider', () => {
     });
 
     it('should handle API errors', async () => {
-      const provider = new VolcengineProvider({
-        accessKey: 'test-access-key',
-        secretKey: 'test-secret-key',
-        sourceLanguage: 'zh',
-        targetLanguages: ['en'],
-      });
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      const provider = createProvider();
 
       const onResult = vi.fn();
       const onError = vi.fn();
 
       await provider.start(onResult, onError);
-      await new Promise(resolve => setTimeout(resolve, 20));
+      await waitForMockWebSocketOpen();
 
-      // Get the mock WebSocket instance
-      const ws = mockWebSocketInstances[0];
+      const ws = getMockWebSocket();
 
-      // Simulate receiving an error
       ws.simulateMessage({
         ResponseMetadata: {
           RequestId: 'test-request-id',
@@ -319,11 +294,11 @@ describe('VolcengineProvider', () => {
         },
       });
 
-      // Check that onError was called
       expect(onError).toHaveBeenCalled();
       const error = onError.mock.calls[0][0];
       expect(error.message).toContain('InvalidParameter');
       expect(error.message).toContain('Invalid source language');
+      consoleErrorSpy.mockRestore();
     });
   });
 });

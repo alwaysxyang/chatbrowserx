@@ -1,13 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { RecognitionResult } from '../../../shared/types/speech';
-import {
-  getRuntimeResponseData,
-} from '../../../shared/types/runtime-messages';
+import { getRuntimeResponseData, type RuntimeMessage, type RuntimeResponse } from '../../../shared/types/runtime-messages';
 import {
   isSpeechResultMessage,
   isSpeechErrorMessage,
-  type SpeechRuntimeResponse,
-  type SpeechStateQueryResponse,
+  type SpeechStateQueryResponsePayload,
   speechStartRequestType,
   speechStopRequestType,
   speechStateQueryType,
@@ -31,6 +28,51 @@ const listeningSubtitleState: SubtitleState = {
   isActive: true,
 };
 
+const speechStateQueryFallbackError = 'Failed to query speech state';
+
+/**
+ * Sends a typed speech runtime request and unwraps the standard runtime response.
+ */
+async function sendSpeechRuntimeMessage<TData>(message: RuntimeMessage<string>, fallbackError: string): Promise<TData> {
+  const response = (await chrome.runtime.sendMessage(message)) as RuntimeResponse<TData>;
+
+  return getRuntimeResponseData(response, fallbackError);
+}
+
+/**
+ * Checks whether a caught runtime error came from a reloaded extension context.
+ */
+function isExtensionContextInvalidated(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('Extension context invalidated');
+}
+
+/**
+ * Alerts the user when the extension context was invalidated by a reload.
+ */
+function alertIfExtensionContextInvalidated(error: unknown): void {
+  if (isExtensionContextInvalidated(error)) {
+    alert('Extension was reloaded. Please refresh the page to continue.');
+  }
+}
+
+/**
+ * Checks whether an initial state query error can be ignored during UI hydration.
+ */
+function isIgnorableInitialQueryError(error: unknown): boolean {
+  return isExtensionContextInvalidated(error) ||
+    (error instanceof Error && error.message === speechStateQueryFallbackError);
+}
+
+/**
+ * Checks whether a speech state query payload can restore local recording state.
+ */
+function isRecordingState(data: SpeechStateQueryResponsePayload | null): data is SpeechStateQueryResponsePayload {
+  return Boolean(data?.isRecording);
+}
+
+/**
+ * Keeps subtitle UI state local while coordinating speech start/stop with background runtime messages.
+ */
 export function useSubtitleController() {
   const [subtitle, setSubtitle] = useState<SubtitleState>(emptySubtitleState);
 
@@ -42,20 +84,18 @@ export function useSubtitleController() {
   useEffect(() => {
     const queryState = async () => {
       try {
-        const response = (await chrome.runtime.sendMessage({
-          type: speechStateQueryType,
-        })) as SpeechStateQueryResponse;
+        const data = await sendSpeechRuntimeMessage<SpeechStateQueryResponsePayload | null>(
+          { type: speechStateQueryType },
+          speechStateQueryFallbackError,
+        );
 
-        const data = getRuntimeResponseData(response, 'Failed to query speech state');
-
-        if (data.isRecording) {
+        if (isRecordingState(data)) {
           // Restore listening state
           setSubtitle(listeningSubtitleState);
-          console.log('[Subtitle] Restored recording state after page refresh');
         }
       } catch (error) {
         // Silently ignore errors during initial query (extension might be reloading)
-        if (error instanceof Error && !error.message.includes('Extension context invalidated')) {
+        if (!isIgnorableInitialQueryError(error)) {
           console.error('[Subtitle] Error querying speech state:', error);
         }
       }
@@ -91,18 +131,10 @@ export function useSubtitleController() {
     setSubtitle(listeningSubtitleState);
 
     try {
-      const response = (await chrome.runtime.sendMessage({
-        type: speechStartRequestType,
-      })) as SpeechRuntimeResponse;
-
-      getRuntimeResponseData(response, 'Failed to start recognition');
+      await sendSpeechRuntimeMessage<null>({ type: speechStartRequestType }, 'Failed to start recognition');
     } catch (error) {
       console.error('[Subtitle] Error starting recognition:', error);
-
-      // Check if extension context was invalidated (extension reloaded)
-      if (error instanceof Error && error.message.includes('Extension context invalidated')) {
-        alert('Extension was reloaded. Please refresh the page to continue.');
-      }
+      alertIfExtensionContextInvalidated(error);
 
       resetSubtitle();
     }
@@ -110,18 +142,10 @@ export function useSubtitleController() {
 
   const stopRecognition = useCallback(async () => {
     try {
-      const response = (await chrome.runtime.sendMessage({
-        type: speechStopRequestType,
-      })) as SpeechRuntimeResponse;
-
-      getRuntimeResponseData(response, 'Failed to stop recognition');
+      await sendSpeechRuntimeMessage<null>({ type: speechStopRequestType }, 'Failed to stop recognition');
     } catch (error) {
       console.error('[Subtitle] Error stopping recognition:', error);
-
-      // Check if extension context was invalidated
-      if (error instanceof Error && error.message.includes('Extension context invalidated')) {
-        alert('Extension was reloaded. Please refresh the page to continue.');
-      }
+      alertIfExtensionContextInvalidated(error);
     } finally {
       resetSubtitle();
     }

@@ -7,6 +7,9 @@ import {
   type ModelSettings,
 } from '../../../shared/types/settings';
 
+type ProviderConnectionSettings = Partial<Pick<ModelSettings['openai'], 'baseUrl' | 'model'>> &
+  Partial<Pick<ModelSettings['codex'], 'baseUrl' | 'model'>>;
+
 /**
  * Switch the active chat provider while keeping the mirrored top-level model in sync.
  */
@@ -62,6 +65,18 @@ export function updateCodexSettings(
     model: settings.provider === 'codex' ? codex.model : settings.model,
     codex,
   };
+}
+
+/**
+ * Update the active provider's connection fields while preserving inactive provider settings.
+ */
+export function updateActiveProviderConnection(
+  settings: ModelSettings,
+  nextValue: ProviderConnectionSettings,
+): ModelSettings {
+  return isOpenAIProvider(settings)
+    ? updateOpenAiSettings(settings, nextValue)
+    : updateCodexSettings(settings, nextValue);
 }
 
 /**

@@ -1,10 +1,47 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { saveSettings, defaultSettings } from '../../../../src/shared/storage/settings-repository';
 import { createTavilySearchTool } from '../../../../src/llm/tools/tavily/tavily-search-tool';
 import { createTavilyExtractTool } from '../../../../src/llm/tools/tavily/tavily-extract-tool';
 import { createTavilyCrawlTool } from '../../../../src/llm/tools/tavily/tavily-crawl-tool';
 
+const originalFetch = globalThis.fetch;
+
+/**
+ * Replaces global fetch with a successful Tavily JSON response.
+ *
+ * @param body - Response body returned by the mocked request.
+ * @returns The fetch mock for request assertions.
+ */
+function mockTavilyFetch(body: unknown): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+  globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+  return fetchMock;
+}
+
+/**
+ * Saves a model settings fixture with only the Tavily key changed.
+ *
+ * @param tavilyApiKey - The Tavily key to persist for the current test.
+ */
+async function saveTavilyKey(tavilyApiKey: string): Promise<void> {
+  await saveSettings({
+    model: {
+      ...defaultSettings.model,
+      tavilyApiKey,
+    },
+  });
+}
+
 describe('Tavily tools', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   it('hides search definitions when the Tavily key is missing', async () => {
     const tool = createTavilySearchTool();
 
@@ -14,12 +51,7 @@ describe('Tavily tools', () => {
   it('shows search definitions when the Tavily key is configured', async () => {
     const tool = createTavilySearchTool();
 
-    await saveSettings({
-      model: {
-        ...defaultSettings.model,
-        tavilyApiKey: 'tvly-visible',
-      },
-    });
+    await saveTavilyKey('tvly-visible');
 
     await expect(tool.definition()).resolves.toMatchObject({
       function: {
@@ -29,37 +61,17 @@ describe('Tavily tools', () => {
   });
 
   it('reloads settings inside search invoke and sends the latest Tavily key', async () => {
-    const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          query: 'latest ai browser news',
-          answer: 'summary',
-          results: [],
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
-
-    await saveSettings({
-      model: {
-        ...defaultSettings.model,
-        tavilyApiKey: 'tvly-old',
-      },
+    const fetchMock = mockTavilyFetch({
+      query: 'latest ai browser news',
+      answer: 'summary',
+      results: [],
     });
+
+    await saveTavilyKey('tvly-old');
 
     const tool = createTavilySearchTool();
 
-    await saveSettings({
-      model: {
-        ...defaultSettings.model,
-        tavilyApiKey: 'tvly-new',
-      },
-    });
+    await saveTavilyKey('tvly-new');
 
     await expect(
       tool.invoke({
@@ -89,8 +101,6 @@ describe('Tavily tools', () => {
       include_images: false,
       include_raw_content: false,
     });
-
-    globalThis.fetch = originalFetch;
   });
 
   it('throws when Tavily search invoke runs without a configured key', async () => {
@@ -100,31 +110,16 @@ describe('Tavily tools', () => {
   });
 
   it('posts extract requests to the Tavily extract endpoint', async () => {
-    const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          results: [
-            {
-              url: 'https://example.com',
-              raw_content: 'Example content',
-            },
-          ],
-        }),
+    const fetchMock = mockTavilyFetch({
+      results: [
         {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          url: 'https://example.com',
+          raw_content: 'Example content',
         },
-      ),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
-
-    await saveSettings({
-      model: {
-        ...defaultSettings.model,
-        tavilyApiKey: 'tvly-extract',
-      },
+      ],
     });
+
+    await saveTavilyKey('tvly-extract');
 
     const tool = createTavilyExtractTool();
 
@@ -149,32 +144,15 @@ describe('Tavily tools', () => {
       format: 'text',
       include_images: false,
     });
-
-    globalThis.fetch = originalFetch;
   });
 
   it('posts crawl requests to the Tavily crawl endpoint', async () => {
-    const originalFetch = globalThis.fetch;
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          base_url: 'https://docs.example.com',
-          results: [],
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-    globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
-
-    await saveSettings({
-      model: {
-        ...defaultSettings.model,
-        tavilyApiKey: 'tvly-crawl',
-      },
+    const fetchMock = mockTavilyFetch({
+      base_url: 'https://docs.example.com',
+      results: [],
     });
+
+    await saveTavilyKey('tvly-crawl');
 
     const tool = createTavilyCrawlTool();
 
@@ -199,7 +177,5 @@ describe('Tavily tools', () => {
       format: 'markdown',
       extract_depth: 'basic',
     });
-
-    globalThis.fetch = originalFetch;
   });
 });

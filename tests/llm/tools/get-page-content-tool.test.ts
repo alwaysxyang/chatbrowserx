@@ -15,8 +15,8 @@ describe('get page content tool', () => {
   });
 
   it('queries the active tab and requests page content inside invoke', async () => {
-    const tabsQueryMock = chrome.tabs.query as unknown as ReturnType<typeof vi.fn>;
-    const tabsSendMessageMock = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const tabsQueryMock = globalThis.__chromeTestUtils.getTabsQueryMock();
+    const tabsSendMessageMock = globalThis.__chromeTestUtils.getTabsSendMessageMock();
 
     tabsQueryMock.mockResolvedValue([{ id: 9 }]);
     tabsSendMessageMock.mockResolvedValue({

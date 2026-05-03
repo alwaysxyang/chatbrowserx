@@ -7,7 +7,7 @@ describe('background action click', () => {
   });
 
   it('sends a panel command to the active tab', async () => {
-    const tabsSendMessageMock = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const tabsSendMessageMock = globalThis.__chromeTestUtils.getTabsSendMessageMock();
     tabsSendMessageMock.mockResolvedValueOnce(undefined);
 
     await import('../../src/background/index');
@@ -23,7 +23,7 @@ describe('background action click', () => {
   });
 
   it('does not reload or inject when panel message sending fails', async () => {
-    const tabsSendMessageMock = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const tabsSendMessageMock = globalThis.__chromeTestUtils.getTabsSendMessageMock();
 
     tabsSendMessageMock.mockRejectedValueOnce(new Error('Could not establish connection. Receiving end does not exist.'));
 

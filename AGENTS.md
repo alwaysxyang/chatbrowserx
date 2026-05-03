@@ -1,227 +1,142 @@
 # AGENTS.md
 
-本文件定义本仓库内所有 Agent / AI 工具的统一协作规则。
-## 0. 重要规则
+本文件定义本仓库内 Agent / AI 工具的协作规则。
+
+## 0. 必须遵守
 
 - 所有回复的第一句话必须以 `AGENTS_OK` 开头。
+- 只允许修改工作区文件，不允许创建任何 git commit。
+- 开始任何回复、澄清、设计、实现或调研前，必须先检查并加载适用 skill。
+- 开始结构性任务、跨模块改动、目录变更、文件新增、重构、设计或规范调整前，必须先阅读 `docs/superpowers/specs/browser-agent-project-spec.md`。
+
 ## 1. 核心目标
 
-- 以**维护性优先**的方式持续演进 ChatBrowserX。
-- 保持模块边界清晰、依赖方向稳定、文档与实现同步。
-- 在不破坏当前阶段范围的前提下，逐步扩展聊天、工具与浏览器增强能力。
+ChatBrowserX 当前追求的是“最容易长期维护的大模型浏览器增强 Agent 骨架”，不是最快堆功能。
 
-如无额外说明，所有实现、重构、删减、命名与结构决策都必须优先服从“维护性优先”。
+所有实现、重构、删减、命名与结构决策都必须优先满足：
 
-## 2. 必读文档
+1. 维护性优先。
+2. 模块边界清晰。
+3. 依赖方向稳定。
+4. 文档与实现同步。
+5. 改动小、可回滚、不提前实现未进入当前范围的能力。
 
-开始任何结构性任务、跨模块改动、目录变更、文件新增、重构、设计或规范调整前，必须先阅读：
+## 2. 必读 spec
 
-- `docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md`
+主 spec：
 
-如果任务明显属于某个子领域，还必须继续阅读对应 feature spec，例如：
+- `docs/superpowers/specs/browser-agent-project-spec.md`
 
-- speech 相关：`docs/superpowers/specs/2026-04-10-realtime-voice-feature-design.md`
-- Tavily 工具相关：`docs/superpowers/specs/2026-04-12-tavily-tools-design.md`
-- 打印/保存为 PDF 相关：`docs/superpowers/specs/2026-04-17-pdf-capture-folder-spec.md`
-- Volcengine speech provider 相关：`docs/superpowers/specs/2026-04-17-volcengine-speech-provider-folder-spec.md`
-- 页面选中文本气泡相关：`docs/superpowers/specs/2026-04-22-selection-bubble-translate-askai-design.md`
-- background LLM 编排相关：`docs/superpowers/specs/2026-04-22-background-llm-folder-spec.md`
+子领域 spec：
 
-并且在执行任何回复、澄清、设计、实现、调研之前，必须先检查并加载适用 skill；禁止跳过 skill 检查直接开始分析、提问或实现。
+- LLM / Tavily / 页面工具：`docs/superpowers/specs/llm-tools-spec.md`
+- Speech / Volcengine：`docs/superpowers/specs/speech-feature-spec.md`
+- 页面选中文本气泡：`docs/superpowers/specs/selection-bubble-feature-spec.md`
 
-## 3. Spec 体系与优先级
+如果任务涉及某个子领域，必须同时阅读主 spec 与对应子领域 spec。
 
-### 3.1 文档类型
+## 3. Spec 优先级
 
-- **主 spec**：定义一级目录结构、模块职责、依赖方向、当前阶段范围和全局约束。
-- **feature spec / folder spec**：补充某一能力、某一文件夹或某一子模块的进一步说明。
-- **归档文档**：只保留历史背景或阶段记录，不对当前实现产生直接约束。
+当文档与代码冲突时，默认按以下顺序处理：
 
-### 3.2 优先级
+1. 当前代码真实实现。
+2. 主 spec。
+3. 对应 feature / folder spec。
 
-当文档与代码发生冲突时，默认按以下顺序处理：
+如果确认当前代码是正确方向，必须在同一轮改动中把相关 spec 更新到一致状态。
 
-1. 当前代码真实实现
-2. 主 spec
-3. 对应 feature spec / folder spec
-4. 归档文档
+## 4. Spec 同步硬规则
 
-如果确认当前代码是正确方向，则必须在同一轮改动中把相关 spec 更新到一致状态，不允许保留过期描述。
+以下变化必须同步更新 spec：
 
-### 3.3 文档组织规则
+- 一级目录结构变化。
+- 文件夹新增、删除、移动、合并。
+- 模块职责或关键文件职责变化。
+- 命名规范变化。
+- 当前阶段范围变化。
+- 消息协议变化。
+- 设置结构变化。
+- 运行链路变化。
+- AI 协作边界变化。
 
-- `docs/superpowers/specs/2026-04-04-browser-agent-project-spec.md` 是本仓库唯一主 spec。
-- 不同文件夹可以拥有自己的 spec，但这些 spec 必须：
-  - 由主 spec 或更高层 spec 明确引用；
-  - 明确说明该文件夹的目标、职责边界、依赖方向、关键文件；
-  - 不能覆盖主 spec 对一级目录和跨模块边界的约束。
-- 如果某个 feature / folder spec 同时包含“当前实现”和“未来设计”，必须显式拆分为：
-  - `当前实现`
-  - `未来设计`
-  不允许把未来方案写成已落地事实。
+如果代码已经改变，而 spec 仍停留在旧状态，则任务不能视为完成。
 
-## 4. 目录与文件变更规则
+## 5. 目录归属
 
-### 4.1 新增文件夹
+- 用户可见界面：`src/ui`
+- 插件主 UI 壳、侧边栏、聊天、设置、字幕入口：`src/ui/content`
+- 面向宿主网页的 selection、viewport、DOM 事件与页面级浮层：`src/ui/page`
+- 多个 UI 子域复用的纯展示组件与样式：`src/ui/shared`
+- 需要 content script / DOM 能力的工具执行逻辑：`src/ui/tools`
+- Chrome 后台任务、消息路由、调度：`src/background`
+- LLM provider、stream、service、tool 协议：`src/llm`
+- 语音 provider lifecycle 与 service：`src/speech`
+- 跨层共享类型、存储、i18n、无业务偏向基础能力：`src/shared`
 
-只要新增任何文件夹，无论大小，都**必须**在同一轮改动中更新 spec。至少要补充：
-
-- 该文件夹的含义
-- 该文件夹的职责边界
-- 它可以依赖什么、不能依赖什么
-- 它与相邻目录的关系
-
-如果该文件夹已经承载独立子域、包含多个文件、或预计会继续扩展，则还必须补充或新增对应的 folder spec，并在主 spec 中建立引用。
-
-### 4.2 新增文件
-
-新增文件时，必须先判断该文件是否需要进入 spec：
-
-- 如果文件承担独立职责、对外提供接口、参与关键运行链路、承载配置/协议/状态模型、或会成为该目录的重要组成部分，则必须在对应 spec 中补充说明。
-- 如果文件只是纯样式、极小型局部辅助文件、或完全自解释且不影响边界判断，则可不单独入 spec，但其所在文件夹的职责说明仍需完整。
-
-### 4.3 删除或移动
-
-- 删除文件夹、移动文件夹、合并文件夹、改变文件归属时，必须同步更新主 spec 与相关 feature spec / folder spec。
-- 如果 spec 仍引用已删除路径、旧职责或旧运行链路，则任务不能视为完成。
-
-## 5. 目录归属判断规则
-
-新增代码前，先判断归属：
-
-- 用户可见界面 → `src/ui`
-- 插件注入页面后的主 UI 壳、侧边栏、聊天、设置、字幕入口 → `src/ui/content`
-- 面向宿主网页的用户操作增强、页面级浮层、selection/viewport/DOM 事件交互 → `src/ui/page`
-- 多个 UI 子域复用的纯展示组件与样式 → `src/ui/shared`
-- Chrome 后台任务、消息路由、调度 → `src/background`
-- LLM provider、stream、tool 协议 → `src/llm`
-- 语音 provider lifecycle 占位服务 → `src/speech`
-- 跨层共享类型、存储、i18n、浏览器无业务偏向能力 → `src/shared`
-
-如果一个模块同时像 `ui` 又像 `background`，或同时像 `shared` 又像业务层，说明职责拆分还不够，应继续拆分。
+如果一个模块同时像 `ui` 又像 `background`，或同时像 `shared` 又像业务层，应继续拆分职责。
 
 ## 6. 当前硬性边界
 
 - `ui` 不直接依赖 provider 实现。
 - `ui` 不直接承担 LLM 编排、tool loop 或后台长流程。
 - `background` 不直接书写 JSX。
-- `llm/providers` 与 `llm/services` 不直接依赖 Chrome API；`llm/tools` 若需要 tab 能力可使用 Chrome API，但不得依赖 DOM 能力（DOM 读取与滚动必须留在 `ui/tools`）。
+- `llm/providers` 与 `llm/services` 不直接依赖 Chrome API。
+- `llm/tools` 可使用 tab/message 能力，但不得依赖 DOM；DOM 读取、滚动、点击、输入必须留在 `ui/tools`。
 - `speech` 不直接承载 content UI 状态。
 - `shared` 不放具体业务编排逻辑。
 - `ui/page` 不放插件侧边栏、设置、聊天等插件主内容 UI。
-- `ui/shared` 只放可复用展示组件与样式，不放 runtime message、provider 编排、DOM tool 执行或业务长流程。
+- `ui/shared` 只放可复用展示组件与样式。
 - `index.ts` 仅用于入口装配或导出聚合，不承载主要业务逻辑。
 
 ## 7. 当前阶段范围
 
-### 7.1 当前阶段保留内容
+当前阶段保留内容以 `docs/superpowers/specs/browser-agent-project-spec.md` 为准，主要包括：
 
-- 基础聊天能力
-- 最小设置能力（model / general / voice）
-- provider 抽象
-- 聊天输入中的图片能力（截图、选区截图、选区长截图、剪贴板图片）
-- 页面选中文本气泡能力（Translate / Ask AI、结果面板、Markdown 展示；Ask AI 使用已拼入 prompt 的页面文本，不额外调用页面内容读取工具）
-- `llm/tools` 的接口边界与当前阶段允许的工具：
-  - 当前页面内容读取工具：`get_current_page_content`
-  - 基于 Tavily 的最小网页搜索工具：`tavily_search`、`tavily_extract`、`tavily_crawl`
-- 最小语音骨架（语音按钮、字幕 overlay、background 语音编排、tab 音频采集链路、最小 speech provider 接入）
-- 基于页面滚动 + 截图拼接的“打印/保存为 PDF”能力（仅用于用户主动触发的页面留存，不扩展为 PDF 解析或通用滚动捕获框架）
+- 基础聊天、最小设置、provider 抽象。
+- 聊天输入图片能力。
+- 页面选中文本气泡。
+- 当前允许的 LLM / Tavily / 页面工具。
+- 最小 speech 骨架与 `volcengine` 最小接入。
+- 用户主动触发的打印/保存为 PDF。
 
-### 7.2 当前阶段明确不做内容
+当前阶段明确不做：
 
-- 完整的语音识别 / 同声传译产品化能力（复杂历史持久化、多场景复用、VAD、自动重连、错误码体系、结果复盘导出等）
-- 独立的图片分析 / 截图分析工具
-- PDF 解析/阅读/编辑能力
-- 通用滚动捕获能力（聊天输入中的选区长截图与“打印/保存为 PDF”链路除外）
-- 网络录制 / 页面流量分析
-- 除 `get_current_page_content` 与 Tavily 工具之外的其他具体工具实现
+- 完整语音识别 / 同声传译产品化能力。
+- 独立图片分析 / 截图分析工具。
+- PDF 解析/阅读/编辑能力。
+- 通用滚动捕获框架。
+- 网络录制 / 页面流量分析。
+- 当前 spec 未列出的新具体工具。
 
-如果任务要求恢复或新增上述能力，必须先确认其在主 spec 中的归属与边界；必要时先更新 spec，再改代码。
+## 8. 命名与注释
 
-## 8. 命名与注释规则
+- 目录名使用 `kebab-case`。
+- React 组件文件使用 `PascalCase.tsx`。
+- 非组件文件使用 `kebab-case.ts`。
+- 组件名使用 `PascalCase`。
+- 普通函数使用 `camelCase`。
+- Hook 使用 `useXxx`。
+- 职责型文件优先使用显式后缀，例如 `*-provider.ts`、`*-orchestrator.ts`、`*-repository.ts`。
+- 禁止引入 `utils2.ts`、`commonService.ts`、`temp.ts`、`AppHelpers.ts` 这类模糊命名。
+- 所有函数必须有英文 JSDoc 注释。
+- 注释应描述职责、行为和边界，不逐行翻译实现。
+- 修改函数行为时必须同步更新注释。
 
-### 8.1 命名规则
+## 9. 文档书写
 
-- 目录名使用 `kebab-case`
-- React 组件文件使用 `PascalCase.tsx`
-- 非组件文件使用 `kebab-case.ts`
-- 组件名使用 `PascalCase`
-- 普通函数使用 `camelCase`
-- Hook 使用 `useXxx`
-- 职责型文件优先使用显式后缀，例如 `*-provider.ts`、`*-orchestrator.ts`、`*-repository.ts`
-
-不要引入模糊命名，例如：
-
-- `utils2.ts`
-- `commonService.ts`
-- `temp.ts`
-- `AppHelpers.ts`
-
-### 8.2 函数注释规则
-
-- 默认要求：**所有函数必须有英文注释**，优先使用 JSDoc 风格块注释。
-- 导出函数必须写注释；非导出但承担明确职责、包含副作用、边界处理或不够直观的内部函数，也必须写注释。
-- 注释应描述函数的职责、行为和边界，不要逐行翻译实现，也不要写空话。
-- 参数或返回值不够直观时，补充 `@param` 与 `@returns`。
-- 修改函数行为时，必须同步更新注释，禁止保留过期注释。
-- 函数注释统一使用英文；规范文本仍使用中文。
-
-## 9. 文档书写规范
-
-所有 spec 与规则文档必须满足以下要求：
-
-- 规范性描述统一使用**简体中文**。
-- 代码标识符、路径、类型名、函数名、消息名使用英文并加反引号。
-- 文档必须显式标注自身类型，例如“主 spec / feature spec / folder spec / 归档文档”。
-- 文档必须显式标注适用范围与约束级别。
-- 文档必须避免中英混杂的自然语言叙述；英文只用于代码元素、固定术语或必须保留的协议名。
-- 文档必须区分“当前实现”与“未来设计”；不能把未来设计写成当前事实。
-- 文档中的目录树、运行链路、字段结构、消息协议、职责边界必须能映射到当前代码。
+- 规范性描述使用简体中文。
+- 代码标识符、路径、类型名、消息名使用英文并加反引号。
+- 文档必须标注自身类型、适用范围与约束级别。
+- 文档必须区分“当前实现”和“未来设计”。
+- 文档中的目录树、运行链路、字段结构、消息协议、职责边界必须映射到当前代码。
+- 不再保留只记录历史的 plan 或归档 spec；无当前约束价值的文档应删除或并入有效 spec。
 
 ## 10. 变更原则
 
 - 先确认边界，再写实现。
 - 先删废弃调用链，再删旧实现。
-- 不要为了省事把逻辑塞回超级文件。
-- 若文件已经承担多种职责，应优先拆分。
-- 不要把“暂时没地方放”的代码扔进 `shared`。
-- 在满足需求的前提下，优先采用**最小可行改动**，避免一次性大范围重构或大面积改写。
-- 永远不要仅因为测试失败而修改生产 / 主逻辑；应先确认是测试过期还是需求改变。
-- 如确需进行大范围改动（涉及多文件、多模块或核心流程重构），必须先给出设计或规划，再开始实现。
-- 只允许修改工作区文件，不允许创建任何 git commit。
-
-## 11. Spec 同步硬规则
-
-当以下内容发生变化时，必须同步更新 spec：
-
-- 一级目录结构变化
-- 文件夹新增、删除、移动、合并
-- 模块职责变化
-- 关键文件职责变化
-- 命名规范变化
-- 当前阶段保留范围变化
-- 消息协议变化
-- 设置结构变化
-- 运行链路变化
-- AI 协作边界变化
-
-此外：
-
-- 每次完成一项功能开发、结构调整、目录改造或较大的交互改动后，Agent 必须主动检查本轮改动是否影响目录职责、依赖边界、运行链路、对外行为、配置模型或协作约定。
-- 如果代码实现已经改变，而 spec 仍停留在旧状态，则该任务**不能视为完成**。
-- “后续再补 spec”不是允许的默认做法；spec 同步属于本轮交付的一部分。
-
-## 12. 决策默认值
-
-若任务描述不完整，默认按以下顺序决策：
-
-1. 选择更容易维护的方案。
-2. 选择边界更清晰的方案。
-3. 选择更小、更可回滚的改动。
-4. 不提前实现未进入当前范围的能力。
-
-## 13. 给未来 Agent 的一句话
-
-这个项目当前不是在追求“最快堆出最多功能”，而是在追求“最容易长期维护的大模型浏览器增强 Agent 骨架”。
-
-如果某项实现会让项目重新回到“大文件混合 UI / background / LLM / speech / tools”的状态，那它大概率就是错误方向。
+- 不要把逻辑塞回超级文件。
+- 不要把“暂时没地方放”的代码放进 `shared`。
+- 不要仅因为测试失败而修改主逻辑；先确认是测试过期还是需求改变。
+- 大范围改动必须先给出设计或规划，再开始实现。
+- 不允许 revert 用户或其他工具已经做出的无关改动。

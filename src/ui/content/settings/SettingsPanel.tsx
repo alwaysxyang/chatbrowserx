@@ -6,16 +6,28 @@ import { ChatSettingsForm } from './ChatSettingsForm';
 import { GeneralSettingsForm } from './GeneralSettingsForm';
 import { VoiceSettingsForm } from './VoiceSettingsForm';
 
+const settingsTabs = [
+  { id: 'model', labelKey: 'settings.tabs.model' },
+  { id: 'voice', labelKey: 'settings.tabs.voice' },
+  { id: 'general', labelKey: 'settings.tabs.general' },
+] as const;
+
+type SettingsTab = (typeof settingsTabs)[number]['id'];
+
 interface SettingsPanelProps {
   onUiLanguageChange?: (next: UiLanguage) => void;
 }
 
+/**
+ * Render the extension settings page and persist edited settings.
+ */
 export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
   const [settings, setSettings] = useState<Settings>(defaultSettings);
   const [isSaving, setIsSaving] = useState(false);
   const hasUserInteractedRef = useRef(false);
-  const [activeTab, setActiveTab] = useState<'model' | 'general' | 'voice'>('model');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('model');
   const [saveToast, setSaveToast] = useState<string | null>(null);
+  const saveActionLabel = isSaving ? translateMessage('settings.actions.saving') : translateMessage('settings.actions.save');
 
   useEffect(() => {
     loadSettings().then((storedSettings) => {
@@ -70,27 +82,16 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
   return (
     <section className="settings-page">
       <nav aria-label={translateMessage('settings.tabs.navLabel')} className="settings-tabs">
-        <button
-          className={`settings-tab ${activeTab === 'model' ? 'settings-tab-active' : ''}`}
-          type="button"
-          onClick={() => setActiveTab('model')}
-        >
-          {translateMessage('settings.tabs.model')}
-        </button>
-        <button
-          className={`settings-tab ${activeTab === 'voice' ? 'settings-tab-active' : ''}`}
-          type="button"
-          onClick={() => setActiveTab('voice')}
-        >
-          {translateMessage('settings.tabs.voice')}
-        </button>
-        <button
-          className={`settings-tab ${activeTab === 'general' ? 'settings-tab-active' : ''}`}
-          type="button"
-          onClick={() => setActiveTab('general')}
-        >
-          {translateMessage('settings.tabs.general')}
-        </button>
+        {settingsTabs.map((tab) => (
+          <button
+            key={tab.id}
+            className={`settings-tab ${activeTab === tab.id ? 'settings-tab-active' : ''}`}
+            type="button"
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {translateMessage(tab.labelKey)}
+          </button>
+        ))}
       </nav>
 
       {saveToast ? (
@@ -130,12 +131,12 @@ export function SettingsPanel({ onUiLanguageChange }: SettingsPanelProps) {
       <footer className="settings-footer">
         <button
           className="primary-button"
-          data-tooltip={isSaving ? translateMessage('settings.actions.saving') : translateMessage('settings.actions.save')}
+          data-tooltip={saveActionLabel}
           disabled={isSaving}
           type="button"
           onClick={handleSave}
         >
-          {isSaving ? translateMessage('settings.actions.saving') : translateMessage('settings.actions.save')}
+          {saveActionLabel}
         </button>
         <button
           className="secondary-button"

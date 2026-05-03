@@ -1,9 +1,13 @@
+export const CHAT_PROVIDER_OPTIONS = ['openai', 'codex'] as const;
+
 /**
  * Supported chat provider identifiers.
  * - 'openai': OpenAI-compatible API providers
  * - 'codex': Codex-specific API providers
  */
-export type ChatProviderId = 'openai' | 'codex';
+export type ChatProviderId = (typeof CHAT_PROVIDER_OPTIONS)[number];
+
+export const UI_LANGUAGE_OPTIONS = ['system', 'zh', 'en', 'ja'] as const;
 
 /**
  * UI language options.
@@ -12,14 +16,14 @@ export type ChatProviderId = 'openai' | 'codex';
  * - 'en': English
  * - 'ja': Japanese
  */
-export type UiLanguage = 'system' | 'zh' | 'en' | 'ja';
+export type UiLanguage = (typeof UI_LANGUAGE_OPTIONS)[number];
+
+export const CODEX_REASONING_EFFORT_OPTIONS = ['medium', 'high', 'low', 'xhigh'] as const;
 
 /**
  * Supported Codex reasoning effort options.
  */
-export type CodexReasoningEffort = 'medium' | 'high' | 'low' | 'xhigh';
-
-export const CODEX_REASONING_EFFORT_OPTIONS: CodexReasoningEffort[] = ['medium', 'high', 'low', 'xhigh'];
+export type CodexReasoningEffort = (typeof CODEX_REASONING_EFFORT_OPTIONS)[number];
 
 /**
  * OpenAI provider-specific configuration.
@@ -81,10 +85,14 @@ export interface GeneralSettings {
   uiLanguage: UiLanguage;
 }
 
-export type SpeechProviderId = 'volcengine';
+export const SPEECH_PROVIDER_OPTIONS = ['volcengine'] as const;
+export const SOURCE_LANGUAGE_OPTIONS = ['auto', 'zh', 'en', 'ja'] as const;
+export const TARGET_LANGUAGE_OPTIONS = ['none', 'zh', 'en', 'ja'] as const;
 
-export type SourceLanguage = 'auto' | 'zh' | 'en' | 'ja';
-export type TargetLanguage = 'none' | 'zh' | 'en' | 'ja';
+export type SpeechProviderId = (typeof SPEECH_PROVIDER_OPTIONS)[number];
+
+export type SourceLanguage = (typeof SOURCE_LANGUAGE_OPTIONS)[number];
+export type TargetLanguage = (typeof TARGET_LANGUAGE_OPTIONS)[number];
 
 export interface VolcengineSettings {
   accessKeyId: string;

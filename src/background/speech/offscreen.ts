@@ -1,33 +1,10 @@
 /**
  * Offscreen document for audio capture.
  * Handles getUserMedia calls that cannot be made in service worker context.
- * 需要保持足够轻量，因为是单独渲染，所以风格会跟项目其他地方有不一致
+ * Keep this file lightweight because it runs in a separate offscreen document.
  */
 
-export interface AudioCaptureConfig {
-  sampleRate?: number;
-  format?: 'pcm-int16' | 'pcm-float32' | 'webm';
-  chunkInterval?: number;
-}
-
-export const defaultAudioCaptureConfig: AudioCaptureConfig = {
-  sampleRate: 16000,
-  format: 'webm',
-  chunkInterval: 250,
-};
-
-/**
- * Normalizes audio capture configuration by applying defaults
- */
-export function normalizeAudioCaptureConfig(
-    config?: AudioCaptureConfig,
-): AudioCaptureConfig {
-  return {
-    sampleRate: config?.sampleRate ?? defaultAudioCaptureConfig.sampleRate,
-    format: config?.format ?? defaultAudioCaptureConfig.format,
-    chunkInterval: config?.chunkInterval ?? defaultAudioCaptureConfig.chunkInterval,
-  };
-}
+import { normalizeAudioCaptureConfig, type AudioCaptureConfig } from './audio-config';
 
 interface StartCaptureMessage {
   type: 'start-capture';
@@ -50,30 +27,41 @@ interface CaptureSession {
   workletNode?: AudioWorkletNode;
   recorder?: MediaRecorder;
   config: AudioCaptureConfig;
-  port?: chrome.runtime.Port; // Long-lived connection for audio data
+  port?: chrome.runtime.Port;
 }
 
-// Support multiple tabs simultaneously
 const sessions = new Map<number, CaptureSession>();
+
+interface ChromeTabAudioConstraints extends MediaTrackConstraints {
+  mandatory: {
+    chromeMediaSource: 'tab';
+    chromeMediaSourceId: string;
+  };
+}
 
 /**
  * Starts capturing audio using the provided stream ID
+ *
+ * @param tabId - Tab that owns the capture session.
+ * @param streamId - Chrome tab capture stream id.
+ * @param config - Audio capture config.
  */
 async function startCapture(tabId: number, streamId: string, config: AudioCaptureConfig): Promise<void> {
   if (sessions.has(tabId)) {
     throw new Error(`Audio capture already started for tab ${tabId}`);
   }
-  config = normalizeAudioCaptureConfig(config);
+  const normalizedConfig = normalizeAudioCaptureConfig(config);
 
   const port = chrome.runtime.connect({ name: `audio-capture-${tabId}` });
+  const audioConstraints: ChromeTabAudioConstraints = {
+    mandatory: {
+      chromeMediaSource: 'tab',
+      chromeMediaSourceId: streamId,
+    },
+  };
 
   const mediaStream = await navigator.mediaDevices.getUserMedia({
-    audio: {
-      mandatory: {
-        chromeMediaSource: 'tab',
-        chromeMediaSourceId: streamId,
-      },
-    } as any,
+    audio: audioConstraints,
     video: false,
   });
 
@@ -86,7 +74,7 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
   // Connect source to destination to maintain audio playback
   sourceNode.connect(audioContext.destination);
 
-  if (config.format === 'webm') {
+  if (normalizedConfig.format === 'webm') {
     const recorder = new MediaRecorder(mediaStream, { mimeType: 'audio/webm' });
     recorder.ondataavailable = async (event: BlobEvent) => {
       if (event.data.size > 0) {
@@ -107,9 +95,9 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
       });
     };
 
-    recorder.start(config.chunkInterval);
+    recorder.start(normalizedConfig.chunkInterval);
 
-    sessions.set(tabId, { mediaStream, audioContext, sourceNode, recorder, config, port });
+    sessions.set(tabId, { mediaStream, audioContext, sourceNode, recorder, config: normalizedConfig, port });
   } else {
     await audioContext.audioWorklet.addModule(
       chrome.runtime.getURL('src/background/speech/audio-processor.js')
@@ -119,8 +107,8 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
       numberOfInputs: 1,
       numberOfOutputs: 0,
       processorOptions: {
-        format: config.format,
-        targetSampleRate: config.sampleRate,
+        format: normalizedConfig.format,
+        targetSampleRate: normalizedConfig.sampleRate,
       },
     });
 
@@ -143,7 +131,7 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
 
     sourceNode.connect(workletNode);
 
-    sessions.set(tabId, { mediaStream, audioContext, sourceNode, workletNode, config, port });
+    sessions.set(tabId, { mediaStream, audioContext, sourceNode, workletNode, config: normalizedConfig, port });
   }
 
   void chrome.runtime.sendMessage({
@@ -154,6 +142,8 @@ async function startCapture(tabId: number, streamId: string, config: AudioCaptur
 
 /**
  * Stops capturing audio and cleans up resources
+ *
+ * @param tabId - Tab whose capture session should stop.
  */
 function stopCapture(tabId: number): void {
   const session = sessions.get(tabId);
@@ -191,7 +181,6 @@ function stopCapture(tabId: number): void {
 
   sessions.delete(tabId);
 
-  // Notify service worker that capture stopped
   void chrome.runtime.sendMessage({
     type: 'capture-stopped',
     tabId,
@@ -216,13 +205,12 @@ chrome.runtime.onMessage.addListener((message: OffscreenMessage) => {
   }
 });
 
-// Notify background that offscreen document is ready
 if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
   try {
     chrome.runtime.sendMessage({ type: 'offscreen-ready' })?.catch(() => {
-      // Ignore error if background script is not ready yet
+      // Ignore the readiness ping when the background script is not ready yet.
     });
   } catch {
-    // Ignore error in test environment
+    // Ignore readiness ping errors in test environments.
   }
 }

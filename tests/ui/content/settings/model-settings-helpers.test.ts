@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ModelSettings } from '../../../../src/shared/types/settings';
 import {
+  updateActiveProviderConnection,
   updateCodexSettings,
   updateOpenAiSettings,
   updateSharedModelSettings,
@@ -67,5 +68,16 @@ describe('model settings helpers', () => {
     expect(result.tavilyApiKey).toBe('next-tavily-key');
     expect(result.openai).toEqual(baseSettings.openai);
     expect(result.codex).toEqual(baseSettings.codex);
+  });
+
+  it('updates connection fields for the active provider only', () => {
+    const openAiResult = updateActiveProviderConnection(baseSettings, { baseUrl: 'https://openai-next.example.com' });
+    const codexSettings = updateProvider(baseSettings, 'codex');
+    const codexResult = updateActiveProviderConnection(codexSettings, { model: 'codex-next' });
+
+    expect(openAiResult.openai.baseUrl).toBe('https://openai-next.example.com');
+    expect(openAiResult.codex).toEqual(baseSettings.codex);
+    expect(codexResult.codex.model).toBe('codex-next');
+    expect(codexResult.openai).toEqual(baseSettings.openai);
   });
 });

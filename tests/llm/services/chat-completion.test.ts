@@ -20,11 +20,81 @@ vi.mock('../../../src/llm/services/tool-call-orchestrator', async () => {
   };
 });
 
+/**
+ * Creates the shared chat completion service fixture.
+ */
+function createService(): ChatCompletionService {
+  return new ChatCompletionService({
+    settings: {
+      ...defaultSettings.model,
+      provider: 'openai',
+      model: 'gpt-test',
+      openai: {
+        ...defaultSettings.model.openai,
+        apiKey: 'key',
+        model: 'gpt-test',
+      },
+    },
+  });
+}
+
+/**
+ * Creates the page summary tool fixture with a caller-provided invoke behavior.
+ *
+ * @param invoke - The mock tool implementation.
+ * @returns A page summary tool module.
+ */
+function createPageSummaryTool(invoke: LlmToolModule['invoke']): LlmToolModule {
+  return {
+    name: () => 'get_page_summary',
+    definition: () => ({
+      type: 'function',
+      function: {
+        name: 'get_page_summary',
+        description: 'Gets the current page summary.',
+        parameters: {
+          type: 'object',
+          properties: {
+            url: { type: 'string' },
+          },
+          required: ['url'],
+        },
+      },
+    }),
+    invoke,
+  };
+}
+
+/**
+ * Routes the mocked orchestrator through the real implementation with test fixtures.
+ *
+ * @param provider - Provider fixture used by the real orchestrator.
+ * @param tools - Tool fixtures available to the orchestrator.
+ * @returns The mocked orchestrator for restoration after the test.
+ */
+async function installToolLoopFixtures(provider: ChatCompletionProvider, tools: LlmToolModule[] = []) {
+  const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
+  const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
+  const toolRegistry = createToolRegistry();
+  tools.forEach((tool) => toolRegistry.addTool(tool));
+
+  mockRunToolCallOrchestrator.mockImplementation(async (request, _options, onChunk, signal) => {
+    const actualOrchestrator = await vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
+      '../../../src/llm/services/tool-call-orchestrator',
+    );
+    return actualOrchestrator.runToolCallOrchestrator(
+      request,
+      { provider, toolRegistry },
+      onChunk,
+      signal,
+    );
+  });
+
+  return mockRunToolCallOrchestrator;
+}
+
 describe('ChatCompletionService', () => {
   it('executes requested tools and continues until it receives a final assistant reply', async () => {
-    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
-    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
-
     const provider = {
       completeChat: vi
         .fn<ChatCompletionProvider['completeChat']>()
@@ -52,53 +122,9 @@ describe('ChatCompletionService', () => {
         } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const tool = {
-      name: () => 'get_page_summary',
-      definition: () => ({
-        type: 'function',
-        function: {
-          name: 'get_page_summary',
-          description: 'Gets the current page summary.',
-          parameters: {
-            type: 'object',
-            properties: {
-              url: { type: 'string' },
-            },
-            required: ['url'],
-          },
-        },
-      }),
-      invoke: vi.fn(async ({ url }) => JSON.stringify({ url, summary: 'Testing page summary' })),
-    } satisfies LlmToolModule;
-
-    const toolRegistry = createToolRegistry();
-    toolRegistry.addTool(tool);
-
-    // Mock runToolCallOrchestrator to use our custom provider and toolRegistry
-    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
-      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
-        '../../../src/llm/services/tool-call-orchestrator',
-      );
-      return (await actualOrchestrator).runToolCallOrchestrator(
-        request,
-        { provider, toolRegistry },
-        onChunk,
-        signal,
-      );
-    });
-
-    const service = new ChatCompletionService({
-      settings: {
-        ...defaultSettings.model,
-        provider: 'openai',
-        model: 'gpt-test',
-        openai: {
-          ...defaultSettings.model.openai,
-          apiKey: 'key',
-          model: 'gpt-test',
-        },
-      },
-    });
+    const tool = createPageSummaryTool(vi.fn(async ({ url }) => JSON.stringify({ url, summary: 'Testing page summary' })));
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider, [tool]);
+    const service = createService();
 
     const reply = await service.complete(
       [{ id: '1', role: 'assistant', content: 'Old answer' }],
@@ -135,9 +161,6 @@ describe('ChatCompletionService', () => {
   });
 
   it('throws when the model requests an unregistered tool', async () => {
-    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
-    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
-
     const provider = {
       completeChat: vi.fn<ChatCompletionProvider['completeChat']>().mockResolvedValue({
         message: {
@@ -157,32 +180,8 @@ describe('ChatCompletionService', () => {
       } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const toolRegistry = createToolRegistry();
-
-    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
-      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
-        '../../../src/llm/services/tool-call-orchestrator',
-      );
-      return (await actualOrchestrator).runToolCallOrchestrator(
-        request,
-        { provider, toolRegistry },
-        onChunk,
-        signal,
-      );
-    });
-
-    const service = new ChatCompletionService({
-      settings: {
-        ...defaultSettings.model,
-        provider: 'openai',
-        model: 'gpt-test',
-        openai: {
-          ...defaultSettings.model.openai,
-          apiKey: 'key',
-          model: 'gpt-test',
-        },
-      },
-    });
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider);
+    const service = createService();
 
     await expect(service.complete([], 'Try a missing tool')).rejects.toThrow('TOOL_NOT_REGISTERED: missing_tool');
 
@@ -190,9 +189,6 @@ describe('ChatCompletionService', () => {
   });
 
   it('passes multimodal user input through the service message model', async () => {
-    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
-    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
-
     const provider = {
       completeChat: vi.fn<ChatCompletionProvider['completeChat']>().mockResolvedValue({
         message: {
@@ -202,32 +198,8 @@ describe('ChatCompletionService', () => {
       } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const toolRegistry = createToolRegistry();
-
-    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
-      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
-        '../../../src/llm/services/tool-call-orchestrator',
-      );
-      return (await actualOrchestrator).runToolCallOrchestrator(
-        request,
-        { provider, toolRegistry },
-        onChunk,
-        signal,
-      );
-    });
-
-    const service = new ChatCompletionService({
-      settings: {
-        ...defaultSettings.model,
-        provider: 'openai',
-        model: 'gpt-test',
-        openai: {
-          ...defaultSettings.model.openai,
-          apiKey: 'key',
-          model: 'gpt-test',
-        },
-      },
-    });
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider);
+    const service = createService();
 
     await service.complete(
       [
@@ -260,9 +232,6 @@ describe('ChatCompletionService', () => {
   });
 
   it('serializes non-string tool results before sending them back to the model', async () => {
-    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
-    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
-
     const provider = {
       completeChat: vi
         .fn<ChatCompletionProvider['completeChat']>()
@@ -290,52 +259,9 @@ describe('ChatCompletionService', () => {
         } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const tool = {
-      name: () => 'get_page_summary',
-      definition: () => ({
-        type: 'function',
-        function: {
-          name: 'get_page_summary',
-          description: 'Gets the current page summary.',
-          parameters: {
-            type: 'object',
-            properties: {
-              url: { type: 'string' },
-            },
-            required: ['url'],
-          },
-        },
-      }),
-      invoke: vi.fn(async ({ url }) => ({ url, summary: 'Testing page summary' })),
-    } satisfies LlmToolModule;
-
-    const toolRegistry = createToolRegistry();
-    toolRegistry.addTool(tool);
-
-    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
-      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
-        '../../../src/llm/services/tool-call-orchestrator',
-      );
-      return (await actualOrchestrator).runToolCallOrchestrator(
-        request,
-        { provider, toolRegistry },
-        onChunk,
-        signal,
-      );
-    });
-
-    const service = new ChatCompletionService({
-      settings: {
-        ...defaultSettings.model,
-        provider: 'openai',
-        model: 'gpt-test',
-        openai: {
-          ...defaultSettings.model.openai,
-          apiKey: 'key',
-          model: 'gpt-test',
-        },
-      },
-    });
+    const tool = createPageSummaryTool(vi.fn(async ({ url }) => ({ url, summary: 'Testing page summary' })));
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider, [tool]);
+    const service = createService();
 
     const reply = await service.complete([], 'Summarize the page');
 
@@ -354,9 +280,6 @@ describe('ChatCompletionService', () => {
   });
 
   it('passes tool execution errors back to the model instead of aborting the tool loop', async () => {
-    const { runToolCallOrchestrator } = await import('../../../src/llm/services/tool-call-orchestrator');
-    const mockRunToolCallOrchestrator = vi.mocked(runToolCallOrchestrator);
-
     const provider = {
       completeChat: vi
         .fn<ChatCompletionProvider['completeChat']>()
@@ -384,54 +307,11 @@ describe('ChatCompletionService', () => {
         } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const tool = {
-      name: () => 'get_page_summary',
-      definition: () => ({
-        type: 'function',
-        function: {
-          name: 'get_page_summary',
-          description: 'Gets the current page summary.',
-          parameters: {
-            type: 'object',
-            properties: {
-              url: { type: 'string' },
-            },
-            required: ['url'],
-          },
-        },
-      }),
-      invoke: vi.fn(async () => {
-        throw new Error('PAGE_SUMMARY_UNAVAILABLE');
-      }),
-    } satisfies LlmToolModule;
-
-    const toolRegistry = createToolRegistry();
-    toolRegistry.addTool(tool);
-
-    mockRunToolCallOrchestrator.mockImplementation(async (request, options, onChunk, signal) => {
-      const actualOrchestrator = vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
-        '../../../src/llm/services/tool-call-orchestrator',
-      );
-      return (await actualOrchestrator).runToolCallOrchestrator(
-        request,
-        { provider, toolRegistry },
-        onChunk,
-        signal,
-      );
-    });
-
-    const service = new ChatCompletionService({
-      settings: {
-        ...defaultSettings.model,
-        provider: 'openai',
-        model: 'gpt-test',
-        openai: {
-          ...defaultSettings.model.openai,
-          apiKey: 'key',
-          model: 'gpt-test',
-        },
-      },
-    });
+    const tool = createPageSummaryTool(vi.fn(async () => {
+      throw new Error('PAGE_SUMMARY_UNAVAILABLE');
+    }));
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider, [tool]);
+    const service = createService();
 
     const reply = await service.complete([], 'Summarize the page');
 

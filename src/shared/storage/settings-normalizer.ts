@@ -1,4 +1,10 @@
-import { isCodexReasoningEffort } from '../types/settings';
+import {
+    CHAT_PROVIDER_OPTIONS,
+    CODEX_REASONING_EFFORT_OPTIONS,
+    SOURCE_LANGUAGE_OPTIONS,
+    TARGET_LANGUAGE_OPTIONS,
+    UI_LANGUAGE_OPTIONS,
+} from '../types/settings';
 import type {
     ChatProviderId,
     CodexReasoningEffort,
@@ -7,8 +13,10 @@ import type {
     UiLanguage,
     SpeechSettings,
     SourceLanguage,
-    TargetLanguage
+    TargetLanguage,
 } from '../types/settings';
+
+type RawObject = Record<string, unknown>;
 
 export const defaultSettings: Settings = {
     model: {
@@ -43,55 +51,128 @@ export const defaultSettings: Settings = {
     },
 };
 
+/**
+ * Reads a string without trimming so credentials can preserve exact input.
+ *
+ * @param value - Unknown persisted value.
+ * @returns The string value when present.
+ */
 function readString(value: unknown): string | undefined {
     return typeof value === 'string' ? value : undefined;
 }
 
+/**
+ * Reads a non-empty string for fields where blank values should fall back.
+ *
+ * @param value - Unknown persisted value.
+ * @returns A non-empty string when present.
+ */
 function readNonEmptyString(value: unknown): string | undefined {
     return typeof value === 'string' && value.trim() ? value : undefined;
 }
 
+/**
+ * Reads a positive finite number.
+ *
+ * @param value - Unknown persisted value.
+ * @returns A positive number when present.
+ */
 function readPositiveNumber(value: unknown): number | undefined {
     return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-function resolveProvider(value: unknown): ChatProviderId {
-    return value === 'openai' || value === 'codex' ? value : defaultSettings.model.provider;
+/**
+ * Reads an object-like value as a generic record.
+ *
+ * @param value - Unknown persisted value.
+ * @returns A record when the value is a plain object.
+ */
+function readObject(value: unknown): RawObject | undefined {
+    return value && typeof value === 'object' && !Array.isArray(value) ? value as RawObject : undefined;
 }
 
-function resolveCodexEffort(value: unknown): CodexReasoningEffort {
-    return isCodexReasoningEffort(value) ? value : defaultSettings.model.codex.effort;
+/**
+ * Reads a nested object from a record.
+ *
+ * @param source - The source record.
+ * @param key - The object field to read.
+ * @returns A nested record when present.
+ */
+function readNestedObject(source: RawObject, key: string): RawObject {
+    return readObject(source[key]) ?? {};
 }
 
-function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
-    const model = raw ?? {};
-    const provider = resolveProvider(model.provider);
+/**
+ * Reads a string enum value with a fallback.
+ *
+ * @param value - Unknown persisted value.
+ * @param options - Allowed string values.
+ * @param fallback - Fallback value.
+ * @returns The persisted enum value or the fallback.
+ */
+function readEnum<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
+    return typeof value === 'string' && options.includes(value as T) ? value as T : fallback;
+}
+
+/**
+ * Uses a legacy top-level provider value only when that provider is active.
+ *
+ * @param activeProvider - Persisted active provider.
+ * @param provider - Provider that owns the legacy value.
+ * @param value - Already parsed legacy value.
+ * @returns The legacy value only for the active provider.
+ */
+function readActiveProviderAlias<T>(
+    activeProvider: ChatProviderId,
+    provider: ChatProviderId,
+    value: T | undefined,
+): T | undefined {
+    return activeProvider === provider ? value : undefined;
+}
+
+/**
+ * Normalizes model settings and preserves legacy top-level provider aliases.
+ *
+ * @param raw - Unknown persisted model settings.
+ * @returns Complete model settings.
+ */
+function normalizeModelSettings(raw: unknown): ModelSettings {
+    const model = readObject(raw) ?? {};
+    const openai = readNestedObject(model, 'openai');
+    const codex = readNestedObject(model, 'codex');
+    const provider = readEnum<ChatProviderId>(model.provider, CHAT_PROVIDER_OPTIONS, defaultSettings.model.provider);
+    const legacyBaseUrl = readNonEmptyString(model.baseUrl);
+    const legacyModelName = readString(model.model);
     const openaiBaseUrl =
-        readNonEmptyString(model.openai?.baseUrl) ??
-        (provider === 'openai' ? readNonEmptyString(model.baseUrl) : undefined) ??
+        readNonEmptyString(openai.baseUrl) ??
+        readActiveProviderAlias(provider, 'openai', legacyBaseUrl) ??
         defaultSettings.model.openai.baseUrl;
     const codexBaseUrl =
-        readNonEmptyString(model.codex?.baseUrl) ??
-        (provider === 'codex' ? readNonEmptyString(model.baseUrl) : undefined) ??
+        readNonEmptyString(codex.baseUrl) ??
+        readActiveProviderAlias(provider, 'codex', legacyBaseUrl) ??
         defaultSettings.model.codex.baseUrl;
     const systemPrompt = readNonEmptyString(model.systemPrompt) ?? defaultSettings.model.systemPrompt;
     const maxHistory = readPositiveNumber(model.maxHistory) ?? defaultSettings.model.maxHistory;
     const tavilyApiKey = readString(model.tavilyApiKey) ?? defaultSettings.model.tavilyApiKey;
-    const openaiApiKey = readString(model.openai?.apiKey) ?? readString(model.apiKey) ?? defaultSettings.model.openai.apiKey;
+    const openaiApiKey = readString(openai.apiKey) ?? readString(model.apiKey) ?? defaultSettings.model.openai.apiKey;
     const openaiModelName =
-        readString(model.openai?.model) ??
-        (provider === 'openai' ? readString(model.model) : undefined) ??
+        readString(openai.model) ??
+        readActiveProviderAlias(provider, 'openai', legacyModelName) ??
         defaultSettings.model.openai.model;
     const codexAccessToken =
-        readString(model.codex?.accessToken) ??
+        readString(codex.accessToken) ??
         readString(model.accessToken) ??
-        (provider === 'codex' ? readString(model.apiKey) : undefined) ??
+        readActiveProviderAlias(provider, 'codex', readString(model.apiKey)) ??
         defaultSettings.model.codex.accessToken;
     const codexModelName =
-        readString(model.codex?.model) ??
-        (provider === 'codex' ? readString(model.model) : undefined) ??
+        readString(codex.model) ??
+        readActiveProviderAlias(provider, 'codex', legacyModelName) ??
         defaultSettings.model.codex.model;
-    const codexEffort = resolveCodexEffort(model.codex?.effort ?? model.effort);
+    const codexEffort = readEnum<CodexReasoningEffort>(
+        codex.effort ?? model.effort,
+        CODEX_REASONING_EFFORT_OPTIONS,
+        defaultSettings.model.codex.effort,
+    );
     const aliasModelName = provider === 'openai' ? openaiModelName : codexModelName;
 
     return {
@@ -114,45 +195,54 @@ function normalizeModelSettings(raw: Partial<any> | undefined): ModelSettings {
     };
 }
 
-function normalizeSpeechSettings(raw: Partial<any> | undefined): SpeechSettings {
-    const speech = raw ?? {};
-    const sourceLanguage: SourceLanguage =
-        speech.sourceLanguage === 'auto' ||
-        speech.sourceLanguage === 'zh' ||
-        speech.sourceLanguage === 'en' ||
-        speech.sourceLanguage === 'ja'
-            ? speech.sourceLanguage
-            : defaultSettings.speech.sourceLanguage;
-    const targetLanguage: TargetLanguage =
-        speech.targetLanguage === 'none' ||
-        speech.targetLanguage === 'zh' ||
-        speech.targetLanguage === 'en' ||
-        speech.targetLanguage === 'ja'
-            ? speech.targetLanguage
-            : defaultSettings.speech.targetLanguage;
+/**
+ * Normalizes speech settings for the current Volcengine-only provider scope.
+ *
+ * @param raw - Unknown persisted speech settings.
+ * @returns Complete speech settings.
+ */
+function normalizeSpeechSettings(raw: unknown): SpeechSettings {
+    const speech = readObject(raw) ?? {};
+    const volcengine = readNestedObject(speech, 'volcengine');
+    const sourceLanguage = readEnum<SourceLanguage>(
+        speech.sourceLanguage,
+        SOURCE_LANGUAGE_OPTIONS,
+        defaultSettings.speech.sourceLanguage,
+    );
+    const targetLanguage = readEnum<TargetLanguage>(
+        speech.targetLanguage,
+        TARGET_LANGUAGE_OPTIONS,
+        defaultSettings.speech.targetLanguage,
+    );
 
     return {
         provider: 'volcengine',
         sourceLanguage,
         targetLanguage,
         volcengine: {
-            accessKeyId: readString(speech.volcengine?.accessKeyId) ?? defaultSettings.speech.volcengine.accessKeyId,
-            secretAccessKey: readString(speech.volcengine?.secretAccessKey) ?? defaultSettings.speech.volcengine.secretAccessKey,
+            accessKeyId: readString(volcengine.accessKeyId) ?? defaultSettings.speech.volcengine.accessKeyId,
+            secretAccessKey: readString(volcengine.secretAccessKey) ?? defaultSettings.speech.volcengine.secretAccessKey,
         },
     };
 }
 
+/**
+ * Normalizes all persisted settings into the current complete settings shape.
+ *
+ * @param settings - Partial or missing persisted settings.
+ * @returns Complete settings with defaults and legacy aliases applied.
+ */
 export function normalizeSettings(settings: Partial<Settings> | undefined): Settings {
+    const general = readObject(settings?.general) ?? {};
+
     return {
         model: normalizeModelSettings(settings?.model),
         general: {
-            uiLanguage:
-                settings?.general?.uiLanguage === 'system' ||
-                settings?.general?.uiLanguage === 'zh' ||
-                settings?.general?.uiLanguage === 'en' ||
-                settings?.general?.uiLanguage === 'ja'
-                    ? (settings.general.uiLanguage as UiLanguage)
-                    : defaultSettings.general.uiLanguage,
+            uiLanguage: readEnum<UiLanguage>(
+                general.uiLanguage,
+                UI_LANGUAGE_OPTIONS,
+                defaultSettings.general.uiLanguage,
+            ),
         },
         speech: normalizeSpeechSettings(settings?.speech),
     };

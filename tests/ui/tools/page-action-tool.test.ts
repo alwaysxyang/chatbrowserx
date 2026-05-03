@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { executePageAction } from '../../../src/ui/tools/page-automation/action-executor';
 import { readCurrentPageInteractables } from '../../../src/ui/tools/page-automation/interactable-scanner';
 import { registerPageActionToolListener } from '../../../src/ui/tools/page-automation/runtime-listeners';
@@ -28,7 +28,36 @@ function spyElementFromPoint(documentObject: Document, element: Element): void {
   });
 }
 
+/**
+ * Sets viewport dimensions for geometry-sensitive action tests.
+ */
+function setViewportSize(width: number, height: number): void {
+  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
+}
+
+/**
+ * Replaces window.scrollBy with a mock and returns it for assertions.
+ */
+function mockWindowScrollBy(): ReturnType<typeof vi.fn> {
+  const scrollByMock = vi.fn();
+  Object.defineProperty(window, 'scrollBy', { configurable: true, value: scrollByMock });
+  return scrollByMock;
+}
+
+/**
+ * Gives an element deterministic scroll metrics in jsdom.
+ */
+function setScrollableMetrics(element: HTMLElement): void {
+  Object.defineProperty(element, 'clientHeight', { configurable: true, value: 400 });
+  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 1200 });
+  Object.defineProperty(element, 'scrollTop', { configurable: true, writable: true, value: 0 });
+}
+
 describe('page action content tool', () => {
+  beforeEach(() => {
+  });
+
   it('clicks an element by the latest interactables ref', async () => {
     document.body.innerHTML = '<button id="submit">Submit</button>';
     const button = document.getElementById('submit')!;
@@ -356,8 +385,7 @@ describe('page action content tool', () => {
         <input id="username" type="text" placeholder="请设置用户名" />
       </p>
     `;
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1728 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 861 });
+    setViewportSize(1728, 861);
     const wrapper = document.getElementById('wrapper')!;
     const hiddenInput = document.getElementById('hidden-username') as HTMLInputElement;
     const visibleInput = document.getElementById('username') as HTMLInputElement;
@@ -379,9 +407,8 @@ describe('page action content tool', () => {
   });
 
   it('scrolls the current page by direction without needing a ref', async () => {
-    const scrollByMock = vi.fn();
-    Object.defineProperty(window, 'scrollBy', { configurable: true, value: scrollByMock });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
+    const scrollByMock = mockWindowScrollBy();
+    setViewportSize(window.innerWidth, 800);
 
     await expect(executePageAction({ action: 'scroll', direction: 'down' }, document, window)).resolves.toEqual({
       ok: true,
@@ -402,13 +429,8 @@ describe('page action content tool', () => {
     document.body.innerHTML = '<main id="scroller" style="overflow-y: auto"><section id="content"></section></main>';
     const scroller = document.getElementById('scroller') as HTMLElement;
     const content = document.getElementById('content')!;
-    const windowScrollByMock = vi.fn();
-    Object.defineProperty(window, 'scrollBy', { configurable: true, value: windowScrollByMock });
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
-    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 400 });
-    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1200 });
-    Object.defineProperty(scroller, 'scrollTop', { configurable: true, writable: true, value: 0 });
+    const windowScrollByMock = mockWindowScrollBy();
+    setScrollableMetrics(scroller);
     setRect(scroller, makeRect(100, 100, 900, 400));
     setRect(content, makeRect(100, 100, 900, 1200));
     spyElementFromPoint(document, content);
@@ -433,13 +455,8 @@ describe('page action content tool', () => {
     document.body.innerHTML = '<main id="scroller" aria-label="Questions" style="overflow-y: auto"><section id="content"></section></main>';
     const scroller = document.getElementById('scroller') as HTMLElement;
     const content = document.getElementById('content')!;
-    const windowScrollByMock = vi.fn();
-    Object.defineProperty(window, 'scrollBy', { configurable: true, value: windowScrollByMock });
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
-    Object.defineProperty(scroller, 'clientHeight', { configurable: true, value: 400 });
-    Object.defineProperty(scroller, 'scrollHeight', { configurable: true, value: 1200 });
-    Object.defineProperty(scroller, 'scrollTop', { configurable: true, writable: true, value: 0 });
+    const windowScrollByMock = mockWindowScrollBy();
+    setScrollableMetrics(scroller);
     setRect(scroller, makeRect(100, 100, 900, 400));
     setRect(content, makeRect(100, 100, 900, 1200));
     spyElementFromPoint(document, content);
@@ -472,16 +489,9 @@ describe('page action content tool', () => {
     const oldContent = document.getElementById('old-content')!;
     const newScroller = document.getElementById('new-scroller') as HTMLElement;
     const newContent = document.getElementById('new-content')!;
-    const windowScrollByMock = vi.fn();
-    Object.defineProperty(window, 'scrollBy', { configurable: true, value: windowScrollByMock });
-    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1200 });
-    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 800 });
-    Object.defineProperty(oldScroller, 'clientHeight', { configurable: true, value: 400 });
-    Object.defineProperty(oldScroller, 'scrollHeight', { configurable: true, value: 1200 });
-    Object.defineProperty(oldScroller, 'scrollTop', { configurable: true, writable: true, value: 0 });
-    Object.defineProperty(newScroller, 'clientHeight', { configurable: true, value: 400 });
-    Object.defineProperty(newScroller, 'scrollHeight', { configurable: true, value: 1200 });
-    Object.defineProperty(newScroller, 'scrollTop', { configurable: true, writable: true, value: 0 });
+    const windowScrollByMock = mockWindowScrollBy();
+    setScrollableMetrics(oldScroller);
+    setScrollableMetrics(newScroller);
     setRect(oldScroller, makeRect(100, 100, 900, 400));
     setRect(oldContent, makeRect(100, 100, 900, 1200));
     setRect(newScroller, makeRect(100, 100, 900, 400));
@@ -576,7 +586,7 @@ describe('page action content tool', () => {
   });
 
   it('registers a runtime listener for page action requests', async () => {
-    const addListenerMock = chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>;
+    const addListenerMock = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock();
     Object.defineProperty(window, 'scrollBy', { configurable: true, value: vi.fn() });
     registerPageActionToolListener();
 

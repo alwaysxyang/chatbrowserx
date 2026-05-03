@@ -17,7 +17,7 @@ describe('background selection module', () => {
     const { initSelectionModule } = await import('../../../src/background/selection');
     initSelectionModule();
 
-    const listeners = (chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>).mock.calls.map((call) => call[0]);
+    const listeners = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock().mock.calls.map((call) => call[0]);
     const sender = { tab: { id: 99 } } as chrome.runtime.MessageSender;
     const sendResponse = vi.fn();
 
@@ -37,4 +37,3 @@ describe('background selection module', () => {
     expect(cancelMock).toHaveBeenCalledWith(99);
   });
 });
-

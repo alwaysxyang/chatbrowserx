@@ -1,6 +1,46 @@
-import type { AudioCaptureConfig } from './offscreen';
+import type { AudioCaptureConfig } from './audio-config';
 
 const OFFSCREEN_DOCUMENT_PATH = '/src/background/speech/offscreen.html';
+
+interface MessageWithType {
+  type?: unknown;
+}
+
+interface AudioDataMessage {
+  type: 'audio-data';
+  data: unknown;
+}
+
+interface AudioErrorMessage {
+  type: 'audio-error';
+  error?: unknown;
+}
+
+/**
+ * Checks whether an unknown runtime message has the requested type.
+ */
+function hasMessageType(message: unknown, type: string): message is MessageWithType {
+  return (
+    typeof message === 'object'
+    && message !== null
+    && 'type' in message
+    && (message as MessageWithType).type === type
+  );
+}
+
+/**
+ * Checks whether a port message contains audio byte data.
+ */
+function isAudioDataMessage(message: unknown): message is AudioDataMessage {
+  return hasMessageType(message, 'audio-data') && 'data' in message;
+}
+
+/**
+ * Checks whether a port message reports an audio capture error.
+ */
+function isAudioErrorMessage(message: unknown): message is AudioErrorMessage {
+  return hasMessageType(message, 'audio-error');
+}
 
 /**
  * Captures audio from a browser tab using Chrome's tabCapture API.
@@ -30,8 +70,8 @@ export class AudioCapture {
 
     // Wait for offscreen document to be ready
     const readyPromise = new Promise<void>((resolve) => {
-      const listener = (message: any) => {
-        if (message.type === 'offscreen-ready') {
+      const listener = (message: unknown) => {
+        if (hasMessageType(message, 'offscreen-ready')) {
           chrome.runtime.onMessage.removeListener(listener);
           resolve();
         }
@@ -97,8 +137,8 @@ export class AudioCapture {
 
     this.port = await portConnectedPromise;
 
-    this.port.onMessage.addListener((message: any) => {
-      if (message.type === 'audio-data') {
+    this.port.onMessage.addListener((message: unknown) => {
+      if (isAudioDataMessage(message)) {
         if (!message.data || !Array.isArray(message.data)) {
           console.error('[AudioCapture] Invalid data format:', message.data);
           return;
@@ -111,7 +151,7 @@ export class AudioCapture {
           return;
         }
         onAudioData(audioData);
-      } else if (message.type === 'audio-error') {
+      } else if (isAudioErrorMessage(message)) {
         console.error(`Audio capture error from offscreen:`, message.error);
         this.stop();
       }

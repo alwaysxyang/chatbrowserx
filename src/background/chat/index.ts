@@ -1,15 +1,12 @@
 import { LlmOrchestrator } from '../llm/llm-orchestrator';
 import { registerScreenshotCaptureHandler } from './screenshot-capture';
 import {
-  runtimeErrorResponse,
-  toRuntimeResponse,
-} from '../../shared/types/runtime-messages';
-import {
   chatSessionPortName,
   isChatCancelMessage,
   isChatRequestMessage,
   chatStreamChunkType,
 } from '../../shared/types/chat';
+import { getSenderTabIdOrRespond, sendAsyncRuntimeResponse } from '../runtime-message';
 
 const llmOrchestrator = new LlmOrchestrator();
 
@@ -25,13 +22,12 @@ export function initChatModule(): void {
       return undefined;
     }
 
-    const tabId = sender.tab?.id;
+    const tabId = getSenderTabIdOrRespond(sender, sendResponse);
     if (tabId == null) {
-      sendResponse(runtimeErrorResponse('No tab ID'));
       return true;
     }
 
-    void toRuntimeResponse(llmOrchestrator.complete(tabId, message.payload, (chunk) => {
+    sendAsyncRuntimeResponse(llmOrchestrator.complete(tabId, message.payload, (chunk) => {
       if (!chunk) {
         return;
       }
@@ -42,7 +38,7 @@ export function initChatModule(): void {
           payload: { content: chunk },
         })
         .catch(() => undefined);
-    })).then(sendResponse);
+    }), sendResponse);
 
     return true;
   });

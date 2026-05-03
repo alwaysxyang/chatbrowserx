@@ -14,7 +14,7 @@ describe('initSpeechModule', () => {
   it('returns a stable null payload for stop responses', async () => {
     initSpeechModule();
 
-    const listeners = (chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>).mock.calls;
+    const listeners = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock().mock.calls;
     // Find the stop listener (should be the second one)
     const stopListener = listeners[1]?.[0];
     const sendResponse = vi.fn();

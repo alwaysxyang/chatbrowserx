@@ -5,9 +5,50 @@ import { ScreenshotOverlay } from '../../../../src/ui/content/chat/ScreenshotOve
 
 // Mock window.scrollTo and window.scrollBy globally for all tests
 let mockScrollY = 0;
+const longScreenshotCaptureDebounceMs = 150;
 const mockScrollTo = vi.fn((_x: number, y: number) => {
   mockScrollY = y;
 });
+
+/**
+ * Waits for the long screenshot wheel-capture debounce to fire.
+ */
+function waitForLongScreenshotDebounce(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, longScreenshotCaptureDebounceMs));
+}
+
+/**
+ * Installs an Image mock that loads asynchronously on the next microtask.
+ *
+ * @returns A restore callback for the original Image constructor.
+ */
+function installLoadedImageMock(): () => void {
+  const originalImage = globalThis.Image;
+
+  class MockImage {
+    naturalWidth = 1024;
+    naturalHeight = 768;
+    onload: (() => void) | null = null;
+
+    set src(_value: string) {
+      queueMicrotask(() => {
+        this.onload?.();
+      });
+    }
+  }
+
+  Object.defineProperty(globalThis, 'Image', {
+    value: MockImage as unknown as typeof Image,
+    configurable: true,
+  });
+
+  return () => {
+    Object.defineProperty(globalThis, 'Image', {
+      value: originalImage,
+      configurable: true,
+    });
+  };
+}
 
 beforeEach(() => {
   mockScrollY = 0;
@@ -252,26 +293,10 @@ describe('ScreenshotOverlay', () => {
   });
 
   it('captures long screenshot chunks while wheeling inside the selection and stitches them on done without flashing or overlapping', async () => {
-    const originalImage = globalThis.Image;
+    const restoreImage = installLoadedImageMock();
     const originalScrollBy = window.scrollBy;
     let scrollY = 0;
 
-    class MockImage {
-      naturalWidth = 1024;
-      naturalHeight = 768;
-      onload: (() => void) | null = null;
-
-      set src(_value: string) {
-        queueMicrotask(() => {
-          this.onload?.();
-        });
-      }
-    }
-
-    Object.defineProperty(globalThis, 'Image', {
-      value: MockImage as unknown as typeof Image,
-      configurable: true,
-    });
     Object.defineProperty(window, 'scrollY', {
       get: () => scrollY,
       configurable: true,
@@ -333,16 +358,15 @@ describe('ScreenshotOverlay', () => {
         clientY: selectionTop + selectionHeight / 2,
         deltaY: 220,
       });
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await waitForLongScreenshotDebounce();
 
       fireEvent.wheel(overlay, {
         clientX: selectionLeft + selectionWidth / 2,
         clientY: selectionTop + selectionHeight / 2,
         deltaY: 180,
       });
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await waitForLongScreenshotDebounce();
 
-      // 等待异步的截图任务完成（不再检查 scrollTo，因为浏览器自动处理滚动）
       expect(overlay).not.toHaveClass('screenshot-overlay-capturing');
 
       expect(window.scrollBy).toHaveBeenCalledTimes(2);
@@ -371,10 +395,7 @@ describe('ScreenshotOverlay', () => {
         value: originalScrollBy,
         configurable: true,
       });
-      Object.defineProperty(globalThis, 'Image', {
-        value: originalImage,
-        configurable: true,
-      });
+      restoreImage();
     }
   });
 
@@ -443,28 +464,12 @@ describe('ScreenshotOverlay', () => {
   });
 
   it('captures a new long screenshot frame after scrolling an inner scroll container', async () => {
-    const originalImage = globalThis.Image;
+    const restoreImage = installLoadedImageMock();
     const originalElementFromPoint = document.elementFromPoint;
     const originalElementsFromPoint = document.elementsFromPoint;
     const originalScrollYDescriptor = Object.getOwnPropertyDescriptor(window, 'scrollY');
     const originalScrollBy = window.scrollBy;
 
-    class MockImage {
-      naturalWidth = 1024;
-      naturalHeight = 768;
-      onload: (() => void) | null = null;
-
-      set src(_value: string) {
-        queueMicrotask(() => {
-          this.onload?.();
-        });
-      }
-    }
-
-    Object.defineProperty(globalThis, 'Image', {
-      value: MockImage as unknown as typeof Image,
-      configurable: true,
-    });
     Object.defineProperty(window, 'scrollY', {
       get: () => 0,
       configurable: true,
@@ -558,7 +563,7 @@ describe('ScreenshotOverlay', () => {
       });
 
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await waitForLongScreenshotDebounce();
       });
 
       await waitFor(() => {
@@ -570,10 +575,7 @@ describe('ScreenshotOverlay', () => {
     } finally {
       getContextSpy.mockRestore();
       toDataUrlSpy.mockRestore();
-      Object.defineProperty(globalThis, 'Image', {
-        value: originalImage,
-        configurable: true,
-      });
+      restoreImage();
       Object.defineProperty(window, 'scrollBy', {
         value: originalScrollBy,
         configurable: true,
@@ -589,28 +591,12 @@ describe('ScreenshotOverlay', () => {
   });
 
   it('does not keep draining queued wheel scrolls after long screenshot is completed', async () => {
-    const originalImage = globalThis.Image;
+    const restoreImage = installLoadedImageMock();
     const originalScrollBy = window.scrollBy;
     const originalScrollTo = window.scrollTo;
     const originalScrollY = window.scrollY;
     let scrollY = 0;
 
-    class MockImage {
-      naturalWidth = 1024;
-      naturalHeight = 768;
-      onload: (() => void) | null = null;
-
-      set src(_value: string) {
-        queueMicrotask(() => {
-          this.onload?.();
-        });
-      }
-    }
-
-    Object.defineProperty(globalThis, 'Image', {
-      value: MockImage as unknown as typeof Image,
-      configurable: true,
-    });
     Object.defineProperty(window, 'scrollY', {
       get: () => scrollY,
       configurable: true,
@@ -690,17 +676,14 @@ describe('ScreenshotOverlay', () => {
       });
 
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await waitForLongScreenshotDebounce();
       });
 
       expect(onCaptureVisibleTab).toHaveBeenCalledTimes(completedCaptureCount);
     } finally {
       getContextSpy.mockRestore();
       toDataUrlSpy.mockRestore();
-      Object.defineProperty(globalThis, 'Image', {
-        value: originalImage,
-        configurable: true,
-      });
+      restoreImage();
       Object.defineProperty(window, 'scrollBy', {
         value: originalScrollBy,
         configurable: true,
@@ -717,26 +700,10 @@ describe('ScreenshotOverlay', () => {
   });
 
   it('flushes the last debounced long screenshot capture before finishing', async () => {
-    const originalImage = globalThis.Image;
+    const restoreImage = installLoadedImageMock();
     const originalScrollBy = window.scrollBy;
     let scrollY = 0;
 
-    class MockImage {
-      naturalWidth = 1024;
-      naturalHeight = 768;
-      onload: (() => void) | null = null;
-
-      set src(_value: string) {
-        queueMicrotask(() => {
-          this.onload?.();
-        });
-      }
-    }
-
-    Object.defineProperty(globalThis, 'Image', {
-      value: MockImage as unknown as typeof Image,
-      configurable: true,
-    });
     Object.defineProperty(window, 'scrollY', {
       get: () => scrollY,
       configurable: true,
@@ -792,7 +759,7 @@ describe('ScreenshotOverlay', () => {
       await userEvent.click(screen.getByRole('button', { name: '截图完成' }));
 
       await act(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 150));
+        await waitForLongScreenshotDebounce();
       });
 
       await waitFor(() => {
@@ -809,10 +776,7 @@ describe('ScreenshotOverlay', () => {
         value: originalScrollBy,
         configurable: true,
       });
-      Object.defineProperty(globalThis, 'Image', {
-        value: originalImage,
-        configurable: true,
-      });
+      restoreImage();
     }
   });
 });

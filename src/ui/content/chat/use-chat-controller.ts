@@ -18,12 +18,32 @@ import {
   updateChatMessageById,
 } from './message/chat-message-state';
 
+/**
+ * Converts a send failure into the text shown in the assistant error message.
+ *
+ * @param error - The caught send error.
+ * @returns Localized error text for the chat transcript.
+ */
+function resolveSendErrorText(error: unknown): string {
+  const fallbackSend = translateMessage('error.message.sendFailed');
+  const misconfigured = translateMessage('error.model.misconfigured');
+
+  if (!(error instanceof Error)) return fallbackSend;
+  if (error.message === 'MODEL_MISCONFIGURED') return misconfigured;
+  return error.message || fallbackSend;
+}
+
+/**
+ * Coordinates chat history, streaming chunks, runtime requests, and cancellation for one hostname.
+ *
+ * @param hostname - Hostname-scoped chat history key.
+ * @returns Chat UI state and command handlers.
+ */
 export function useChatController(hostname: string) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
   const hasUserInteractedRef = useRef(false);
-  // 当前正在流式生成的 assistant 消息 id；每次 sendMessage 时创建占位消息并记录在这里
   const streamingAssistantIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -40,7 +60,6 @@ export function useChatController(hostname: string) {
     });
   }, [hostname]);
 
-  // 监听来自后台的流式增量响应，实时更新最后一条 assistant 消息内容
   useEffect(() => {
     const listener = (message: unknown, _sender: chrome.runtime.MessageSender) => {
       if (!isChatStreamChunkMessage(message)) return;
@@ -48,8 +67,6 @@ export function useChatController(hostname: string) {
 
       const chunk = message.payload.content;
 
-      // 将增量内容直接累积到「当前正在流式生成的 assistant 消息」中，
-      // 不再使用单独的 streamingContent/pending 缓存。
       setMessages((prevMessages) => {
         return updateChatMessageById(prevMessages, streamingAssistantIdRef.current, (message) => {
           return {
@@ -76,8 +93,6 @@ export function useChatController(hostname: string) {
       return;
     }
 
-    // 本地持久化保留原始对话（包括错误轮次），
-    // 仅发送给大模型时使用过滤后的 history。
     saveChatHistory(hostname, messages).catch((error) => {
       console.error('[ChatBrowserX] Failed to save chat history:', error);
     });
@@ -115,14 +130,7 @@ export function useChatController(hostname: string) {
 
       return reply;
     } catch (error) {
-      const fallbackSend = translateMessage('error.message.sendFailed');
-      const misconfigured = translateMessage('error.model.misconfigured');
-      const errorText =
-        error instanceof Error && error.message === 'MODEL_MISCONFIGURED'
-          ? misconfigured
-          : error instanceof Error
-          ? error.message || fallbackSend
-          : fallbackSend;
+      const errorText = resolveSendErrorText(error);
 
       setMessages((prevMessages) => {
         return updateChatMessageById(prevMessages, currentId, (message) => {
@@ -144,7 +152,6 @@ export function useChatController(hostname: string) {
 
   const stop = useCallback(async () => {
     if (!isSending) return;
-    // 不对打断做 UI 上的特殊处理：只中断后台请求，错误由 sendMessage 的 catch 统一处理。
     await chrome.runtime.sendMessage({ type: chatCancelType });
   }, [isSending]);
 

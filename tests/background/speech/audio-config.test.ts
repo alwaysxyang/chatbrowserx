@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   normalizeAudioCaptureConfig,
   defaultAudioCaptureConfig,
-} from '../../../src/background/speech/offscreen';
+} from '../../../src/background/speech/audio-config';
 
 describe('audio-config', () => {
   describe('normalizeAudioCaptureConfig', () => {

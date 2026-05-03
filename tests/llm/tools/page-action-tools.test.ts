@@ -7,6 +7,24 @@ import {
   createPageTypeTool,
 } from '../../../src/llm/tools/page-action-tools';
 
+/**
+ * Configures the Chrome tab mocks for a resolved active tab.
+ *
+ * @param tabId - The active tab ID returned by chrome.tabs.query.
+ * @returns The tabs mocks used by page action tools.
+ */
+function mockActiveTab(tabId = 42): {
+  tabsQueryMock: ReturnType<typeof vi.fn>;
+  tabsSendMessageMock: ReturnType<typeof vi.fn>;
+} {
+  const tabsQueryMock = globalThis.__chromeTestUtils.getTabsQueryMock();
+  const tabsSendMessageMock = globalThis.__chromeTestUtils.getTabsSendMessageMock();
+
+  tabsQueryMock.mockResolvedValue([{ id: tabId }]);
+
+  return { tabsQueryMock, tabsSendMessageMock };
+}
+
 describe('page action tools', () => {
   it('defines ref-based page action tools without coordinate parameters', async () => {
     const definitions = await Promise.all([
@@ -33,9 +51,7 @@ describe('page action tools', () => {
   });
 
   it('routes click actions to the active tab content script', async () => {
-    const tabsQueryMock = chrome.tabs.query as unknown as ReturnType<typeof vi.fn>;
-    const tabsSendMessageMock = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    tabsQueryMock.mockResolvedValue([{ id: 42 }]);
+    const { tabsSendMessageMock } = mockActiveTab();
     tabsSendMessageMock.mockResolvedValue({ ok: true, action: 'click', ref: 'e13' });
 
     await expect(createPageClickTool().invoke({ sid: 's_latest', ref: 'e13' })).resolves.toEqual({
@@ -52,8 +68,7 @@ describe('page action tools', () => {
   });
 
   it('falls back to the last focused active tab when currentWindow has no active tab', async () => {
-    const tabsQueryMock = chrome.tabs.query as unknown as ReturnType<typeof vi.fn>;
-    const tabsSendMessageMock = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const { tabsQueryMock, tabsSendMessageMock } = mockActiveTab();
     tabsQueryMock
       .mockResolvedValueOnce([])
       .mockResolvedValueOnce([{ id: 87 }]);
@@ -75,9 +90,7 @@ describe('page action tools', () => {
   });
 
   it('routes scroll actions with an optional target scrollarea ref', async () => {
-    const tabsQueryMock = chrome.tabs.query as unknown as ReturnType<typeof vi.fn>;
-    const tabsSendMessageMock = chrome.tabs.sendMessage as unknown as ReturnType<typeof vi.fn>;
-    tabsQueryMock.mockResolvedValue([{ id: 42 }]);
+    const { tabsSendMessageMock } = mockActiveTab();
     tabsSendMessageMock.mockResolvedValue({ ok: true, action: 'scroll', ref: 'e3' });
 
     await expect(createPageScrollTool().invoke({ direction: 'down', sid: 's_1', ref: 'e3', amount: 320 })).resolves.toEqual({

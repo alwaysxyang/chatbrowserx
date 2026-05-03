@@ -73,7 +73,7 @@ describe('SelectionBubble', () => {
   });
 
   it('hides action buttons after an action opens the result dialog', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: { reply: '你好' } });
     stubPageSelection('Hello');
 
@@ -93,7 +93,7 @@ describe('SelectionBubble', () => {
   });
 
   it('keeps the result dialog open when clicking inside it after page selection clears', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: { reply: '你好' } });
     stubPageSelection('Hello');
 
@@ -113,7 +113,7 @@ describe('SelectionBubble', () => {
   });
 
   it('keeps the result dialog open when copying its text with a keyboard shortcut', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: { reply: '你好' } });
     stubPageSelection('Hello');
 
@@ -136,7 +136,7 @@ describe('SelectionBubble', () => {
   });
 
   it('renders markdown in the result dialog', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({ ok: true, data: { reply: '**你好**' } });
     stubPageSelection('Hello');
 

@@ -5,12 +5,12 @@ import { screenshotCaptureRequestType } from '../../../src/shared/types/chat';
 
 describe('background screenshot capture', () => {
   it('captures the visible tab for screenshot requests', async () => {
-    const captureVisibleTabMock = chrome.tabs.captureVisibleTab as unknown as ReturnType<typeof vi.fn>;
+    const captureVisibleTabMock = globalThis.__chromeTestUtils.getTabsCaptureVisibleTabMock();
     captureVisibleTabMock.mockResolvedValue('data:image/png;base64,abc123');
 
     registerScreenshotCaptureHandler();
 
-    const listener = (chrome.runtime.onMessage.addListener as unknown as ReturnType<typeof vi.fn>).mock.calls.at(-1)?.[0];
+    const listener = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock().mock.calls.at(-1)?.[0];
     const sendResponse = vi.fn();
 
     const keepChannelOpen = listener(

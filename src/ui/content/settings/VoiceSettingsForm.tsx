@@ -1,7 +1,12 @@
-import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
-import type { SpeechSettings, SourceLanguage, TargetLanguage } from '../../../shared/types/settings';
+import {
+  SOURCE_LANGUAGE_OPTIONS,
+  TARGET_LANGUAGE_OPTIONS,
+  type SpeechSettings,
+  type SourceLanguage,
+  type TargetLanguage,
+} from '../../../shared/types/settings';
 import { translateMessage } from '../../../shared/i18n/i18n';
+import { SecretField } from './SecretField';
 
 interface VoiceSettingsFormProps {
   value: SpeechSettings;
@@ -9,9 +14,10 @@ interface VoiceSettingsFormProps {
   onChange: (nextValue: SpeechSettings) => void;
 }
 
+/**
+ * Render speech provider credentials and language preferences.
+ */
 export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFormProps) {
-  const [showSecretKey, setShowSecretKey] = useState(false);
-
   return (
     <div className="settings-form">
       <span className="settings-provider-title">{translateMessage('settings.voice.provider')}</span>
@@ -35,10 +41,11 @@ export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFo
           onChange={(e) => onChange({ ...value, sourceLanguage: e.target.value as SourceLanguage })}
           disabled={disabled}
         >
-          <option value="auto">{translateMessage('settings.voice.language.auto')}</option>
-          <option value="zh">{translateMessage('settings.voice.language.zh')}</option>
-          <option value="en">{translateMessage('settings.voice.language.en')}</option>
-          <option value="ja">{translateMessage('settings.voice.language.ja')}</option>
+          {SOURCE_LANGUAGE_OPTIONS.map((language) => (
+            <option key={language} value={language}>
+              {translateMessage(`settings.voice.language.${language}`)}
+            </option>
+          ))}
         </select>
       </label>
 
@@ -50,10 +57,11 @@ export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFo
           onChange={(e) => onChange({ ...value, targetLanguage: e.target.value as TargetLanguage })}
           disabled={disabled}
         >
-          <option value="none">{translateMessage('settings.voice.language.none')}</option>
-          <option value="zh">{translateMessage('settings.voice.language.zh')}</option>
-          <option value="en">{translateMessage('settings.voice.language.en')}</option>
-          <option value="ja">{translateMessage('settings.voice.language.ja')}</option>
+          {TARGET_LANGUAGE_OPTIONS.map((language) => (
+            <option key={language} value={language}>
+              {translateMessage(`settings.voice.language.${language}`)}
+            </option>
+          ))}
         </select>
       </label>
 
@@ -73,36 +81,18 @@ export function VoiceSettingsForm({ value, disabled, onChange }: VoiceSettingsFo
         />
       </label>
 
-      <label>
-        <span>{translateMessage('settings.voice.secretAccessKey')}</span>
-        <div className="settings-input-with-icon">
-          <input
-            aria-label={translateMessage('settings.voice.secretAccessKey')}
-            type={showSecretKey ? 'text' : 'password'}
-            value={value.volcengine.secretAccessKey}
-            onChange={(e) =>
-              onChange({
-                ...value,
-                volcengine: { ...value.volcengine, secretAccessKey: e.target.value },
-              })
-            }
-            disabled={disabled}
-          />
-          <button
-            type="button"
-            className="settings-input-icon-button"
-            aria-label={showSecretKey ? translateMessage('settings.apiKey.hide') : translateMessage('settings.apiKey.show')}
-            onClick={() => setShowSecretKey((current) => !current)}
-            disabled={disabled}
-          >
-            {showSecretKey ? (
-              <EyeOff className="settings-input-icon" strokeWidth={2.1} />
-            ) : (
-              <Eye className="settings-input-icon" strokeWidth={2.1} />
-            )}
-          </button>
-        </div>
-      </label>
+      <SecretField
+        fieldDisabled={disabled}
+        label={translateMessage('settings.voice.secretAccessKey')}
+        toggleDisabled={disabled}
+        value={value.volcengine.secretAccessKey}
+        onChange={(nextSecretAccessKey) =>
+          onChange({
+            ...value,
+            volcengine: { ...value.volcengine, secretAccessKey: nextSecretAccessKey },
+          })
+        }
+      />
     </div>
   );
 }

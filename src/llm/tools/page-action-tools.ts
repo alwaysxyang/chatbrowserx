@@ -12,6 +12,16 @@ import {
 import { sendActiveTabToolMessage } from './shared/tab-message-tool';
 import { registerTool, type LlmToolModule, type ToolDefinition } from './tool-registry';
 
+type ToolArgumentReader = (args: Record<string, unknown>) => PageActionToolRequestPayload;
+
+interface PageActionToolConfig {
+  name: string;
+  description: string;
+  properties: Record<string, unknown>;
+  required: string[];
+  readPayload: ToolArgumentReader;
+}
+
 /**
  * Sends a page action request to the active tab content script.
  *
@@ -58,25 +68,47 @@ function buildDefinition(
 }
 
 /**
+ * Creates an LLM tool module from a page action configuration.
+ *
+ * @param config - The tool definition and argument reader.
+ * @returns The LLM tool module.
+ */
+function createPageActionTool(config: PageActionToolConfig): LlmToolModule {
+  return {
+    name: () => config.name,
+    definition: () => buildDefinition(config.name, config.description, config.properties, config.required),
+    invoke: async (args) => invokePageAction(config.readPayload(args)),
+  };
+}
+
+/**
+ * Reads sid/ref arguments for ref-based page actions.
+ *
+ * @param args - Raw tool arguments.
+ * @param action - The page action name.
+ * @returns The page action request payload.
+ */
+function readRefActionPayload(args: Record<string, unknown>, action: PageActionToolRequestPayload['action']): PageActionToolRequestPayload {
+  return {
+    action,
+    sid: readRequiredRawString(args, 'sid'),
+    ref: readRequiredRawString(args, 'ref'),
+  };
+}
+
+/**
  * Creates the virtual mouse move page action tool.
  *
  * @returns The LLM tool module.
  */
 export function createPageMouseMoveTool(): LlmToolModule {
-  return {
-    name: () => 'page_mouse_move',
-    definition: () => buildDefinition(
-      'page_mouse_move',
-      'Move the visible virtual mouse to a current-page interactable by snapshot id and ref. Use sid and refs from get_current_page_interactables. Does not click or type.',
-      { sid: { type: 'string' }, ref: { type: 'string' } },
-      ['sid', 'ref'],
-    ),
-    invoke: async (args) => invokePageAction({
-      action: 'mouse_move',
-      sid: readRequiredRawString(args, 'sid'),
-      ref: readRequiredRawString(args, 'ref'),
-    }),
-  };
+  return createPageActionTool({
+    name: 'page_mouse_move',
+    description: 'Move the visible virtual mouse to a current-page interactable by snapshot id and ref. Use sid and refs from get_current_page_interactables. Does not click or type.',
+    properties: { sid: { type: 'string' }, ref: { type: 'string' } },
+    required: ['sid', 'ref'],
+    readPayload: (args) => readRefActionPayload(args, 'mouse_move'),
+  });
 }
 
 /**
@@ -85,20 +117,13 @@ export function createPageMouseMoveTool(): LlmToolModule {
  * @returns The LLM tool module.
  */
 export function createPageClickTool(): LlmToolModule {
-  return {
-    name: () => 'page_click',
-    definition: () => buildDefinition(
-      'page_click',
-      'Click a current-page interactable by snapshot id and ref. Use sid and refs from get_current_page_interactables. Returns measurable before/after state when available, such as checked/expanded/pressed, so use the result to verify whether the click worked. Does not accept raw coordinates.',
-      { sid: { type: 'string' }, ref: { type: 'string' } },
-      ['sid', 'ref'],
-    ),
-    invoke: async (args) => invokePageAction({
-      action: 'click',
-      sid: readRequiredRawString(args, 'sid'),
-      ref: readRequiredRawString(args, 'ref'),
-    }),
-  };
+  return createPageActionTool({
+    name: 'page_click',
+    description: 'Click a current-page interactable by snapshot id and ref. Use sid and refs from get_current_page_interactables. Returns measurable before/after state when available, such as checked/expanded/pressed, so use the result to verify whether the click worked. Does not accept raw coordinates.',
+    properties: { sid: { type: 'string' }, ref: { type: 'string' } },
+    required: ['sid', 'ref'],
+    readPayload: (args) => readRefActionPayload(args, 'click'),
+  });
 }
 
 /**
@@ -107,27 +132,47 @@ export function createPageClickTool(): LlmToolModule {
  * @returns The LLM tool module.
  */
 export function createPageTypeTool(): LlmToolModule {
-  return {
-    name: () => 'page_type',
-    definition: () => buildDefinition(
-      'page_type',
-      'Type text into a current-page input-like element by snapshot id and ref. Use sid and refs from get_current_page_interactables. Set clear=true to replace existing content. Returns before/after input state when available, so use the result to verify whether text was written.',
-      {
-        sid: { type: 'string' },
-        ref: { type: 'string' },
-        text: { type: 'string' },
-        clear: { type: 'boolean' },
-      },
-      ['sid', 'ref', 'text'],
-    ),
-    invoke: async (args) => invokePageAction({
+  return createPageActionTool({
+    name: 'page_type',
+    description: 'Type text into a current-page input-like element by snapshot id and ref. Use sid and refs from get_current_page_interactables. Set clear=true to replace existing content. Returns before/after input state when available, so use the result to verify whether text was written.',
+    properties: {
+      sid: { type: 'string' },
+      ref: { type: 'string' },
+      text: { type: 'string' },
+      clear: { type: 'boolean' },
+    },
+    required: ['sid', 'ref', 'text'],
+    readPayload: (args) => ({
       action: 'type',
       sid: readRequiredRawString(args, 'sid'),
       ref: readRequiredRawString(args, 'ref'),
       text: readRequiredRawString(args, 'text'),
       clear: readOptionalBoolean(args, 'clear'),
     }),
+  });
+}
+
+/**
+ * Reads scroll tool arguments into a page action payload.
+ *
+ * @param args - Raw tool arguments.
+ * @returns The scroll action payload.
+ */
+function readScrollActionPayload(args: Record<string, unknown>): PageActionToolRequestPayload {
+  const direction = readRequiredRawString(args, 'direction');
+  if (!['up', 'down', 'left', 'right'].includes(direction)) {
+    throw new Error('TOOL_ARGUMENT_INVALID:direction');
+  }
+  const payload: PageActionToolRequestPayload = {
+    action: 'scroll',
+    direction: direction as PageActionToolRequestPayload['direction'],
+    amount: readOptionalPositiveNumber(args, 'amount'),
   };
+  const sid = readOptionalRawString(args, 'sid');
+  const ref = readOptionalRawString(args, 'ref');
+  if (sid) payload.sid = sid;
+  if (ref) payload.ref = ref;
+  return payload;
 }
 
 /**
@@ -136,36 +181,18 @@ export function createPageTypeTool(): LlmToolModule {
  * @returns The LLM tool module.
  */
 export function createPageScrollTool(): LlmToolModule {
-  return {
-    name: () => 'page_scroll',
-    definition: () => buildDefinition(
-      'page_scroll',
-      'Scroll the current page or a target scrollarea by ref. Pass sid/ref from get_current_page_interactables when a scrollarea should be scrolled. Returns the actual scroll target, before/after scroll positions, and scrolled=true/false. After scrolling, call get_current_page_interactables again before choosing the next click/type/drag target, because visible refs may have changed. This tool does not accept raw coordinates.',
-      {
-        sid: { type: 'string' },
-        ref: { type: 'string' },
-        direction: { type: 'string', enum: ['up', 'down', 'left', 'right'] },
-        amount: { type: 'number' },
-      },
-      ['direction'],
-    ),
-    invoke: async (args) => {
-      const direction = readRequiredRawString(args, 'direction');
-      if (!['up', 'down', 'left', 'right'].includes(direction)) {
-        throw new Error('TOOL_ARGUMENT_INVALID:direction');
-      }
-      const payload: PageActionToolRequestPayload = {
-        action: 'scroll',
-        direction: direction as PageActionToolRequestPayload['direction'],
-        amount: readOptionalPositiveNumber(args, 'amount'),
-      };
-      const sid = readOptionalRawString(args, 'sid');
-      const ref = readOptionalRawString(args, 'ref');
-      if (sid) payload.sid = sid;
-      if (ref) payload.ref = ref;
-      return invokePageAction(payload);
+  return createPageActionTool({
+    name: 'page_scroll',
+    description: 'Scroll the current page or a target scrollarea by ref. Pass sid/ref from get_current_page_interactables when a scrollarea should be scrolled. Returns the actual scroll target, before/after scroll positions, and scrolled=true/false. After scrolling, call get_current_page_interactables again before choosing the next click/type/drag target, because visible refs may have changed. This tool does not accept raw coordinates.',
+    properties: {
+      sid: { type: 'string' },
+      ref: { type: 'string' },
+      direction: { type: 'string', enum: ['up', 'down', 'left', 'right'] },
+      amount: { type: 'number' },
     },
-  };
+    required: ['direction'],
+    readPayload: readScrollActionPayload,
+  });
 }
 
 /**
@@ -174,25 +201,22 @@ export function createPageScrollTool(): LlmToolModule {
  * @returns The LLM tool module.
  */
 export function createPageDragTool(): LlmToolModule {
-  return {
-    name: () => 'page_drag',
-    definition: () => buildDefinition(
-      'page_drag',
-      'Drag from one current-page interactable ref to another within the latest snapshot id. Use sid and refs from get_current_page_interactables. Does not accept raw coordinates.',
-      {
-        sid: { type: 'string' },
-        fromRef: { type: 'string' },
-        toRef: { type: 'string' },
-      },
-      ['sid', 'fromRef', 'toRef'],
-    ),
-    invoke: async (args) => invokePageAction({
+  return createPageActionTool({
+    name: 'page_drag',
+    description: 'Drag from one current-page interactable ref to another within the latest snapshot id. Use sid and refs from get_current_page_interactables. Does not accept raw coordinates.',
+    properties: {
+      sid: { type: 'string' },
+      fromRef: { type: 'string' },
+      toRef: { type: 'string' },
+    },
+    required: ['sid', 'fromRef', 'toRef'],
+    readPayload: (args) => ({
       action: 'drag',
       sid: readRequiredRawString(args, 'sid'),
       fromRef: readRequiredRawString(args, 'fromRef'),
       toRef: readRequiredRawString(args, 'toRef'),
     }),
-  };
+  });
 }
 
 registerTool(createPageMouseMoveTool());

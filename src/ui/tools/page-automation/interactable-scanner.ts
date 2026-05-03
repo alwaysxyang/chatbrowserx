@@ -1,22 +1,26 @@
 import type { GetPageInteractablesToolPayload } from '../../../shared/types/tools';
 import {
-  addDiagnosticsSample,
   buildMeta,
   candidateSelector,
   compactRect,
-  createDiagnostics,
   deduplicateNestedCandidates,
   diagnosticsVersion,
   findNestedCheckableInput,
   inferRole,
   maxItems,
   passesHitTest,
-  readControlName,
   readScrollAxis,
-  readValueHint,
   rectIntersectsViewport,
   type CandidateItem,
 } from './interactable-support';
+import {
+  readControlName,
+  readValueHint,
+} from './interactable-naming';
+import {
+  addDiagnosticsSample,
+  createDiagnostics,
+} from './interactable-diagnostics';
 import {
   findCodeEditorSurface,
   findNestedWritableControl,

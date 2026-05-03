@@ -16,8 +16,6 @@ export async function capturePage(): Promise<void> {
           throw new Error('No screenshots captured');
         }
 
-        console.log(`Captured ${screenshots.length} screenshots, opening preview...`);
-
         // Open preview in new window with inline HTML
         const win = window.open('', '_blank');
         if (win) {
@@ -109,7 +107,6 @@ export async function capturePage(): Promise<void> {
         try {
           const dataUrl = await requestVisibleTabScreenshot();
           screenshots.push(dataUrl);
-          console.log(`Captured screenshot ${screenshots.length}`);
         } catch (error) {
           console.error('Capture error:', error);
         }

@@ -100,7 +100,7 @@
   box-shadow: 0 6px 14px rgba(124, 58, 237, 0.22);
 }
 
-/* 固定头部与侧边栏图标为绝对像素尺寸，避免受宿主页面 font-size 影响导致放大/缩小 */
+/* Pin header and rail icons to pixel sizes so host page font-size cannot resize them. */
 .brand-mark svg,
 .header-actions .icon-button svg,
 .shell-rail .rail-icon svg {
@@ -108,7 +108,7 @@
   height: 14px;
 }
 
-/* 固定对话头像与错误提示叹号图标尺寸，避免在不同站点字体缩放时出现大小不一致 */
+/* Pin message avatar and interrupted icons to avoid site font scaling differences. */
 .message-avatar svg {
   width: 18px;
   height: 18px;
@@ -280,7 +280,7 @@ button:disabled {
 }
 
 /*
- * 通用圆角提示气泡，适用于所有带 data-tooltip 的按钮
+ * Shared rounded tooltip bubble for buttons with data-tooltip.
  */
 
 [data-tooltip] {
@@ -327,9 +327,9 @@ button:disabled {
   transform: translate(-50%, 2px);
 }
 
-/* 聊天气泡错误提示不再使用通用 data-tooltip 方案，改为在 JSX 中渲染可选中的浮层 */
+/* Chat message error details use a selectable JSX popover instead of the shared data-tooltip. */
 
-/* 顶部 header 内的按钮：提示框改为出现在元素下方，避免溢出视口 */
+/* Header action tooltips open below buttons so they do not overflow the viewport. */
 
 .shell-header .header-actions [data-tooltip]::after {
   top: calc(100% + 8px);

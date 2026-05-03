@@ -1,15 +1,12 @@
 import { SpeechOrchestrator } from './speech-orchestrator';
-import {
-  runtimeErrorResponse,
-  runtimeSuccessResponse,
-  toRuntimeResponse,
-} from '../../shared/types/runtime-messages';
+import { runtimeSuccessResponse } from '../../shared/types/runtime-messages';
 import {
   isSpeechStartRequestMessage,
   isSpeechStopRequestMessage,
   isSpeechStateQueryMessage,
   type SpeechStateQueryResponse,
 } from '../../shared/types/speech';
+import { getSenderTabIdOrRespond, sendAsyncRuntimeResponse } from '../runtime-message';
 
 const speechOrchestrator = new SpeechOrchestrator();
 
@@ -24,13 +21,12 @@ export function initSpeechModule(): void {
       return undefined;
     }
 
-    const tabId = sender.tab?.id;
+    const tabId = getSenderTabIdOrRespond(sender, sendResponse);
     if (tabId == null) {
-      sendResponse(runtimeErrorResponse('No tab ID'));
       return true;
     }
 
-    void toRuntimeResponse(speechOrchestrator.start(tabId)).then(sendResponse);
+    sendAsyncRuntimeResponse(speechOrchestrator.start(tabId), sendResponse);
 
     return true;
   });
@@ -42,13 +38,7 @@ export function initSpeechModule(): void {
     }
 
     const tabId = sender.tab?.id;
-    if (tabId != null) {
-      void speechOrchestrator.stop(tabId).then(() => {
-        sendResponse(runtimeSuccessResponse());
-      });
-    } else {
-      sendResponse(runtimeSuccessResponse());
-    }
+    sendAsyncRuntimeResponse(tabId == null ? Promise.resolve() : speechOrchestrator.stop(tabId), sendResponse);
 
     return true;
   });
@@ -59,9 +49,8 @@ export function initSpeechModule(): void {
       return undefined;
     }
 
-    const tabId = sender.tab?.id;
+    const tabId = getSenderTabIdOrRespond(sender, sendResponse);
     if (tabId == null) {
-      sendResponse(runtimeErrorResponse('No tab ID'));
       return true;
     }
 

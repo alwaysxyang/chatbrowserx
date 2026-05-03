@@ -1,5 +1,4 @@
 import { LlmOrchestrator } from '../llm/llm-orchestrator';
-import { runtimeErrorResponse, toRuntimeResponse } from '../../shared/types/runtime-messages';
 import { chatSessionPortName } from '../../shared/types/chat';
 import type { SelectionResponsePayload, SelectionRuntimeResponse } from '../../shared/types/selection';
 import {
@@ -7,6 +6,7 @@ import {
   isSelectionRequestMessage,
   selectionStreamChunkType,
 } from '../../shared/types/selection';
+import { getSenderTabIdOrRespond, sendAsyncRuntimeResponse } from '../runtime-message';
 
 const llmOrchestrator = new LlmOrchestrator();
 
@@ -20,15 +20,14 @@ export function initSelectionModule(): void {
       return undefined;
     }
 
-    const tabId = sender.tab?.id;
+    const tabId = getSenderTabIdOrRespond(sender, sendResponse);
     if (tabId == null) {
-      sendResponse(runtimeErrorResponse('No tab ID'));
       return true;
     }
 
     const { requestId, prompt } = message.payload;
 
-    void toRuntimeResponse<SelectionResponsePayload>(
+    sendAsyncRuntimeResponse<SelectionResponsePayload>(
       llmOrchestrator
         .complete(
           tabId,
@@ -43,10 +42,11 @@ export function initSelectionModule(): void {
               .catch(() => undefined);
           },
         )
-        .then((reply) => ({ reply: reply.reply })),
-    ).then((response) => {
-      sendResponse(response satisfies SelectionRuntimeResponse);
-    });
+      .then((reply) => ({ reply: reply.reply })),
+      (response) => {
+        sendResponse(response as SelectionRuntimeResponse);
+      },
+    );
 
     return true;
   });
@@ -80,4 +80,3 @@ export function initSelectionModule(): void {
     });
   });
 }
-

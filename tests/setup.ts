@@ -22,6 +22,13 @@ declare global {
     dispatchRuntimeMessage: (message: unknown, sender?: chrome.runtime.MessageSender) => void;
     dispatchActionClick: (tab: chrome.tabs.Tab) => void;
     createRuntimePort: (options?: { name?: string; tabId?: number }) => TestPort;
+    getStorageLocalGetMock: () => ReturnType<typeof vi.fn>;
+    getRuntimeSendMessageMock: () => ReturnType<typeof vi.fn>;
+    getRuntimeConnectMock: () => ReturnType<typeof vi.fn>;
+    getTabsQueryMock: () => ReturnType<typeof vi.fn>;
+    getTabsSendMessageMock: () => ReturnType<typeof vi.fn>;
+    getTabsCaptureVisibleTabMock: () => ReturnType<typeof vi.fn>;
+    getRuntimeOnMessageAddListenerMock: () => ReturnType<typeof vi.fn>;
   };
 }
 
@@ -166,6 +173,48 @@ beforeEach(() => {
 
 Object.defineProperty(globalThis, '__chromeTestUtils', {
   value: {
+    /**
+     * Returns the mocked storage.local.get function.
+     */
+    getStorageLocalGetMock() {
+      return chromeMock.storage.local.get;
+    },
+    /**
+     * Returns the mocked runtime sendMessage function.
+     */
+    getRuntimeSendMessageMock() {
+      return chromeMock.runtime.sendMessage;
+    },
+    /**
+     * Returns the mocked runtime connect function.
+     */
+    getRuntimeConnectMock() {
+      return chromeMock.runtime.connect;
+    },
+    /**
+     * Returns the mocked tabs query function.
+     */
+    getTabsQueryMock() {
+      return chromeMock.tabs.query;
+    },
+    /**
+     * Returns the mocked tabs sendMessage function.
+     */
+    getTabsSendMessageMock() {
+      return chromeMock.tabs.sendMessage;
+    },
+    /**
+     * Returns the mocked tabs captureVisibleTab function.
+     */
+    getTabsCaptureVisibleTabMock() {
+      return chromeMock.tabs.captureVisibleTab;
+    },
+    /**
+     * Returns the mocked runtime message listener registration function.
+     */
+    getRuntimeOnMessageAddListenerMock() {
+      return chromeMock.runtime.onMessage.addListener;
+    },
     dispatchRuntimeMessage(message: unknown, sender: chrome.runtime.MessageSender = {}) {
       runtimeMessageListeners.forEach((listener) => {
         listener(message, sender, vi.fn());

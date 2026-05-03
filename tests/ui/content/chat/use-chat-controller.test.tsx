@@ -5,7 +5,7 @@ import { useChatController } from '../../../../src/ui/content/chat/use-chat-cont
 
 describe('useChatController', () => {
   it('sends only previous history to background and appends the reply', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
 
     sendMessageMock.mockResolvedValue({
       ok: true,
@@ -74,7 +74,7 @@ describe('useChatController', () => {
   });
 
   it('appends a new assistant error message for each failed send', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockRejectedValue(new Error('请先在设置中填写 API Base URL、API Key 和 Model。'));
 
     const { result } = renderHook(() => useChatController('example.com'));
@@ -95,7 +95,7 @@ describe('useChatController', () => {
   });
 
   it('uses runtime error payloads when the background resolves with ok false', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({
       ok: false,
       error: '后台报错',
@@ -115,7 +115,7 @@ describe('useChatController', () => {
   });
 
   it('strips images from history before sending the next request', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({
       ok: true,
       data: { reply: 'assistant reply' },
@@ -158,7 +158,7 @@ describe('useChatController', () => {
   });
 
   it('preserves screenshots in the current multimodal input', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({
       ok: true,
       data: { reply: 'assistant reply' },
@@ -309,13 +309,12 @@ describe('useChatController', () => {
   });
 
   it('handles storage quota errors gracefully when saving large images', async () => {
-    const sendMessageMock = chrome.runtime.sendMessage as unknown as ReturnType<typeof vi.fn>;
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
     sendMessageMock.mockResolvedValue({
       ok: true,
       data: { reply: 'assistant reply' },
     });
 
-    // 模拟一个很大的图片（超过 storage 限制）
     const largeImageUrl = 'data:image/png;base64,' + 'a'.repeat(1024 * 1024 * 5); // 5MB
 
     const { result } = renderHook(() => useChatController('example.com'));
@@ -327,7 +326,6 @@ describe('useChatController', () => {
       ]);
     });
 
-    // 验证消息被添加到状态中
     expect(result.current.messages).toHaveLength(2);
     expect(result.current.messages[0].content).toEqual([
       { type: 'image_url', image_url: { url: largeImageUrl } },

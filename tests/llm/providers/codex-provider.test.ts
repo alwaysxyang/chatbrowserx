@@ -1,8 +1,62 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CodexProvider } from '../../../src/llm/providers/codex/provider';
 import type { ToolDefinition } from '../../../src/llm/tools/tool-registry';
 
+const originalFetch = globalThis.fetch;
+
+/**
+ * Creates a Codex provider with the shared valid test configuration.
+ */
+function createProvider(effort: 'high' | 'xhigh' = 'high'): CodexProvider {
+  return new CodexProvider({
+    baseUrl: 'https://api.example.com',
+    accessToken: 'token',
+    effort,
+  });
+}
+
+/**
+ * Installs a mocked streaming fetch response and returns the mock for assertions.
+ */
+function mockCodexFetch(body: BodyInit, options: ResponseInit = {}): ReturnType<typeof vi.fn> {
+  const fetchMock = vi.fn().mockResolvedValue(
+    new Response(body, {
+      status: 200,
+      headers: { 'Content-Type': 'text/event-stream' },
+      ...options,
+    }),
+  );
+
+  globalThis.fetch = fetchMock as unknown as typeof globalThis.fetch;
+
+  return fetchMock;
+}
+
+/**
+ * Builds the shared page summary tool fixture.
+ */
+function createPageSummaryTool(): ToolDefinition {
+  return {
+    type: 'function',
+    function: {
+      name: 'get_page_summary',
+      description: 'Gets the current page summary.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: { type: 'string' },
+        },
+        required: ['url'],
+      },
+    },
+  };
+}
+
 describe('CodexProvider', () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
   it('throws MODEL_MISCONFIGURED when config is incomplete', async () => {
     const provider = new CodexProvider({ baseUrl: '', accessToken: '', effort: 'high' });
 
@@ -12,21 +66,8 @@ describe('CodexProvider', () => {
   });
 
   it('sends Codex reasoning effort as Responses reasoning.effort', async () => {
-    const originalFetch = globalThis.fetch;
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('data: [DONE]', {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    );
-
-    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({
-      baseUrl: 'https://api.example.com',
-      accessToken: 'token',
-      effort: 'xhigh',
-    });
+    const mockFetch = mockCodexFetch('data: [DONE]');
+    const provider = createProvider('xhigh');
 
     await provider.completeChat({
       model: 'm',
@@ -40,12 +81,9 @@ describe('CodexProvider', () => {
         effort: 'xhigh',
       },
     });
-
-    globalThis.fetch = originalFetch;
   });
 
   it('sends a POST request to /codex/responses with Responses-compatible body and parses streamed text deltas', async () => {
-    const originalFetch = globalThis.fetch;
     const streamBody = [
       'event: response.output_text.delta',
       'data: {"delta":"hello"}',
@@ -55,33 +93,9 @@ describe('CodexProvider', () => {
       '',
       'data: [DONE]',
     ].join('\n');
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(streamBody, {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    );
-
-    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
-
-    const tools: ToolDefinition[] = [
-      {
-        type: 'function',
-        function: {
-          name: 'get_page_summary',
-          description: 'Gets the current page summary.',
-          parameters: {
-            type: 'object',
-            properties: {
-              url: { type: 'string' },
-            },
-            required: ['url'],
-          },
-        },
-      },
-    ];
+    const mockFetch = mockCodexFetch(streamBody);
+    const provider = createProvider();
+    const tools = [createPageSummaryTool()];
 
     const onChunk = vi.fn();
 
@@ -124,7 +138,6 @@ describe('CodexProvider', () => {
     });
     expect(body.tools[0].parameters).toEqual(tools[0].function.parameters);
 
-    // 文本增量拼接
     expect(result).toEqual({
       message: {
         role: 'assistant',
@@ -134,12 +147,9 @@ describe('CodexProvider', () => {
 
     expect(onChunk).toHaveBeenCalledWith('hello');
     expect(onChunk).toHaveBeenCalledWith(' world');
-
-    globalThis.fetch = originalFetch;
   });
 
   it('aggregates documented function call events into LlmToolCall list', async () => {
-    const originalFetch = globalThis.fetch;
     const streamBody = [
       'event: response.function_call_arguments.delta',
       'data: {"item_id":"fc_1","output_index":0,"delta":"{\\"url\\":\\"https://example.com\\"}"}',
@@ -149,34 +159,9 @@ describe('CodexProvider', () => {
       '',
       'data: [DONE]',
     ].join('\n');
-
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response(streamBody, {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    );
-
-    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
-
-    const tools: ToolDefinition[] = [
-      {
-        type: 'function',
-        function: {
-          name: 'get_page_summary',
-          description: 'Gets the current page summary.',
-          parameters: {
-            type: 'object',
-            properties: {
-              url: { type: 'string' },
-            },
-            required: ['url'],
-          },
-        },
-      },
-    ];
+    mockCodexFetch(streamBody);
+    const provider = createProvider();
+    const tools = [createPageSummaryTool()];
 
     const result = await provider.completeChat({
       model: 'm',
@@ -191,12 +176,9 @@ describe('CodexProvider', () => {
     expect(toolCall.type).toBe('function');
     expect(toolCall.function.name).toBe('get_page_summary');
     expect(toolCall.function.arguments).toBe('{"url":"https://example.com"}');
-
-    globalThis.fetch = originalFetch;
   });
 
   it('serializes tool loop messages with Responses function_call items and parses standard SSE events', async () => {
-    const originalFetch = globalThis.fetch;
     const streamBody = [
       'event: response.output_text.delta',
       'data: {"delta":"hello"}',
@@ -213,15 +195,8 @@ describe('CodexProvider', () => {
       'data: [DONE]',
       '',
     ].join('\n');
-
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(streamBody, {
-        status: 200,
-        headers: { 'Content-Type': 'text/event-stream' },
-      }),
-    ) as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
+    const fetchMock = mockCodexFetch(streamBody);
+    const provider = createProvider();
     const onChunk = vi.fn();
 
     const result = await provider.completeChat(
@@ -253,7 +228,7 @@ describe('CodexProvider', () => {
       onChunk,
     );
 
-    const request = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]?.[1] as RequestInit;
+    const request = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(JSON.parse(String(request.body))).toMatchObject({
       input: [
         {
@@ -297,96 +272,45 @@ describe('CodexProvider', () => {
       },
     });
     expect(onChunk).toHaveBeenCalledWith('hello');
-
-    globalThis.fetch = originalFetch;
   });
 
   it('surface http failures with response body or status code', async () => {
-    const originalFetch = globalThis.fetch;
-    const mockFetch = vi.fn().mockResolvedValue(
-      new Response('Bad gateway', {
-        status: 502,
-        headers: { 'Content-Type': 'text/plain' },
-      }),
-    );
-
-    globalThis.fetch = mockFetch as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
+    mockCodexFetch('Bad gateway', {
+      status: 502,
+      headers: { 'Content-Type': 'text/plain' },
+    });
+    const provider = createProvider();
 
     await expect(
       provider.completeChat({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
     ).rejects.toThrow('Bad gateway');
-
-    globalThis.fetch = originalFetch;
   });
 
   it('throws when the Responses stream emits response.failed', async () => {
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        [
-          'event: response.failed',
-          'data: {"error":{"message":"stream failed"}}',
-        ].join('\n'),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'text/event-stream' },
-        },
-      ),
-    ) as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
+    mockCodexFetch([
+      'event: response.failed',
+      'data: {"error":{"message":"stream failed"}}',
+    ].join('\n'));
+    const provider = createProvider();
 
     await expect(
       provider.completeChat({ model: 'm', messages: [{ role: 'user', content: 'hi' }] }),
     ).rejects.toThrow('stream failed');
-
-    globalThis.fetch = originalFetch;
   });
 
   it('ignores undocumented legacy tool call delta events', async () => {
-    const originalFetch = globalThis.fetch;
-
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(
-        [
-          'data: {"type":"response.output_tool_call_arguments.delta","output_tool_call_arguments":{"index":0,"delta":{"tool_call_id":"call_1","arguments":"{\\"url\\":\\"https://example.com\\"}"}}}',
-          'data: [DONE]',
-        ].join('\n'),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'text/event-stream' },
-        },
-      ),
-    ) as unknown as typeof globalThis.fetch;
-
-    const provider = new CodexProvider({ baseUrl: 'https://api.example.com', accessToken: 'token', effort: 'high' });
+    mockCodexFetch([
+      'data: {"type":"response.output_tool_call_arguments.delta","output_tool_call_arguments":{"index":0,"delta":{"tool_call_id":"call_1","arguments":"{\\"url\\":\\"https://example.com\\"}"}}}',
+      'data: [DONE]',
+    ].join('\n'));
+    const provider = createProvider();
 
     const result = await provider.completeChat({
       model: 'm',
       messages: [{ role: 'user', content: 'hi' }],
-      tools: [
-        {
-          type: 'function',
-          function: {
-            name: 'get_page_summary',
-            description: 'Gets the current page summary.',
-            parameters: {
-              type: 'object',
-              properties: {
-                url: { type: 'string' },
-              },
-              required: ['url'],
-            },
-          },
-        },
-      ],
+      tools: [createPageSummaryTool()],
     });
 
     expect(result.message.toolCalls).toBeUndefined();
-
-    globalThis.fetch = originalFetch;
   });
 });
