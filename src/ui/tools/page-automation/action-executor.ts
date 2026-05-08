@@ -3,19 +3,11 @@ import {
   type PageActionToolResult,
 } from '../../../shared/types/tools';
 import { resolveTextTarget } from './dom-targets';
-import {
-  canScrollElement,
-  didStateChange,
-  dispatchMouseEvent,
-  readFocusedElement,
-  readElementState,
-  rectCenter,
-  resolveActionTarget,
-  resolveStateElement,
-  scrollElement,
-  scrollPageOrContainer,
-  writeText,
-} from './action-support';
+import { canScrollElement, scrollElement, scrollPageOrContainer } from './action-scroll';
+import { didStateChange, readElementState, resolveStateElement } from './action-state';
+import { readFocusedElement, resolveActionTarget } from './action-targets';
+import { rectCenter, type ViewportPoint } from './geometry';
+import { writeText } from './text-writer';
 import {
   showVirtualClickFeedback,
   showVirtualClickTarget,
@@ -24,6 +16,23 @@ import {
   showVirtualScroll,
   showVirtualType,
 } from './virtual-cursor';
+
+/**
+ * Dispatches a mouse event on an element.
+ *
+ * @param element - The event target.
+ * @param type - The mouse event type.
+ * @param point - The viewport point.
+ */
+function dispatchMouseEvent(element: Element, type: string, point: ViewportPoint): void {
+  element.dispatchEvent(new MouseEvent(type, {
+    bubbles: true,
+    cancelable: true,
+    clientX: point.x,
+    clientY: point.y,
+    buttons: type === 'mouseup' || type === 'click' ? 0 : 1,
+  }));
+}
 
 /**
  * Executes a page scroll action and returns scroll telemetry.
@@ -84,7 +93,7 @@ async function executeDragAction(
   const from = resolveActionTarget(payload.fromRef, payload.sid);
   if ('ok' in from) return { ...from, action: 'drag', ref: payload.fromRef };
   const to = resolveActionTarget(payload.toRef, payload.sid);
-  if ('ok' in to) return { ...to, action: 'drag', ref: payload.fromRef };
+  if ('ok' in to) return { ...to, action: 'drag', ref: payload.toRef };
 
   const fromPoint = rectCenter(from.rect);
   const toPoint = rectCenter(to.rect);
@@ -166,12 +175,16 @@ async function executeTypeAction(
 
   const point = rectCenter(target.rect);
   const fallbackTextTarget = resolveTextTarget(target.element, windowObject);
+  const focusedBeforeClick = readFocusedElement(documentObject);
   await showVirtualMouseMove(documentObject, point);
   dispatchMouseEvent(target.element, 'mousedown', point);
   dispatchMouseEvent(target.element, 'mouseup', point);
   dispatchMouseEvent(target.element, 'click', point);
   const focusedTextTarget = readFocusedElement(documentObject);
-  const textTargets = focusedTextTarget && focusedTextTarget !== fallbackTextTarget
+  const shouldPreferFocusedTarget = focusedTextTarget &&
+    focusedTextTarget !== fallbackTextTarget &&
+    focusedTextTarget !== focusedBeforeClick;
+  const textTargets = shouldPreferFocusedTarget
     ? [focusedTextTarget, fallbackTextTarget]
     : [fallbackTextTarget];
   await showVirtualType(documentObject, target.rect);

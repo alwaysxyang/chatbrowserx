@@ -4,6 +4,23 @@ import { createRuntimeMessageGuard } from '../runtime-messages';
 export type PageActionName = 'mouse_move' | 'click' | 'type' | 'scroll' | 'drag';
 
 /**
+ * Allowed scroll directions for page action protocol messages and LLM tool schemas.
+ */
+export const pageActionDirections = ['up', 'down', 'left', 'right'] as const;
+
+export type PageActionDirection = typeof pageActionDirections[number];
+
+/**
+ * Checks whether an unknown value is a supported page action scroll direction.
+ *
+ * @param value - The value to inspect.
+ * @returns True when the value is a PageActionDirection.
+ */
+export function isPageActionDirection(value: unknown): value is PageActionDirection {
+  return typeof value === 'string' && pageActionDirections.includes(value as PageActionDirection);
+}
+
+/**
  * Payload sent from LLM page action tools to the content-script executor.
  */
 export interface PageActionToolRequestPayload {
@@ -14,7 +31,7 @@ export interface PageActionToolRequestPayload {
   toRef?: string;
   text?: string;
   clear?: boolean;
-  direction?: 'up' | 'down' | 'left' | 'right';
+  direction?: PageActionDirection;
   amount?: number;
 }
 

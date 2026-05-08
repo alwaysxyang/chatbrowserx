@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "tsc --noEmit --noUnusedLocals --noUnusedParameters && vitest run"
   },
   "dependencies": {
     "crypto-js": "^4.2.0",

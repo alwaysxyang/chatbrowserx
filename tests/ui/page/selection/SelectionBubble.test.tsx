@@ -152,6 +152,34 @@ describe('SelectionBubble', () => {
     expect(dialog.querySelector('strong')).toHaveTextContent('你好');
   });
 
+  it('copies result text from the selection panel', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock.mockResolvedValue({ ok: true, data: { reply: '你好' } });
+    stubPageSelection('Hello');
+
+    render(<SelectionBubble />);
+    await act(async () => {
+      document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    });
+
+    const user = userEvent.setup();
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    await user.click(await screen.findByRole('button', { name: '翻译' }));
+    await screen.findByRole('dialog', { name: 'Selection result' });
+    await screen.findByText('你好');
+
+    await user.click(screen.getByRole('button', { name: '复制消息' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('你好');
+      expect(screen.getByRole('button', { name: '已复制' })).toBeInTheDocument();
+    });
+  });
+
   it('does not recreate the toolbar after a simple page click clears the existing selection', async () => {
     stubPageSelection('Hello');
 

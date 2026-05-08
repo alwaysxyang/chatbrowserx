@@ -3,6 +3,7 @@ import {
   type GetPageInteractablesToolPayload,
 } from '../../shared/types/tools';
 import { sendActiveTabToolMessage } from './shared/tab-message-tool';
+import { createObjectToolDefinition } from './shared/tool-definition';
 import { registerTool, type LlmToolModule } from './tool-registry';
 
 /**
@@ -13,19 +14,10 @@ import { registerTool, type LlmToolModule } from './tool-registry';
 export function createGetPageInteractablesTool(): LlmToolModule {
   return {
     name: () => 'get_current_page_interactables',
-    definition: () => ({
-      type: 'function',
-      function: {
-        name: 'get_current_page_interactables',
-        description:
-          'Return a compact read-only snapshot of interactable elements in the CURRENT viewport. Use it to identify visible controls before action planning. It does not click, type, scroll, or navigate. Output shape: { v:[viewportWidth,viewportHeight], sid:string, items:[[ref,role,name,[x,y,width,height],meta?]] }.',
-        parameters: {
-          type: 'object',
-          properties: {},
-          additionalProperties: false,
-        },
-      },
-    }),
+    definition: () => createObjectToolDefinition(
+      'get_current_page_interactables',
+      'Return a compact read-only snapshot of interactable elements in the CURRENT viewport. Use it to identify visible controls before action planning. It does not click, type, scroll, or navigate. Output shape: { v:[viewportWidth,viewportHeight], sid:string, items:[[ref,role,name,[x,y,width,height],meta?]] }.',
+    ),
     invoke: async () => {
       return await sendActiveTabToolMessage<GetPageInteractablesToolPayload>({
         type: getPageInteractablesToolRequestType,

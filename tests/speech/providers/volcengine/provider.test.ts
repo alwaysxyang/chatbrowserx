@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { VolcengineProvider } from '../../../../src/speech/providers/volcengine/provider';
-import type { RecognitionResult } from '../../../../src/shared/types/speech';
 
 /**
  * Test WebSocket that records outbound messages and exposes inbound event helpers.
@@ -45,7 +44,7 @@ class MockWebSocket {
     listeners.forEach(listener => listener(event));
   }
 
-  addEventListener(event: string, handler: (e: any) => void, options?: any): void {
+  addEventListener(event: string, handler: (e: any) => void, _options?: any): void {
     if (!this.eventListeners.has(event)) {
       this.eventListeners.set(event, []);
     }

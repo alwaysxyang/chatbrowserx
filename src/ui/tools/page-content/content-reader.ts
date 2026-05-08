@@ -1,5 +1,12 @@
 import { scanPage } from './page-scanner';
 
+/**
+ * Reads visible page text, scanning scroll positions to collect stable content.
+ *
+ * @param documentObject - The document to read from.
+ * @param windowObject - The window used for scroll scanning.
+ * @returns Bounded page text for the content tool.
+ */
 export async function readPageContent(
   documentObject: Document,
   windowObject: Window = window,

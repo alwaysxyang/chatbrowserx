@@ -38,7 +38,7 @@
 - `get-page-content-tool.ts` 定义 `get_current_page_content`。
 - `get-page-interactables-tool.ts` 定义 `get_current_page_interactables`。
 - `page-action-tools.ts` 定义页面动作工具。
-- `shared/active-tab.ts`、`shared/tab-message-tool.ts`、`shared/tool-arguments.ts` 放置多个工具共用的 tab 与参数辅助。
+- `shared/active-tab.ts`、`shared/tab-message-tool.ts`、`shared/tool-arguments.ts`、`shared/tool-definition.ts` 放置多个工具共用的 tab、参数与 tool definition 辅助。
 - `tavily/` 放置 Tavily 工具 definition、参数读取与 HTTP 请求。
 
 `src/llm/tools` 可以使用 Chrome tab / message 能力，但不能访问 DOM。
@@ -50,18 +50,26 @@
 - `page-content/content-reader.ts` 负责页面文本读取。
 - `page-content/page-scanner.ts` 负责主滚动容器识别与滚动扫描辅助。
 - `page-automation/runtime-listeners.ts` 注册交互快照与页面动作 listener。
-- `page-automation/interactable-scanner.ts` 编排当前视窗交互元素扫描。
-- `page-automation/interactable-support.ts` 承载候选角色推断、几何过滤、元数据与去重。
+- `page-automation/interactable-scanner.ts` 编排当前视窗交互元素扫描与快照序列化。
+- `page-automation/interactable-candidate.ts` 承载候选数据模型、快照元数据与候选上限常量。
+- `page-automation/interactable-role.ts` 承载候选 selector、滚动轴读取与候选角色推断。
+- `page-automation/interactable-visibility.ts` 承载命中测试与文本输入 surface 可见性放宽规则。
+- `page-automation/interactable-textbox-wrapper.ts` 承载紧凑输入包装器判定，供角色推断与命中测试共用。
+- `page-automation/interactable-deduplication.ts` 承载父子候选、装饰性图标与代码编辑器辅助节点去重。
 - `page-automation/interactable-naming.ts` 承载交互候选的可访问名称、短语义 token 与无标签 fallback 命名。
 - `page-automation/interactable-diagnostics.ts` 承载交互快照诊断计数与样本采集。
 - `page-automation/interactable-text.ts` 承载交互快照内部复用的文本截断辅助。
 - `page-automation/dom-targets.ts` 放置快照和动作共用的 DOM 目标判定。
+- `page-automation/geometry.ts` 放置页面自动化内部复用的 viewport 点、矩形压缩、中心点、重叠率与可见面积计算。
 - `page-automation/snapshot-store.ts` 保存最近快照 `sid` 与 `ref -> element` 映射。
-- `page-automation/action-executor.ts` 编排页面动作分发。
-- `page-automation/action-support.ts` 承载目标解析、状态遥测、滚动执行与鼠标事件几何。
+- `page-automation/action-executor.ts` 编排页面动作分发，并保留动作执行所需的局部鼠标事件派发。
+- `page-automation/action-targets.ts` 承载动作目标解析与焦点读取。
+- `page-automation/action-state.ts` 承载动作前后状态遥测与状态变更判断。
+- `page-automation/action-scroll.ts` 承载滚动目标选择、元素滚动与窗口滚动遥测。
 - `page-automation/text-writer.ts` 统一处理 `page_type` 文本写入。
 - `page-automation/rich-editor-bridge-main.ts` 是 `MAIN` world 窄桥接，只处理富代码编辑器模型写入。
-- `page-automation/virtual-cursor.ts` 只服务页面动作展示。
+- `page-automation/virtual-cursor-root.ts` 承载虚拟鼠标 overlay root、cursor 图标、移动/隐藏状态与局部 overlay 元素辅助。
+- `page-automation/virtual-cursor.ts` 只服务页面动作展示入口，例如 mouse move、click、type、drag 与 scroll 视觉反馈。
 
 `src/ui/tools` 不负责 provider 协议、tool loop 或后台调度。
 
@@ -71,7 +79,7 @@
 - 当前包括：
   - `page-content.ts`：`chatbrowserx.tool.get-page-content.request` 与 `GetPageContentToolPayload`。
   - `page-interactables.ts`：`chatbrowserx.tool.get-page-interactables.request` 与 `GetPageInteractablesToolPayload`。
-  - `page-action.ts`：`chatbrowserx.tool.page-action.request`、`PageActionToolRequestPayload` 与 `PageActionToolResult`。
+  - `page-action.ts`：`chatbrowserx.tool.page-action.request`、`PageActionToolRequestPayload`、`PageActionDirection`、`pageActionDirections`、`isPageActionDirection` 与 `PageActionToolResult`。
 - 不放工具实现、DOM 逻辑、Chrome 调度或 provider 编排。
 
 ## 4. 工具注册与执行链路
@@ -143,7 +151,7 @@ interface PageInteractablesSnapshot {
 
 ### 6.2 候选与命名规则
 
-- 候选包括原生交互元素、`role`、非负 `tabindex`、`contenteditable`、常见可点击容器、富代码编辑器 surface、紧凑输入包装行、可滚动容器。
+- 候选包括原生交互元素、`role`、非负 `tabindex`、`contenteditable`、常见可点击容器、富代码编辑器 surface、紧凑输入包装行、可滚动容器；候选 selector 不全量枚举普通 `div` / `span` / `section` / `p` 等布局节点，只保留显式语义、内联样式、常见 class token 或表单包装器信号；包含输入框的全页壳、宽问题区或宽表单容器不得仅因存在后代输入框而暴露为 `textbox`。
 - 必须过滤隐藏、禁用、视窗外、尺寸过小、明显遮挡、ChatBrowserX 自身 UI 节点。
 - 名称优先来自 `computeAccessibleName()`。
 - 对无文本图标按钮，可从短 token 推断常见语义，例如 `like`、`dislike`、`comments`、`bookmark`、`favorite`、`share`、`copy`、`menu`、`previous`、`next`。
@@ -166,7 +174,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
   - 行为：点击目标并返回可测量状态，例如 `checked`、`expanded`、`pressed`。
 - `page_type`
   - 参数：`{ sid: string, ref: string, text: string, clear?: boolean }`
-  - 行为：先点击聚焦，再优先写入当前深层 `activeElement`；富代码编辑器优先走 `rich-editor-bridge-main.ts`；`clear=true` 表示整体替换。
+  - 行为：先点击目标；若点击后产生新的深层 `activeElement`，优先写入该焦点目标，否则写入由快照 `ref` 解析出的文本目标，避免旧焦点输入框被误写；富代码编辑器优先走 `rich-editor-bridge-main.ts`；`clear=true` 表示整体替换。
 - `page_scroll`
   - 参数：`{ direction: "up" | "down" | "left" | "right", amount?: number, sid?: string, ref?: string }`
   - 行为：有 `sid` + `ref` 时优先滚动对应 `scrollarea`，否则滚动页面或 content 侧推断出的可见滚动容器。
@@ -176,6 +184,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
   - 行为：从起点元素中心拖拽到终点元素中心。
 
 动作返回结构应包含 `ok`、`action`、`changed`、错误码、动作前后状态或滚动前后位置，供模型判断动作是否生效。
+页面动作必须尽量保持人类操作节奏：虚拟鼠标或提示动画应先移动/展示到位，再触发真实 DOM 事件、文本写入、滚动或拖拽遥测。
 
 ## 8. 页面动作约束
 

@@ -1,18 +1,15 @@
 import type { GetPageInteractablesToolPayload } from '../../../shared/types/tools';
 import {
   buildMeta,
-  candidateSelector,
-  compactRect,
-  deduplicateNestedCandidates,
   diagnosticsVersion,
   findNestedCheckableInput,
-  inferRole,
   maxItems,
-  passesHitTest,
-  readScrollAxis,
-  rectIntersectsViewport,
   type CandidateItem,
-} from './interactable-support';
+} from './interactable-candidate';
+import { deduplicateNestedCandidates } from './interactable-deduplication';
+import { compactRect, rectIntersectsViewport, type CompactRect } from './geometry';
+import { candidateSelector, inferRole, readScrollAxis } from './interactable-role';
+import { passesHitTest } from './interactable-visibility';
 import {
   readControlName,
   readValueHint,
@@ -43,7 +40,7 @@ import { replaceLatestInteractablesSnapshot } from './snapshot-store';
 function buildCandidateItem(
   element: Element,
   role: string,
-  compactedRect: [number, number, number, number],
+  compactedRect: CompactRect,
   windowObject: Window,
 ): CandidateItem {
   const writableControl = findNestedWritableControl(element, windowObject);

@@ -24,6 +24,13 @@ function isScrollableElement(element: HTMLElement, windowObject: Window): boolea
   return (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') && element.scrollHeight > element.clientHeight;
 }
 
+/**
+ * Finds the primary scroll target for page text scanning.
+ *
+ * @param documentObject - The document to inspect.
+ * @param windowObject - The window that owns the document.
+ * @returns The window or nested element that should drive full-page scanning.
+ */
 export function findMainScrollContainer(documentObject: Document = document, windowObject: Window = window): ScrollContainerInfo {
   if (documentObject.documentElement.scrollHeight > windowObject.innerHeight + 10) {
     return {
@@ -114,6 +121,12 @@ interface ScanPageOptions<T> {
   onStep?: (scrollTop: number) => boolean | void | Promise<boolean | void>;
 }
 
+/**
+ * Runs a callback after scanning through the page's primary scroll positions.
+ *
+ * @param options - Scroll scanning options and callbacks.
+ * @returns The callback result after scanning completes or stabilizes.
+ */
 export async function scanPage<T>({
   callback,
   documentObject = document,

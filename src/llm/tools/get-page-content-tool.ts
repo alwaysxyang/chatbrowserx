@@ -3,6 +3,7 @@ import {
   type GetPageContentToolPayload,
 } from '../../shared/types/tools';
 import { sendActiveTabToolMessage } from './shared/tab-message-tool';
+import { createObjectToolDefinition } from './shared/tool-definition';
 import { registerTool, type LlmToolModule } from './tool-registry';
 
 const getCurrentPageContentDescription = [
@@ -23,18 +24,7 @@ export function createGetPageContentTool(
 ): LlmToolModule {
   return {
     name: () => 'get_current_page_content',
-    definition: () => ({
-      type: 'function',
-      function: {
-        name: 'get_current_page_content',
-        description: getCurrentPageContentDescription,
-        parameters: {
-          type: 'object',
-          properties: {},
-          additionalProperties: false,
-        },
-      },
-    }),
+    definition: () => createObjectToolDefinition('get_current_page_content', getCurrentPageContentDescription),
     invoke: async () => {
       const response = await sendActiveTabToolMessage<GetPageContentToolPayload>({
         type: getPageContentToolRequestType,

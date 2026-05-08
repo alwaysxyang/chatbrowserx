@@ -21,6 +21,11 @@ export interface ToolRegistry {
   addTool: (tool: LlmToolModule) => void;
 }
 
+/**
+ * Creates an isolated in-memory registry for LLM tools.
+ *
+ * @returns A registry that can collect definitions and dispatch tool modules by name.
+ */
 export function createToolRegistry(): ToolRegistry {
   const toolMap = new Map<string, LlmToolModule>();
 
@@ -48,14 +53,29 @@ function getOrCreateDefaultToolRegistry(): ToolRegistry {
   return scopedGlobal.__chatbrowserxDefaultToolRegistry;
 }
 
+/**
+ * Returns the process-wide default tool registry.
+ *
+ * @returns The default registry shared by tool module side-effect registration.
+ */
 export function getDefaultToolRegistry(): ToolRegistry {
   return getOrCreateDefaultToolRegistry();
 }
 
+/**
+ * Registers one LLM tool in the default registry.
+ *
+ * @param tool - The tool module to expose to the orchestrator.
+ */
 export function registerTool(tool: LlmToolModule): void {
   getDefaultToolRegistry().addTool(tool);
 }
 
+/**
+ * Returns the default registry after tool modules have registered themselves.
+ *
+ * @returns The default registry instance.
+ */
 export function createDefaultToolRegistry(): ToolRegistry {
   return getDefaultToolRegistry();
 }

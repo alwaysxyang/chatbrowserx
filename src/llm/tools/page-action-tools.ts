@@ -1,5 +1,7 @@
 import {
+  isPageActionDirection,
   pageActionToolRequestType,
+  pageActionDirections,
   type PageActionToolRequestPayload,
   type PageActionToolResult,
 } from '../../shared/types/tools';
@@ -10,7 +12,8 @@ import {
   readRequiredRawString,
 } from './shared/tool-arguments';
 import { sendActiveTabToolMessage } from './shared/tab-message-tool';
-import { registerTool, type LlmToolModule, type ToolDefinition } from './tool-registry';
+import { createObjectToolDefinition } from './shared/tool-definition';
+import { registerTool, type LlmToolModule } from './tool-registry';
 
 type ToolArgumentReader = (args: Record<string, unknown>) => PageActionToolRequestPayload;
 
@@ -38,36 +41,6 @@ async function invokePageAction(
 }
 
 /**
- * Builds a page action tool definition.
- *
- * @param name - The public LLM tool name.
- * @param description - The public LLM tool description.
- * @param properties - The JSON schema properties.
- * @param required - Required property names.
- * @returns A tool definition.
- */
-function buildDefinition(
-  name: string,
-  description: string,
-  properties: Record<string, unknown>,
-  required: string[],
-): ToolDefinition {
-  return {
-    type: 'function',
-    function: {
-      name,
-      description,
-      parameters: {
-        type: 'object',
-        properties,
-        required,
-        additionalProperties: false,
-      },
-    },
-  };
-}
-
-/**
  * Creates an LLM tool module from a page action configuration.
  *
  * @param config - The tool definition and argument reader.
@@ -76,7 +49,7 @@ function buildDefinition(
 function createPageActionTool(config: PageActionToolConfig): LlmToolModule {
   return {
     name: () => config.name,
-    definition: () => buildDefinition(config.name, config.description, config.properties, config.required),
+    definition: () => createObjectToolDefinition(config.name, config.description, config.properties, config.required),
     invoke: async (args) => invokePageAction(config.readPayload(args)),
   };
 }
@@ -160,12 +133,12 @@ export function createPageTypeTool(): LlmToolModule {
  */
 function readScrollActionPayload(args: Record<string, unknown>): PageActionToolRequestPayload {
   const direction = readRequiredRawString(args, 'direction');
-  if (!['up', 'down', 'left', 'right'].includes(direction)) {
+  if (!isPageActionDirection(direction)) {
     throw new Error('TOOL_ARGUMENT_INVALID:direction');
   }
   const payload: PageActionToolRequestPayload = {
     action: 'scroll',
-    direction: direction as PageActionToolRequestPayload['direction'],
+    direction,
     amount: readOptionalPositiveNumber(args, 'amount'),
   };
   const sid = readOptionalRawString(args, 'sid');
@@ -187,7 +160,7 @@ export function createPageScrollTool(): LlmToolModule {
     properties: {
       sid: { type: 'string' },
       ref: { type: 'string' },
-      direction: { type: 'string', enum: ['up', 'down', 'left', 'right'] },
+      direction: { type: 'string', enum: pageActionDirections },
       amount: { type: 'number' },
     },
     required: ['direction'],

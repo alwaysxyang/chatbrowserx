@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   readCurrentPageInteractables,
 } from '../../../src/ui/tools/page-automation/interactable-scanner';
+import { candidateSelector } from '../../../src/ui/tools/page-automation/interactable-role';
 import {
   registerGetPageInteractablesToolListener,
 } from '../../../src/ui/tools/page-automation/runtime-listeners';
@@ -124,6 +125,37 @@ describe('ui get page interactables tool', () => {
       ['e1', 'button', '32.2K', [10, 20, 64, 32]],
       ['e2', 'button', 'unlabeled button near 32.2K', [82, 20, 32, 32]],
     ]);
+  });
+
+  it('does not run candidate visibility checks for plain layout elements', () => {
+    document.body.innerHTML = `
+      <div id="layout">
+        <span id="copy">Decorative copy</span>
+        <button id="action">Run</button>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const action = document.getElementById('action')!;
+    setRect(action, makeRect(10, 20, 100, 32));
+    spyElementFromPoint(document).mockReturnValue(action);
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'button', 'Run', [10, 20, 100, 32]],
+    ]);
+    expect(candidateSelector.split(',')).not.toEqual(expect.arrayContaining([
+      'article',
+      'aside',
+      'div',
+      'li',
+      'p',
+      'section',
+      'span',
+      'td',
+      'th',
+    ]));
   });
 
   it('combines nested icon semantics with visible button counts and removes the icon child', () => {
@@ -439,6 +471,57 @@ describe('ui get page interactables tool', () => {
 
     expect(snapshot.items).toEqual([
       ['e1', 'textbox', '用户名', [365, 140, 685, 52], { h: '请设置用户名', t: 'text' }],
+    ]);
+  });
+
+  it('does not collapse a questionnaire page shell into one viewport-sized textbox', () => {
+    document.body.innerHTML = `
+      <div id="app">
+        <section id="question-1">
+          <h2>01 <span>*</span> 你对ai的看法</h2>
+          <textarea id="answer-1" aria-label="你对ai的看法"></textarea>
+        </section>
+        <section id="question-2">
+          <h2>02 <span>*</span> 你的出行方式</h2>
+          <textarea id="answer-2" aria-label="你的出行方式"></textarea>
+        </section>
+        <section id="question-3">
+          <h2>03 <span>*</span> 你最喜欢的节目</h2>
+          <textarea id="answer-3" aria-label="你最喜欢的节目"></textarea>
+        </section>
+        <button id="submit">提交</button>
+      </div>
+    `;
+    setViewportSize(1728, 861);
+    const app = document.getElementById('app')!;
+    const question1 = document.getElementById('question-1')!;
+    const question2 = document.getElementById('question-2')!;
+    const question3 = document.getElementById('question-3')!;
+    const answer1 = document.getElementById('answer-1')!;
+    const answer2 = document.getElementById('answer-2')!;
+    const answer3 = document.getElementById('answer-3')!;
+    const submit = document.getElementById('submit')!;
+    setRect(app, makeRect(0, 0, 1728, 861));
+    setRect(question1, makeRect(109, 0, 1619, 450));
+    setRect(question2, makeRect(109, 482, 1619, 521));
+    setRect(question3, makeRect(109, 1037, 1619, 384));
+    setRect(answer1, makeRect(234, 203, 1494, 107));
+    setRect(answer2, makeRect(234, 704, 1494, 159));
+    setRect(answer3, makeRect(234, 1256, 1494, 107));
+    setRect(submit, makeRect(1460, 812, 96, 40));
+    spyElementFromPoint(document).mockImplementation((x, y) => {
+      if (x > 1400 && y > 800 && y < 860) return submit;
+      if (y < 320) return answer1;
+      if (y > 700 && y < 870) return answer2;
+      return app;
+    });
+
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    expect(snapshot.items).toEqual([
+      ['e1', 'textbox', '你对ai的看法', [234, 203, 1494, 107]],
+      ['e2', 'textbox', '你的出行方式', [234, 704, 1494, 159]],
+      ['e3', 'button', '提交', [1460, 812, 96, 40]],
     ]);
   });
 

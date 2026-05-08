@@ -93,6 +93,36 @@ describe('page action content tool', () => {
     await executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window);
   });
 
+  it('waits for the virtual cursor to reach the target before clicking', async () => {
+    vi.useFakeTimers();
+    try {
+      document.body.innerHTML = '<button id="submit">Submit</button>';
+      const button = document.getElementById('submit')!;
+      const clickListener = vi.fn();
+      button.addEventListener('click', clickListener);
+      setRect(button, makeRect(10, 20, 100, 40));
+      spyElementFromPoint(document, button);
+      const snapshot = readCurrentPageInteractables(document, window);
+
+      const action = executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window);
+      await Promise.resolve();
+
+      expect(clickListener).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(279);
+      expect(clickListener).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(clickListener).toHaveBeenCalledTimes(1);
+      await vi.runAllTimersAsync();
+      await expect(action).resolves.toMatchObject({
+        ok: true,
+        action: 'click',
+        ref: 'e1',
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('returns before and after checked state for checkbox clicks', async () => {
     document.body.innerHTML = '<input id="agree" type="checkbox" aria-label="Agree" />';
     const checkbox = document.getElementById('agree') as HTMLInputElement;
@@ -406,6 +436,31 @@ describe('page action content tool', () => {
     expect(visibleInput.value).toBe('alice');
   });
 
+  it('does not type into a previously focused unrelated input when the target click does not move focus', async () => {
+    document.body.innerHTML = `
+      <input id="previous" type="text" value="old focus" />
+      <input id="target" type="text" value="old target" />
+    `;
+    setViewportSize(1728, 861);
+    const previousInput = document.getElementById('previous') as HTMLInputElement;
+    const targetInput = document.getElementById('target') as HTMLInputElement;
+    previousInput.focus();
+    setRect(previousInput, makeRect(20, 20, 200, 32));
+    setRect(targetInput, makeRect(1264, 248, 565, 40));
+    spyElementFromPoint(document, targetInput);
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'alice', clear: true }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'type',
+      ref: 'e1',
+      changed: true,
+      stateAfter: { value: 'alice' },
+    });
+    expect(previousInput.value).toBe('old focus');
+    expect(targetInput.value).toBe('alice');
+  });
+
   it('scrolls the current page by direction without needing a ref', async () => {
     const scrollByMock = mockWindowScrollBy();
     setViewportSize(window.innerWidth, 800);
@@ -548,6 +603,21 @@ describe('page action content tool', () => {
     expect(down).toHaveBeenCalledTimes(1);
     expect(move).toHaveBeenCalled();
     expect(up).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports an unavailable drag target against the missing target ref', async () => {
+    document.body.innerHTML = '<div role="button" aria-label="From" id="from"></div>';
+    const from = document.getElementById('from')!;
+    setRect(from, makeRect(10, 20, 50, 30));
+    spyElementFromPoint(document, from);
+    const snapshot = readCurrentPageInteractables(document, window);
+
+    await expect(executePageAction({ action: 'drag', sid: snapshot.sid, fromRef: 'e1', toRef: 'missing' }, document, window)).resolves.toEqual({
+      ok: false,
+      action: 'drag',
+      ref: 'missing',
+      error: 'PAGE_ACTION_REF_NOT_FOUND',
+    });
   });
 
   it('rejects actions that use an expired interactables snapshot id', async () => {
