@@ -25,7 +25,7 @@ function isScrollableElement(element: HTMLElement, windowObject: Window): boolea
 }
 
 /**
- * Finds the primary scroll target for page text scanning.
+ * Finds the primary scroll target for PDF screenshot scanning.
  *
  * @param documentObject - The document to inspect.
  * @param windowObject - The window that owns the document.
@@ -122,7 +122,7 @@ interface ScanPageOptions<T> {
 }
 
 /**
- * Runs a callback after scanning through the page's primary scroll positions.
+ * Runs a callback after scanning through the page's primary scroll positions for PDF capture.
  *
  * @param options - Scroll scanning options and callbacks.
  * @returns The callback result after scanning completes or stabilizes.

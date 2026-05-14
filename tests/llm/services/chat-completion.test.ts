@@ -94,6 +94,38 @@ async function installToolLoopFixtures(provider: ChatCompletionProvider, tools: 
 }
 
 describe('ChatCompletionService', () => {
+  it('prepends browser tool-use guidance to the configured system prompt', async () => {
+    const provider = {
+      completeChat: vi.fn<ChatCompletionProvider['completeChat']>().mockResolvedValue({
+        message: {
+          role: 'assistant',
+          content: 'ok',
+        } satisfies LlmAssistantMessage,
+      } satisfies ChatCompletionResult),
+    } satisfies ChatCompletionProvider;
+
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider);
+    const service = createService();
+
+    await service.complete([], 'Analyze this page');
+
+    const firstCallInput = provider.completeChat.mock.calls[0]?.[0] as ChatCompletionInput;
+    expect(firstCallInput.messages[0]).toMatchObject({ role: 'system' });
+    expect(firstCallInput.messages[0]?.content).toContain('stable scan direction');
+    expect(firstCallInput.messages[0]?.content).toContain('do not bounce between down and up');
+    expect(firstCallInput.messages[0]?.content).toContain('Avoid unnecessary repeated get_current_page_elements calls for the same unchanged viewport');
+    expect(firstCallInput.messages[0]?.content).toContain('Refresh page elements after page actions such as scroll, click, type, or drag');
+    expect(firstCallInput.messages[0]?.content).toContain('when enough time has passed');
+    expect(firstCallInput.messages[0]?.content).toContain('when you judge a fresh snapshot is necessary');
+    expect(firstCallInput.messages[0]?.content).toContain('For read-only page analysis');
+    expect(firstCallInput.messages[0]?.content).toContain('do not click navigation, outline, menu, toolbar, or AI summary controls');
+    expect(firstCallInput.messages[0]?.content).toContain('If a page action reports PAGE_ACTION_SNAPSHOT_EXPIRED');
+    expect(firstCallInput.messages[0]?.content).toContain('refresh page elements before retrying');
+    expect(firstCallInput.messages[0]?.content).toContain(defaultSettings.model.systemPrompt);
+
+    mockRunToolCallOrchestrator.mockRestore();
+  });
+
   it('executes requested tools and continues until it receives a final assistant reply', async () => {
     const provider = {
       completeChat: vi

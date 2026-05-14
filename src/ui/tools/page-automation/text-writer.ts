@@ -65,14 +65,68 @@ function dispatchSelectAllKeyEvent(element: Element, type: 'keydown' | 'keyup', 
 }
 
 /**
+ * Checks whether an element is a native text entry control with scoped selection APIs.
+ *
+ * @param element - The candidate text element.
+ * @returns True when native selection can replace global select-all shortcuts.
+ */
+function isNativeTextEntryElement(element: Element): element is HTMLInputElement | HTMLTextAreaElement {
+  return element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement;
+}
+
+/**
+ * Checks whether an element is a contenteditable text surface.
+ *
+ * @param element - The candidate text element.
+ * @returns True when the element exposes contenteditable editing.
+ */
+function isContentEditableElement(element: Element): element is HTMLElement {
+  return element instanceof HTMLElement &&
+    (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === '');
+}
+
+/**
+ * Selects text inside a native text entry control without affecting document selection.
+ *
+ * @param element - The focused native input or textarea.
+ */
+function selectNativeTextEntryContents(element: HTMLInputElement | HTMLTextAreaElement): void {
+  element.select();
+  element.setSelectionRange(0, element.value.length);
+}
+
+/**
+ * Selects contenteditable contents with a range scoped to the target element.
+ *
+ * @param element - The focused contenteditable element.
+ */
+function selectEditableElementContents(element: HTMLElement): void {
+  const documentObject = element.ownerDocument;
+  const selection = documentObject.defaultView?.getSelection();
+  if (!selection) return;
+
+  const range = documentObject.createRange();
+  range.selectNodeContents(element);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+/**
  * Gives editor-like controls a chance to replace all existing text on the next insertion.
  *
  * @param element - The focused writable element.
  */
 function prepareTextReplacement(element: Element): void {
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
-    element.select();
-    element.setSelectionRange(0, element.value.length);
+  const isCodeEditorTarget = Boolean(findCodeEditorSurface(element));
+
+  if (isNativeTextEntryElement(element)) {
+    selectNativeTextEntryContents(element);
+    if (!isCodeEditorTarget) return;
+  }
+
+  if (isContentEditableElement(element) && !isCodeEditorTarget) {
+    selectEditableElementContents(element);
+    return;
   }
 
   dispatchSelectAllKeyEvent(element, 'keydown', 'meta');
@@ -166,7 +220,7 @@ function tryNativeTextInsertion(element: Element, text: string, clear: boolean |
  * @returns True when a writer accepted the text.
  */
 export function writeText(element: Element, text: string, clear: boolean | undefined): boolean {
-  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+  if (isNativeTextEntryElement(element)) {
     element.focus();
     if (tryRichEditorBridgeTextInsertion(element, text, clear)) {
       element.dispatchEvent(new Event('change', { bubbles: true }));
@@ -194,8 +248,7 @@ export function writeText(element: Element, text: string, clear: boolean | undef
   }
 
   if (
-    element instanceof HTMLElement &&
-    (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === '')
+    isContentEditableElement(element)
   ) {
     element.focus();
     if (tryRichEditorBridgeTextInsertion(element, text, clear)) {

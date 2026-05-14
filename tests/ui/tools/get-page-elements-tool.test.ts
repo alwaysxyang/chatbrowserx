@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  readCurrentPageInteractables,
-} from '../../../src/ui/tools/page-automation/interactable-scanner';
+  readCurrentPageElements,
+} from '../../../src/ui/tools/page-automation/page-element-scanner';
 import { candidateSelector } from '../../../src/ui/tools/page-automation/interactable-role';
 import {
-  registerGetPageInteractablesToolListener,
+  registerGetPageElementsToolListener,
 } from '../../../src/ui/tools/page-automation/runtime-listeners';
 
 function makeRect(x: number, y: number, width: number, height: number): DOMRect {
@@ -42,7 +42,49 @@ function setViewportSize(width: number, height: number): void {
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
 }
 
-describe('ui get page interactables tool', () => {
+type PageElementItem = ReturnType<typeof readCurrentPageElements>['items'][number];
+type PageElementMeta = NonNullable<PageElementItem[4]>;
+
+/**
+ * Builds an expected page element tuple for compact snapshot assertions.
+ */
+function pageElementItem(
+  ref: string,
+  role: string,
+  name: string,
+  rect: [number, number, number, number],
+  meta?: PageElementMeta,
+): PageElementItem {
+  return meta ? [ref, role, name, rect, meta] : [ref, role, name, rect];
+}
+
+/**
+ * Builds an expected operable page element tuple.
+ */
+function operableItem(
+  ref: string,
+  role: string,
+  name: string,
+  rect: [number, number, number, number],
+  meta?: PageElementMeta,
+): PageElementItem {
+  return pageElementItem(ref, role, name, rect, { ...(meta ?? {}), op: true });
+}
+
+/**
+ * Builds an expected writable page element tuple.
+ */
+function writableItem(
+  ref: string,
+  role: string,
+  name: string,
+  rect: [number, number, number, number],
+  meta?: PageElementMeta,
+): PageElementItem {
+  return pageElementItem(ref, role, name, rect, { ...(meta ?? {}), w: true });
+}
+
+describe('ui get page elements tool', () => {
   beforeEach(() => {
   });
 
@@ -61,13 +103,13 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((_x, y) => y < 60 ? save : search);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot).toMatchObject({
       v: [1024, 768],
       items: [
-        ['e1', 'button', 'Save changes', [10, 20, 100, 40]],
-        ['e2', 'textbox', 'Search site', [10, 80, 220, 32], { h: 'Search docs', t: 'text' }],
+        operableItem('e1', 'button', 'Save changes', [10, 20, 100, 40]),
+        writableItem('e2', 'textbox', 'Search site', [10, 80, 220, 32], { h: 'Search docs', t: 'text' }),
       ],
     });
     expect(snapshot.sid).toMatch(/^s_/);
@@ -94,12 +136,12 @@ describe('ui get page interactables tool', () => {
       return share;
     });
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'like', [10, 20, 32, 32]],
-      ['e2', 'button', 'bookmark', [50, 20, 32, 32]],
-      ['e3', 'button', 'share', [90, 20, 32, 32]],
+      operableItem('e1', 'button', 'like', [10, 20, 32, 32]),
+      operableItem('e2', 'button', 'bookmark', [50, 20, 32, 32]),
+      operableItem('e3', 'button', 'share', [90, 20, 32, 32]),
     ]);
   });
 
@@ -119,11 +161,11 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((x) => x < 80 ? count : unknown);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', '32.2K', [10, 20, 64, 32]],
-      ['e2', 'button', 'unlabeled button near 32.2K', [82, 20, 32, 32]],
+      operableItem('e1', 'button', '32.2K', [10, 20, 64, 32]),
+      operableItem('e2', 'button', 'unlabeled button near 32.2K', [82, 20, 32, 32]),
     ]);
   });
 
@@ -140,10 +182,10 @@ describe('ui get page interactables tool', () => {
     setRect(action, makeRect(10, 20, 100, 32));
     spyElementFromPoint(document).mockReturnValue(action);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'Run', [10, 20, 100, 32]],
+      operableItem('e1', 'button', 'Run', [10, 20, 100, 32]),
     ]);
     expect(candidateSelector.split(',')).not.toEqual(expect.arrayContaining([
       'article',
@@ -156,6 +198,130 @@ describe('ui get page interactables tool', () => {
       'td',
       'th',
     ]));
+  });
+
+  it('includes visible heading and fallback text blocks for page reading', () => {
+    document.body.innerHTML = `
+      <main id="article">
+        <h1 id="title">Project overview</h1>
+        <div id="body-text">
+          <span>First paragraph explains the architecture.</span>
+          <span>Second sentence covers the risks.</span>
+        </div>
+        <button id="action">Open details</button>
+      </main>
+    `;
+    setViewportSize(1024, 768);
+
+    const title = document.getElementById('title')!;
+    const bodyText = document.getElementById('body-text')!;
+    const action = document.getElementById('action')!;
+    setRect(title, makeRect(10, 20, 600, 36));
+    setRect(bodyText, makeRect(10, 70, 760, 54));
+    setRect(action, makeRect(10, 150, 120, 32));
+    spyElementFromPoint(document).mockReturnValue(action);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'heading', 'Project overview', [10, 20, 600, 36]),
+      pageElementItem('e2', 'text', 'First paragraph explains the architecture. Second sentence covers the risks.', [10, 70, 760, 54]),
+      operableItem('e3', 'button', 'Open details', [10, 150, 120, 32]),
+    ]);
+  });
+
+  it('includes readable text inside scroll areas for page reading', () => {
+    document.body.innerHTML = `
+      <main id="doc" aria-label="Document body" style="overflow-y: auto">
+        <article id="article">
+          <h1 id="title">Visible architecture notes</h1>
+          <p id="paragraph">The body text inside the scroll area should be returned.</p>
+        </article>
+      </main>
+    `;
+    setViewportSize(1024, 768);
+
+    const doc = document.getElementById('doc')!;
+    const title = document.getElementById('title')!;
+    const paragraph = document.getElementById('paragraph')!;
+    Object.defineProperty(doc, 'clientHeight', { configurable: true, value: 400 });
+    Object.defineProperty(doc, 'scrollHeight', { configurable: true, value: 1200 });
+    setRect(doc, makeRect(0, 64, 1024, 400));
+    setRect(title, makeRect(120, 96, 640, 36));
+    setRect(paragraph, makeRect(120, 150, 760, 32));
+    spyElementFromPoint(document).mockReturnValue(paragraph);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'scrollarea', 'Document body', [0, 64, 1024, 400], { s: 'y' }),
+      pageElementItem('e2', 'heading', 'Visible architecture notes', [120, 96, 640, 36]),
+      pageElementItem('e3', 'text', 'The body text inside the scroll area should be returned.', [120, 150, 760, 32]),
+    ]);
+  });
+
+  it('splits long fallback text blocks instead of dropping the tail', () => {
+    const firstChunk = 'A'.repeat(240);
+    const tailChunk = 'B'.repeat(16);
+    document.body.innerHTML = `<article id="long-copy">${firstChunk}${tailChunk}</article>`;
+    setViewportSize(1024, 768);
+
+    const longCopy = document.getElementById('long-copy')!;
+    setRect(longCopy, makeRect(10, 20, 720, 120));
+    spyElementFromPoint(document).mockReturnValue(longCopy);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'text', firstChunk, [10, 20, 720, 120]),
+      pageElementItem('e2', 'text', tailChunk, [10, 20, 720, 120]),
+    ]);
+  });
+
+  it('does not duplicate text already represented by an interactive element name', () => {
+    document.body.innerHTML = `
+      <span id="save-label">Save changes</span>
+      <button id="save" aria-labelledby="save-label"></button>
+    `;
+    setViewportSize(1024, 768);
+
+    const label = document.getElementById('save-label')!;
+    const save = document.getElementById('save')!;
+    setRect(label, makeRect(10, 20, 120, 24));
+    setRect(save, makeRect(10, 60, 100, 40));
+    spyElementFromPoint(document).mockReturnValue(save);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'button', 'Save changes', [10, 60, 100, 40]),
+    ]);
+  });
+
+  it('skips expensive style reads for offscreen candidates before deeper filtering', () => {
+    document.body.innerHTML = [
+      '<button id="visible">Visible</button>',
+      ...Array.from({ length: 80 }, (_value, index) => `<button id="offscreen-${index}">Offscreen ${index}</button>`),
+    ].join('');
+    setViewportSize(1024, 768);
+
+    const visible = document.getElementById('visible')!;
+    setRect(visible, makeRect(10, 20, 100, 32));
+    for (let index = 0; index < 80; index += 1) {
+      setRect(document.getElementById(`offscreen-${index}`)!, makeRect(10, 5000 + index * 40, 100, 32));
+    }
+    spyElementFromPoint(document).mockReturnValue(visible);
+    const originalGetComputedStyle = window.getComputedStyle.bind(window);
+    const getComputedStyleSpy = vi
+      .spyOn(window, 'getComputedStyle')
+      .mockImplementation((element, pseudoElement) => originalGetComputedStyle(element, pseudoElement));
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'button', 'Visible', [10, 20, 100, 32]),
+    ]);
+    expect(getComputedStyleSpy.mock.calls.length).toBeLessThan(20);
   });
 
   it('combines nested icon semantics with visible button counts and removes the icon child', () => {
@@ -176,10 +342,10 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((x) => x < 36 ? icon : count);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'like 32.2K', [10, 20, 80, 32]],
+      operableItem('e1', 'button', 'like 32.2K', [10, 20, 80, 32]),
     ]);
   });
 
@@ -201,10 +367,10 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((x) => x < 36 ? icon : count);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'comments 922', [10, 20, 80, 32]],
+      operableItem('e1', 'button', 'comments 922', [10, 20, 80, 32]),
     ]);
   });
 
@@ -222,11 +388,11 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((x) => x < 40 ? open : help);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'open', [10, 20, 28, 28]],
-      ['e2', 'button', 'help', [50, 20, 28, 28]],
+      operableItem('e1', 'button', 'open', [10, 20, 28, 28]),
+      operableItem('e2', 'button', 'help', [50, 20, 28, 28]),
     ]);
   });
 
@@ -252,11 +418,11 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((x) => x < 45 ? play : previousIcon);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'Run', [10, 20, 32, 32]],
-      ['e2', 'link', 'Prev Question', [50, 20, 32, 32]],
+      operableItem('e1', 'button', 'Run', [10, 20, 32, 32]),
+      operableItem('e2', 'link', 'Prev Question', [50, 20, 32, 32]),
     ]);
   });
 
@@ -275,10 +441,10 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockReturnValue(logoButton);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'link', 'LeetCode Logo', [20, 13, 21, 22]],
+      operableItem('e1', 'link', 'LeetCode Logo', [20, 13, 21, 22]),
     ]);
   });
 
@@ -309,10 +475,10 @@ describe('ui get page interactables tool', () => {
 
     spyElementFromPoint(document).mockImplementation((_x, y) => y > 160 ? cover : enabled);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'Enabled', [20, 20, 80, 30]],
+      operableItem('e1', 'button', 'Enabled', [20, 20, 80, 30]),
     ]);
   });
 
@@ -331,10 +497,10 @@ describe('ui get page interactables tool', () => {
     setRect(username, makeRect(365, 140, 685, 52));
     spyElementFromPoint(document).mockReturnValue(wrapper);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', '用户名', [200, 120, 680, 80], { h: '请设置用户名', t: 'text' }],
+      writableItem('e1', 'textbox', '用户名', [200, 120, 680, 80], { h: '请设置用户名', t: 'text' }),
     ]);
   });
 
@@ -352,14 +518,14 @@ describe('ui get page interactables tool', () => {
     setRect(phone, makeRect(365, 220, 0, 0));
     spyElementFromPoint(document).mockReturnValue(wrapper);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', '手机号', [365, 220, 685, 52], { h: '可用于登录和找回密码', t: 'text' }],
+      writableItem('e1', 'textbox', '手机号', [365, 220, 685, 52], { h: '可用于登录和找回密码', t: 'text' }),
     ]);
   });
 
-  it('filters ChatBrowserX injected UI from page interactables', () => {
+  it('filters ChatBrowserX injected UI from page elements', () => {
     document.body.innerHTML = `
       <button id="page-button">Page button</button>
       <div id="chatbrowserx-root">
@@ -382,10 +548,10 @@ describe('ui get page interactables tool', () => {
       return overlayButton;
     });
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'Page button', [20, 20, 120, 32]],
+      operableItem('e1', 'button', 'Page button', [20, 20, 120, 32]),
     ]);
   });
 
@@ -401,10 +567,10 @@ describe('ui get page interactables tool', () => {
     setRect(username, makeRect(200, 120, 680, 52));
     spyElementFromPoint(document).mockImplementation((_x, y) => y < 80 ? login : document.body);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', '登录', [20, 20, 80, 32]],
+      operableItem('e1', 'button', '登录', [20, 20, 80, 32]),
     ]);
     expect(snapshot.d).toMatchObject({
       ver: expect.any(String),
@@ -439,10 +605,10 @@ describe('ui get page interactables tool', () => {
     setRect(overlay, makeRect(365, 140, 685, 52));
     spyElementFromPoint(document).mockReturnValue(overlay);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', '用户名', [365, 140, 685, 52], { h: '请设置用户名', t: 'text' }],
+      writableItem('e1', 'textbox', '用户名', [365, 140, 685, 52], { h: '请设置用户名', t: 'text' }),
     ]);
   });
 
@@ -467,10 +633,10 @@ describe('ui get page interactables tool', () => {
     setRect(overlay, makeRect(320, 100, 720, 482));
     spyElementFromPoint(document).mockReturnValue(overlay);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', '用户名', [365, 140, 685, 52], { h: '请设置用户名', t: 'text' }],
+      writableItem('e1', 'textbox', '用户名', [365, 140, 685, 52], { h: '请设置用户名', t: 'text' }),
     ]);
   });
 
@@ -516,12 +682,12 @@ describe('ui get page interactables tool', () => {
       return app;
     });
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', '你对ai的看法', [234, 203, 1494, 107]],
-      ['e2', 'textbox', '你的出行方式', [234, 704, 1494, 159]],
-      ['e3', 'button', '提交', [1460, 812, 96, 40]],
+      writableItem('e1', 'textbox', '你对ai的看法', [234, 203, 1494, 107]),
+      writableItem('e2', 'textbox', '你的出行方式', [234, 704, 1494, 159]),
+      operableItem('e3', 'button', '提交', [1460, 812, 96, 40]),
     ]);
   });
 
@@ -538,10 +704,11 @@ describe('ui get page interactables tool', () => {
     setRect(button, makeRect(20, 70, 100, 30));
     spyElementFromPoint(document).mockImplementation((_x, y) => y < 60 ? status : button);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'Open menu', [20, 70, 100, 30]],
+      pageElementItem('e1', 'text', 'Saved', [20, 20, 100, 30]),
+      operableItem('e2', 'button', 'Open menu', [20, 70, 100, 30]),
     ]);
   });
 
@@ -570,12 +737,13 @@ describe('ui get page interactables tool', () => {
       return plain;
     });
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'Open panel', [20, 20, 100, 30]],
-      ['e2', 'button', 'Filters', [20, 70, 100, 30], { h: 'Show filters' }],
-      ['e3', 'button', 'CSS pointer', [20, 120, 100, 30]],
+      operableItem('e1', 'button', 'Open panel', [20, 20, 100, 30]),
+      operableItem('e2', 'button', 'Filters', [20, 70, 100, 30], { h: 'Show filters' }),
+      operableItem('e3', 'button', 'CSS pointer', [20, 120, 100, 30]),
+      pageElementItem('e4', 'text', 'Plain text', [20, 170, 100, 30]),
     ]);
   });
 
@@ -596,11 +764,11 @@ describe('ui get page interactables tool', () => {
     setRect(codemirror, makeRect(30, 440, 700, 260));
     spyElementFromPoint(document).mockImplementation((_x, y) => y < 420 ? monaco : codemirror);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', 'Code Editor', [30, 40, 700, 360], { t: 'code' }],
-      ['e2', 'textbox', 'SQL editor', [30, 440, 700, 260], { t: 'code' }],
+      writableItem('e1', 'textbox', 'Code Editor', [30, 40, 700, 360], { t: 'code' }),
+      writableItem('e2', 'textbox', 'SQL editor', [30, 440, 700, 260], { t: 'code' }),
     ]);
   });
 
@@ -620,10 +788,10 @@ describe('ui get page interactables tool', () => {
     setRect(line, makeRect(30, 48, 797, 20));
     spyElementFromPoint(document).mockReturnValue(line);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', 'Code Editor', [30, 40, 797, 208], { t: 'code' }],
+      writableItem('e1', 'textbox', 'Code Editor', [30, 40, 797, 208], { t: 'code' }),
     ]);
   });
 
@@ -641,10 +809,10 @@ describe('ui get page interactables tool', () => {
       .mockReturnValueOnce(editor)
       .mockReturnValueOnce(textarea);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'textbox', 'Code Editor', [30, 40, 797, 208], { t: 'code' }],
+      writableItem('e1', 'textbox', 'Code Editor', [30, 40, 797, 208], { t: 'code' }),
     ]);
   });
 
@@ -663,10 +831,11 @@ describe('ui get page interactables tool', () => {
     setRect(content, makeRect(40, 80, 900, 1200));
     spyElementFromPoint(document).mockReturnValue(content);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'scrollarea', 'Question list', [40, 80, 900, 400], { s: 'y' }],
+      pageElementItem('e1', 'scrollarea', 'Question list', [40, 80, 900, 400], { s: 'y' }),
+      pageElementItem('e2', 'text', 'Question 3 Question 4 Question 5', [40, 80, 900, 1200]),
     ]);
   });
 
@@ -690,10 +859,10 @@ describe('ui get page interactables tool', () => {
     setRect(dot, makeRect(36, 32, 16, 16));
     spyElementFromPoint(document).mockReturnValue(label);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'A. 员工A接受合作方提供的休闲旅行', [20, 20, 760, 40]],
+      operableItem('e1', 'button', 'A. 员工A接受合作方提供的休闲旅行', [20, 20, 760, 40]),
     ]);
   });
 
@@ -713,16 +882,16 @@ describe('ui get page interactables tool', () => {
     setRect(label, makeRect(60, 29, 360, 22));
     spyElementFromPoint(document).mockReturnValue(label);
 
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     expect(snapshot.items).toEqual([
-      ['e1', 'button', 'C. 员工收到礼盒应及时申报', [20, 20, 760, 40], { checked: false }],
+      operableItem('e1', 'button', 'C. 员工收到礼盒应及时申报', [20, 20, 760, 40], { checked: false }),
     ]);
   });
 
-  it('registers a runtime listener for page interactables requests', async () => {
+  it('registers a runtime listener for page element requests', async () => {
     const addListenerMock = globalThis.__chromeTestUtils.getRuntimeOnMessageAddListenerMock();
-    registerGetPageInteractablesToolListener();
+    registerGetPageElementsToolListener();
 
     const listener = addListenerMock.mock.calls.at(-1)?.[0];
     const sendResponse = vi.fn();
@@ -732,12 +901,12 @@ describe('ui get page interactables tool', () => {
     setRect(ok, makeRect(1, 2, 30, 20));
     spyElementFromPoint(document).mockReturnValue(ok);
 
-    const keepAlive = listener?.({ type: 'chatbrowserx.tool.get-page-interactables.request' }, {}, sendResponse);
+    const keepAlive = listener?.({ type: 'chatbrowserx.tool.get-page-elements.request' }, {}, sendResponse);
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(keepAlive).toBe(true);
     expect(sendResponse).toHaveBeenCalledWith(expect.objectContaining({
-      items: [['e1', 'button', 'OK', [1, 2, 30, 20]]],
+      items: [operableItem('e1', 'button', 'OK', [1, 2, 30, 20])],
     }));
   });
 });

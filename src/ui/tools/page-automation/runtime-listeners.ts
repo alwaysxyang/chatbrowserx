@@ -1,20 +1,20 @@
 import {
-  isGetPageInteractablesToolRequestMessage,
+  isGetPageElementsToolRequestMessage,
   isPageActionToolRequestMessage,
 } from '../../../shared/types/tools';
 import { executePageAction } from './action-executor';
-import { readCurrentPageInteractables } from './interactable-scanner';
+import { readCurrentPageElements } from './page-element-scanner';
 
 /**
- * Registers the content-script listener for page interactables tool requests.
+ * Registers the content-script listener for page element snapshot tool requests.
  */
-export function registerGetPageInteractablesToolListener(): void {
+export function registerGetPageElementsToolListener(): void {
   const listener: Parameters<typeof chrome.runtime.onMessage.addListener>[0] = (message, _sender, sendResponse) => {
-    if (!isGetPageInteractablesToolRequestMessage(message)) {
+    if (!isGetPageElementsToolRequestMessage(message)) {
       return undefined;
     }
 
-    sendResponse(readCurrentPageInteractables(document, window));
+    sendResponse(readCurrentPageElements(document, window));
     return true;
   };
 
@@ -41,6 +41,6 @@ export function registerPageActionToolListener(): void {
  * Registers all content-script page automation tool listeners.
  */
 export function registerPageAutomationToolListeners(): void {
-  registerGetPageInteractablesToolListener();
+  registerGetPageElementsToolListener();
   registerPageActionToolListener();
 }

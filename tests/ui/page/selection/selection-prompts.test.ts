@@ -38,8 +38,7 @@ describe('selection prompts', () => {
       maxPageChars: 100,
     });
 
-    expect(prompt).toContain('Do not call get_current_page_content');
-    expect(prompt).toContain('Do not call any page reading or page content tools');
+    expect(prompt).toContain('Do not call page tools to reread the page');
     expect(prompt).toContain('Page Content');
     expect(prompt).toContain('Already included page text');
   });

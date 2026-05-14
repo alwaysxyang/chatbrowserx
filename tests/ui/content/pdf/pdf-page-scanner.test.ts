@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { setCurrentUiLanguage } from '../../../src/shared/i18n/current-language';
-import { findMainScrollContainer, scanPage } from '../../../src/ui/tools/page-content/page-scanner';
+import { setCurrentUiLanguage } from '../../../../src/shared/i18n/current-language';
+import { findMainScrollContainer, scanPage } from '../../../../src/ui/content/pdf/pdf-page-scanner';
 
 function mockWindowScroll(initialY = 0) {
   const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
@@ -42,7 +42,7 @@ function mockWindowScroll(initialY = 0) {
   };
 }
 
-describe('scroll helper', () => {
+describe('pdf page scanner', () => {
   afterEach(() => {
     setCurrentUiLanguage('zh');
     document.body.innerHTML = '';

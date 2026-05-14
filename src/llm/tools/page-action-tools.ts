@@ -77,7 +77,7 @@ function readRefActionPayload(args: Record<string, unknown>, action: PageActionT
 export function createPageMouseMoveTool(): LlmToolModule {
   return createPageActionTool({
     name: 'page_mouse_move',
-    description: 'Move the visible virtual mouse to a current-page interactable by snapshot id and ref. Use sid and refs from get_current_page_interactables. Does not click or type.',
+    description: 'Move the visible virtual mouse to a current-page element by snapshot id and ref. Use sid and refs from get_current_page_elements. Does not click or type.',
     properties: { sid: { type: 'string' }, ref: { type: 'string' } },
     required: ['sid', 'ref'],
     readPayload: (args) => readRefActionPayload(args, 'mouse_move'),
@@ -92,7 +92,7 @@ export function createPageMouseMoveTool(): LlmToolModule {
 export function createPageClickTool(): LlmToolModule {
   return createPageActionTool({
     name: 'page_click',
-    description: 'Click a current-page interactable by snapshot id and ref. Use sid and refs from get_current_page_interactables. Returns measurable before/after state when available, such as checked/expanded/pressed, so use the result to verify whether the click worked. Does not accept raw coordinates.',
+    description: 'Click a current-page element by snapshot id and ref. Use sid and refs from get_current_page_elements, preferably an item with meta.op=true. For read-only page analysis, do not click navigation, outline, menu, toolbar, or AI summary controls just to discover content; use get_current_page_elements and page_scroll instead. If this tool returns PAGE_ACTION_SNAPSHOT_EXPIRED, call get_current_page_elements and retry with the latest sid/ref only if the action is still necessary. Returns measurable before/after state when available, such as checked/expanded/pressed, so use the result to verify whether the click worked. Does not accept raw coordinates.',
     properties: { sid: { type: 'string' }, ref: { type: 'string' } },
     required: ['sid', 'ref'],
     readPayload: (args) => readRefActionPayload(args, 'click'),
@@ -107,7 +107,7 @@ export function createPageClickTool(): LlmToolModule {
 export function createPageTypeTool(): LlmToolModule {
   return createPageActionTool({
     name: 'page_type',
-    description: 'Type text into a current-page input-like element by snapshot id and ref. Use sid and refs from get_current_page_interactables. Set clear=true to replace existing content. Returns before/after input state when available, so use the result to verify whether text was written.',
+    description: 'Type text into a current-page input-like element by snapshot id and ref. Use sid and refs from get_current_page_elements, preferably an item with meta.w=true. Set clear=true to replace existing content. Returns before/after input state when available, so use the result to verify whether text was written.',
     properties: {
       sid: { type: 'string' },
       ref: { type: 'string' },
@@ -156,12 +156,15 @@ function readScrollActionPayload(args: Record<string, unknown>): PageActionToolR
 export function createPageScrollTool(): LlmToolModule {
   return createPageActionTool({
     name: 'page_scroll',
-    description: 'Scroll the current page or a target scrollarea by ref. Pass sid/ref from get_current_page_interactables when a scrollarea should be scrolled. Returns the actual scroll target, before/after scroll positions, and scrolled=true/false. After scrolling, call get_current_page_interactables again before choosing the next click/type/drag target, because visible refs may have changed. This tool does not accept raw coordinates.',
+    description: 'Scroll the current page or a target scrollarea by ref. Pass sid/ref from get_current_page_elements when a scrollarea should be scrolled. Without a ref, this scrolls the container under the viewport center or the window; with a ref, fallback follows that target ancestor chain and does not switch to unrelated scrollareas. Prefer omitting amount so the content script scrolls a human-sized portion of the visible area. If amount is provided, infer it from the current viewport or target scrollarea visible height and avoid jumping past content. Returns the actual scroll target, before/after scroll positions, scrolled=true/false, and canScrollMore=true/false for the requested direction. After scrolling, call get_current_page_elements again before choosing the next click/type/drag target, because visible refs may have changed. If scrolled=true, do not answer from the pre-scroll snapshot; refresh the elements first and continue analysis from the new viewport. After scrolled=false, refreshing is usually unnecessary unless async content may have changed, enough time has passed, another action changes the page, or a fresh snapshot is needed for correctness. For whole-page analysis, keep a stable scan direction and continue the observe-scroll-observe loop while canScrollMore=true and visible content remains relevant; treat canScrollMore=false as the end for that direction. During linear page analysis, do not alternate between down and up. Use the opposite direction only when the user explicitly asks to go back, when returning to a previously seen target, or when the task is specifically above the viewport. This tool does not accept raw coordinates.',
     properties: {
       sid: { type: 'string' },
       ref: { type: 'string' },
       direction: { type: 'string', enum: pageActionDirections },
-      amount: { type: 'number' },
+      amount: {
+        type: 'number',
+        description: 'Optional. Prefer omitting amount. When setting it, infer a human-sized distance from the current viewport or target scrollarea visible height, and avoid jumping past content.',
+      },
     },
     required: ['direction'],
     readPayload: readScrollActionPayload,
@@ -176,7 +179,7 @@ export function createPageScrollTool(): LlmToolModule {
 export function createPageDragTool(): LlmToolModule {
   return createPageActionTool({
     name: 'page_drag',
-    description: 'Drag from one current-page interactable ref to another within the latest snapshot id. Use sid and refs from get_current_page_interactables. Does not accept raw coordinates.',
+    description: 'Drag from one current-page element ref to another within the latest snapshot id. Use sid and refs from get_current_page_elements. Does not accept raw coordinates.',
     properties: {
       sid: { type: 'string' },
       fromRef: { type: 'string' },

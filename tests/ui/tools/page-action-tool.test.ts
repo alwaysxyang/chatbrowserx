@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { executePageAction } from '../../../src/ui/tools/page-automation/action-executor';
-import { readCurrentPageInteractables } from '../../../src/ui/tools/page-automation/interactable-scanner';
+import { readCurrentPageElements } from '../../../src/ui/tools/page-automation/page-element-scanner';
 import { registerPageActionToolListener } from '../../../src/ui/tools/page-automation/runtime-listeners';
 
 function makeRect(x: number, y: number, width: number, height: number): DOMRect {
@@ -58,14 +58,14 @@ describe('page action content tool', () => {
   beforeEach(() => {
   });
 
-  it('clicks an element by the latest interactables ref', async () => {
+  it('clicks an element by the latest page element ref', async () => {
     document.body.innerHTML = '<button id="submit">Submit</button>';
     const button = document.getElementById('submit')!;
     const clickListener = vi.fn();
     button.addEventListener('click', clickListener);
     setRect(button, makeRect(10, 20, 100, 40));
     spyElementFromPoint(document, button);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window)).resolves.toEqual({
       ok: true,
@@ -81,7 +81,7 @@ describe('page action content tool', () => {
     const button = document.getElementById('submit')!;
     setRect(button, makeRect(10, 20, 100, 40));
     spyElementFromPoint(document, button);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     button.addEventListener('click', () => {
       const cursor = document.querySelector<HTMLElement>('[data-role="virtual-cursor"]');
@@ -102,7 +102,7 @@ describe('page action content tool', () => {
       button.addEventListener('click', clickListener);
       setRect(button, makeRect(10, 20, 100, 40));
       spyElementFromPoint(document, button);
-      const snapshot = readCurrentPageInteractables(document, window);
+      const snapshot = readCurrentPageElements(document, window);
 
       const action = executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window);
       await Promise.resolve();
@@ -128,7 +128,7 @@ describe('page action content tool', () => {
     const checkbox = document.getElementById('agree') as HTMLInputElement;
     setRect(checkbox, makeRect(10, 20, 20, 20));
     spyElementFromPoint(document, checkbox);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window)).resolves.toEqual({
       ok: true,
@@ -154,7 +154,7 @@ describe('page action content tool', () => {
     setRect(choice, makeRect(10, 20, 240, 40));
     setRect(label, makeRect(36, 28, 180, 22));
     spyElementFromPoint(document, label);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e2' }, document, window)).resolves.toEqual({
       ok: true,
@@ -175,7 +175,7 @@ describe('page action content tool', () => {
     input.addEventListener('change', changeListener);
     setRect(input, makeRect(10, 20, 200, 32));
     spyElementFromPoint(document, input);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'hello', clear: true }, document, window)).resolves.toEqual({
       ok: true,
@@ -188,6 +188,58 @@ describe('page action content tool', () => {
     expect(input.value).toBe('hello');
     expect(inputListener).toHaveBeenCalledTimes(1);
     expect(changeListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not use page-level select-all shortcuts when clearing a native input', async () => {
+    document.body.innerHTML = '<input id="q" aria-label="Search" value="old" />';
+    const input = document.getElementById('q') as HTMLInputElement;
+    const originalExecCommand = document.execCommand;
+    let pageSelectAllTriggered = false;
+    document.body.addEventListener('keydown', (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'a') {
+        pageSelectAllTriggered = true;
+      }
+    });
+    try {
+      Object.defineProperty(document, 'execCommand', {
+        configurable: true,
+        value: vi.fn((command: string, _showUi?: boolean, value?: string) => {
+          if (command === 'selectAll') {
+            pageSelectAllTriggered = true;
+            return true;
+          }
+          if (command === 'delete') {
+            input.value = '';
+            return true;
+          }
+          if (command === 'insertText') {
+            input.value = String(value ?? '');
+            input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: String(value ?? '') }));
+            return true;
+          }
+          return false;
+        }),
+      });
+      setRect(input, makeRect(10, 20, 200, 32));
+      spyElementFromPoint(document, input);
+      const snapshot = readCurrentPageElements(document, window);
+
+      await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'hello', clear: true }, document, window)).resolves.toMatchObject({
+        ok: true,
+        action: 'type',
+        changed: true,
+        stateAfter: { value: 'hello' },
+      });
+
+      expect(input.value).toBe('hello');
+      expect(pageSelectAllTriggered).toBe(false);
+      expect(document.execCommand).not.toHaveBeenCalledWith('selectAll', false);
+    } finally {
+      Object.defineProperty(document, 'execCommand', {
+        configurable: true,
+        value: originalExecCommand,
+      });
+    }
   });
 
   it('types into an editable descendant when the ref is a code editor container', async () => {
@@ -203,7 +255,7 @@ describe('page action content tool', () => {
     setRect(editor, makeRect(10, 20, 400, 220));
     setRect(content, makeRect(20, 30, 380, 200));
     spyElementFromPoint(document, editor);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toEqual({
       ok: true,
@@ -247,7 +299,7 @@ describe('page action content tool', () => {
     setRect(input, makeRect(10, 20, 1, 1));
     setRect(line, makeRect(10, 28, 797, 20));
     spyElementFromPoint(document, line);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
       ok: true,
@@ -308,7 +360,7 @@ describe('page action content tool', () => {
     setRect(input, makeRect(10, 20, 1, 1));
     setRect(line, makeRect(10, 28, 797, 20));
     spyElementFromPoint(document, line);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
       ok: true,
@@ -361,7 +413,7 @@ describe('page action content tool', () => {
     setRect(input, makeRect(10, 20, 1, 1));
     setRect(line, makeRect(10, 28, 797, 20));
     spyElementFromPoint(document, line);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
       ok: true,
@@ -391,7 +443,7 @@ describe('page action content tool', () => {
     setRect(surface, makeRect(10, 20, 400, 220));
     setRect(input, makeRect(0, 0, 1, 1));
     spyElementFromPoint(document, surface);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'new code', clear: true }, document, window)).resolves.toMatchObject({
       ok: true,
@@ -423,7 +475,7 @@ describe('page action content tool', () => {
     setRect(hiddenInput, makeRect(0, 0, 0, 0));
     setRect(visibleInput, makeRect(1264, 248, 565, 40));
     spyElementFromPoint(document, wrapper);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'alice', clear: true }, document, window)).resolves.toMatchObject({
       ok: true,
@@ -448,7 +500,7 @@ describe('page action content tool', () => {
     setRect(previousInput, makeRect(20, 20, 200, 32));
     setRect(targetInput, makeRect(1264, 248, 565, 40));
     spyElementFromPoint(document, targetInput);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'type', sid: snapshot.sid, ref: 'e1', text: 'alice', clear: true }, document, window)).resolves.toMatchObject({
       ok: true,
@@ -475,9 +527,19 @@ describe('page action content tool', () => {
         topBefore: 0,
         topAfter: 0,
         scrolled: false,
+        canScrollMore: false,
       },
     });
     expect(scrollByMock).toHaveBeenCalledWith({ left: 0, top: 560, behavior: 'auto' });
+  });
+
+  it('caps explicit scroll amounts to a human-sized portion of the viewport', async () => {
+    const scrollByMock = mockWindowScrollBy();
+    setViewportSize(window.innerWidth, 800);
+
+    await executePageAction({ action: 'scroll', direction: 'down', amount: 1200 }, document, window);
+
+    expect(scrollByMock).toHaveBeenCalledWith({ left: 0, top: 640, behavior: 'auto' });
   });
 
   it('scrolls the visible scrollable container when page content is inside a nested scroller', async () => {
@@ -500,10 +562,80 @@ describe('page action content tool', () => {
         topBefore: 0,
         topAfter: 300,
         scrolled: true,
+        canScrollMore: true,
       },
     });
     expect(scroller.scrollTop).toBe(300);
     expect(windowScrollByMock).not.toHaveBeenCalled();
+  });
+
+  it('caps explicit scroll amounts to a human-sized portion of the target scrollarea', async () => {
+    document.body.innerHTML = '<main id="scroller" style="overflow-y: auto"><section id="content"></section></main>';
+    const scroller = document.getElementById('scroller') as HTMLElement;
+    const content = document.getElementById('content')!;
+    setScrollableMetrics(scroller);
+    setRect(scroller, makeRect(100, 100, 900, 400));
+    setRect(content, makeRect(100, 100, 900, 1200));
+    spyElementFromPoint(document, content);
+
+    await executePageAction({ action: 'scroll', direction: 'down', amount: 1200 }, document, window);
+
+    expect(scroller.scrollTop).toBe(320);
+  });
+
+  it('uses the window instead of an unrelated off-center scrollarea when no ref is provided', async () => {
+    document.body.innerHTML = [
+      '<aside id="side-scroller" style="overflow-y: auto"><section id="side-content"></section></aside>',
+      '<main id="main-content"></main>',
+    ].join('');
+    const sideScroller = document.getElementById('side-scroller') as HTMLElement;
+    const sideContent = document.getElementById('side-content')!;
+    const mainContent = document.getElementById('main-content')!;
+    const windowScrollByMock = mockWindowScrollBy();
+    setViewportSize(1200, 800);
+    setScrollableMetrics(sideScroller);
+    setRect(sideScroller, makeRect(0, 0, 320, 800));
+    setRect(sideContent, makeRect(0, 0, 320, 1200));
+    setRect(mainContent, makeRect(420, 120, 620, 500));
+    spyElementFromPoint(document, mainContent);
+
+    await expect(executePageAction({ action: 'scroll', direction: 'down', amount: 300 }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'scroll',
+      scroll: {
+        target: 'window',
+        scrolled: false,
+        canScrollMore: false,
+      },
+    });
+    expect(sideScroller.scrollTop).toBe(0);
+    expect(windowScrollByMock).toHaveBeenCalledWith({ left: 0, top: 300, behavior: 'auto' });
+  });
+
+  it('reports when a scroll target cannot continue in the requested direction', async () => {
+    document.body.innerHTML = '<main id="scroller" style="overflow-y: auto"><section id="content"></section></main>';
+    const scroller = document.getElementById('scroller') as HTMLElement;
+    const content = document.getElementById('content')!;
+    setScrollableMetrics(scroller);
+    scroller.scrollTop = 760;
+    setRect(scroller, makeRect(100, 100, 900, 400));
+    setRect(content, makeRect(100, 100, 900, 1200));
+    spyElementFromPoint(document, content);
+
+    await expect(executePageAction({ action: 'scroll', direction: 'down', amount: 1200 }, document, window)).resolves.toEqual({
+      ok: true,
+      action: 'scroll',
+      scroll: {
+        target: 'element',
+        leftBefore: 0,
+        leftAfter: 0,
+        topBefore: 760,
+        topAfter: 800,
+        scrolled: true,
+        canScrollMore: false,
+      },
+    });
+    expect(scroller.scrollTop).toBe(800);
   });
 
   it('scrolls a snapshot scrollarea by ref when provided', async () => {
@@ -515,7 +647,7 @@ describe('page action content tool', () => {
     setRect(scroller, makeRect(100, 100, 900, 400));
     setRect(content, makeRect(100, 100, 900, 1200));
     spyElementFromPoint(document, content);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'scroll', sid: snapshot.sid, ref: 'e1', direction: 'down', amount: 250 }, document, window)).resolves.toEqual({
       ok: true,
@@ -529,13 +661,14 @@ describe('page action content tool', () => {
         topBefore: 0,
         topAfter: 250,
         scrolled: true,
+        canScrollMore: true,
       },
     });
     expect(scroller.scrollTop).toBe(250);
     expect(windowScrollByMock).not.toHaveBeenCalled();
   });
 
-  it('falls back to the current scrollable container when a snapshot scroll ref is no longer scrollable', async () => {
+  it('does not switch a ref scroll fallback to an unrelated visible scrollarea', async () => {
     document.body.innerHTML = [
       '<main id="old-scroller" aria-label="Old questions" style="overflow-y: auto"><section id="old-content"></section></main>',
       '<main id="new-scroller" aria-label="New questions" style="overflow-y: auto"><section id="new-content"></section></main>',
@@ -552,7 +685,7 @@ describe('page action content tool', () => {
     setRect(newScroller, makeRect(100, 100, 900, 400));
     setRect(newContent, makeRect(100, 100, 900, 1200));
     spyElementFromPoint(document, oldContent);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     Object.defineProperty(oldScroller, 'scrollHeight', { configurable: true, value: 400 });
     spyElementFromPoint(document, newContent);
@@ -562,19 +695,20 @@ describe('page action content tool', () => {
       action: 'scroll',
       ref: 'e1',
       scroll: {
-        target: 'element',
+        target: 'window',
         ref: 'e1',
         fallback: true,
         leftBefore: 0,
         leftAfter: 0,
         topBefore: 0,
-        topAfter: 250,
-        scrolled: true,
+        topAfter: 0,
+        scrolled: false,
+        canScrollMore: false,
       },
     });
     expect(oldScroller.scrollTop).toBe(0);
-    expect(newScroller.scrollTop).toBe(250);
-    expect(windowScrollByMock).not.toHaveBeenCalled();
+    expect(newScroller.scrollTop).toBe(0);
+    expect(windowScrollByMock).toHaveBeenCalledWith({ left: 0, top: 250, behavior: 'auto' });
   });
 
   it('drags from one ref to another with mouse events', async () => {
@@ -593,7 +727,7 @@ describe('page action content tool', () => {
       configurable: true,
       value: vi.fn((_x, y) => y < 100 ? from : to),
     });
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'drag', sid: snapshot.sid, fromRef: 'e1', toRef: 'e2' }, document, window)).resolves.toEqual({
       ok: true,
@@ -610,7 +744,7 @@ describe('page action content tool', () => {
     const from = document.getElementById('from')!;
     setRect(from, makeRect(10, 20, 50, 30));
     spyElementFromPoint(document, from);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'drag', sid: snapshot.sid, fromRef: 'e1', toRef: 'missing' }, document, window)).resolves.toEqual({
       ok: false,
@@ -620,17 +754,17 @@ describe('page action content tool', () => {
     });
   });
 
-  it('rejects actions that use an expired interactables snapshot id', async () => {
+  it('rejects actions that use an expired page element snapshot id', async () => {
     document.body.innerHTML = '<button id="first">First</button><button id="second">Second</button>';
     const first = document.getElementById('first')!;
     const second = document.getElementById('second')!;
     setRect(first, makeRect(10, 20, 80, 30));
     setRect(second, makeRect(10, 80, 80, 30));
     spyElementFromPoint(document, first);
-    const firstSnapshot = readCurrentPageInteractables(document, window);
+    const firstSnapshot = readCurrentPageElements(document, window);
 
     spyElementFromPoint(document, second);
-    readCurrentPageInteractables(document, window);
+    readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'click', sid: firstSnapshot.sid, ref: 'e1' }, document, window)).resolves.toEqual({
       ok: false,
@@ -645,7 +779,7 @@ describe('page action content tool', () => {
     const button = document.getElementById('submit')!;
     setRect(button, makeRect(10, 20, 100, 40));
     spyElementFromPoint(document, button);
-    const snapshot = readCurrentPageInteractables(document, window);
+    const snapshot = readCurrentPageElements(document, window);
 
     await expect(executePageAction({ action: 'click', sid: snapshot.sid, ref: 'missing' }, document, window)).resolves.toEqual({
       ok: false,

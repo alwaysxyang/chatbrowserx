@@ -1,9 +1,9 @@
-import type { GetPageInteractablesToolPayload } from '../../../shared/types/tools';
+import type { GetPageElementsToolPayload } from '../../../shared/types/tools';
 import { truncateText } from './interactable-text';
 
 export interface InteractablesDiagnostics {
-  q: NonNullable<GetPageInteractablesToolPayload['d']>['q'];
-  samples: NonNullable<GetPageInteractablesToolPayload['d']>['samples'];
+  q: NonNullable<GetPageElementsToolPayload['d']>['q'];
+  samples: NonNullable<GetPageElementsToolPayload['d']>['samples'];
 }
 
 /**

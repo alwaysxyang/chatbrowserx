@@ -3,7 +3,14 @@ import {
   type PageActionToolResult,
 } from '../../../shared/types/tools';
 import { resolveTextTarget } from './dom-targets';
-import { canScrollElement, scrollElement, scrollPageOrContainer } from './action-scroll';
+import {
+  canScrollElement,
+  findScrollableAncestor,
+  findScrollableElement,
+  scrollElement,
+  scrollPageOrContainer,
+  scrollWindow,
+} from './action-scroll';
 import { didStateChange, readElementState, resolveStateElement } from './action-state';
 import { readFocusedElement, resolveActionTarget } from './action-targets';
 import { rectCenter, type ViewportPoint } from './geometry';
@@ -35,6 +42,55 @@ function dispatchMouseEvent(element: Element, type: string, point: ViewportPoint
 }
 
 /**
+ * Computes a human-scale scroll distance from the target's visible size.
+ *
+ * @param requestedAmount - Optional model-provided scroll distance.
+ * @param visibleSize - The visible height or width of the scroll target.
+ * @returns A positive scroll distance bounded to the target's visible area.
+ */
+function readHumanScrollAmount(requestedAmount: number | undefined, visibleSize: number): number {
+  const fallbackSize = Math.max(visibleSize, 1);
+  const defaultAmount = Math.max(Math.round(fallbackSize * 0.7), 1);
+  const maxExplicitAmount = Math.max(Math.round(fallbackSize * 0.8), 1);
+  if (requestedAmount === undefined) return defaultAmount;
+  return Math.min(Math.max(requestedAmount, 1), maxExplicitAmount);
+}
+
+/**
+ * Builds directional scroll deltas from a positive scroll amount.
+ *
+ * @param direction - The requested scroll direction.
+ * @param amount - The positive scroll amount.
+ * @returns Horizontal and vertical deltas.
+ */
+function createScrollDeltas(direction: PageActionToolRequestPayload['direction'], amount: number): { left: number; top: number } {
+  return {
+    top: direction === 'up' ? -amount : direction === 'down' ? amount : 0,
+    left: direction === 'left' ? -amount : direction === 'right' ? amount : 0,
+  };
+}
+
+/**
+ * Reads the visible size that should constrain scroll distance.
+ *
+ * @param element - Optional scroll target element.
+ * @param direction - The requested scroll direction.
+ * @param windowObject - The window used as fallback.
+ * @returns The relevant visible height or width.
+ */
+function readScrollVisibleSize(
+  element: Element | undefined,
+  direction: PageActionToolRequestPayload['direction'],
+  windowObject: Window,
+): number {
+  if (direction === 'left' || direction === 'right') {
+    return element instanceof HTMLElement ? element.clientWidth : windowObject.innerWidth;
+  }
+
+  return element instanceof HTMLElement ? element.clientHeight : windowObject.innerHeight;
+}
+
+/**
  * Executes a page scroll action and returns scroll telemetry.
  *
  * @param payload - The scroll action payload.
@@ -48,30 +104,37 @@ async function executeScrollAction(
   windowObject: Window,
 ): Promise<PageActionToolResult> {
   const direction = payload.direction ?? 'down';
-  const amount = Math.min(Math.max(payload.amount ?? Math.round(windowObject.innerHeight * 0.7), 1), 2000);
-  const top = direction === 'up' ? -amount : direction === 'down' ? amount : 0;
-  const left = direction === 'left' ? -amount : direction === 'right' ? amount : 0;
   await showVirtualScroll(documentObject, direction);
 
   if (payload.ref) {
     const target = resolveActionTarget(payload.ref, payload.sid);
     if ('ok' in target) return { ...target, action: 'scroll', ref: payload.ref };
     if (!canScrollElement(target.element, direction, windowObject)) {
+      const fallbackTarget = findScrollableAncestor(target.element.parentElement, direction, windowObject);
+      const amount = readHumanScrollAmount(payload.amount, readScrollVisibleSize(fallbackTarget, direction, windowObject));
+      const { left, top } = createScrollDeltas(direction, amount);
       return {
         ok: true,
         action: 'scroll',
         ref: payload.ref,
-        scroll: scrollPageOrContainer(documentObject, windowObject, direction, left, top, payload.ref, true),
+        scroll: fallbackTarget
+          ? scrollElement(fallbackTarget, left, top, direction, windowObject, payload.ref, true)
+          : scrollWindow(documentObject, windowObject, direction, left, top, payload.ref, true),
       };
     }
+    const amount = readHumanScrollAmount(payload.amount, readScrollVisibleSize(target.element, direction, windowObject));
+    const { left, top } = createScrollDeltas(direction, amount);
     return {
       ok: true,
       action: 'scroll',
       ref: payload.ref,
-      scroll: scrollElement(target.element as HTMLElement, left, top, payload.ref),
+      scroll: scrollElement(target.element as HTMLElement, left, top, direction, windowObject, payload.ref),
     };
   }
 
+  const scrollTarget = findScrollableElement(documentObject, windowObject, direction);
+  const amount = readHumanScrollAmount(payload.amount, readScrollVisibleSize(scrollTarget, direction, windowObject));
+  const { left, top } = createScrollDeltas(direction, amount);
   return {
     ok: true,
     action: 'scroll',

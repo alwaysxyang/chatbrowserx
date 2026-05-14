@@ -1,5 +1,5 @@
-import { scanPage } from '../../tools/page-content/page-scanner';
 import { requestVisibleTabScreenshot } from '../content-screenshot-bridge';
+import { scanPage } from './pdf-page-scanner';
 
 const MAX_SCREENSHOTS = 50;
 

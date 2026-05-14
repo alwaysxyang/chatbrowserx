@@ -58,6 +58,7 @@ export interface PageActionScrollState {
   topBefore: number;
   topAfter: number;
   scrolled: boolean;
+  canScrollMore: boolean;
 }
 
 /**

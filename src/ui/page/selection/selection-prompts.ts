@@ -53,8 +53,7 @@ export function buildAskAiPrompt(params: {
 }): string {
   const pageText = params.pageText.length > params.maxPageChars ? params.pageText.slice(0, params.maxPageChars) : params.pageText;
   return [
-    `Do not call get_current_page_content.`,
-    `Do not call any page reading or page content tools. The current page content is already included below.`,
+    `Do not call page tools to reread the page. The current page content is already included below.`,
     ``,
     `Analyze the Selected Text using the Page Content as context.`,
     `Answer in ${params.targetLanguageName}.`,

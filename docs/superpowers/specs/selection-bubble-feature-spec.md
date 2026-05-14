@@ -38,7 +38,7 @@
 
 - UI 不直接依赖 provider，不承担 LLM 编排。
 - Ask AI 的页面文本读取属于 DOM 能力，必须在 content script 侧完成。
-- Ask AI 只读取当前页面 `innerText`，不滚动页面，不调用 `get_current_page_content`。
+- Ask AI 只读取当前页面 `innerText`，不滚动页面，不调用页面工具重复读取页面。
 - Prompt 必须明确说明页面内容已经包含在请求中，禁止模型再调用页面读取工具。
 - 关闭气泡或开始新 selection 时必须取消当前 in-flight selection 请求。
 
@@ -79,7 +79,7 @@ Ask AI prompt 要求：
 - 页面内容由 UI 侧读取并拼入 prompt。
 - 页面内容不滚动，只使用当前页面 `innerText`。
 - 页面文本必须截断，避免 token 与延迟不可控。
-- 明确禁止模型调用 `get_current_page_content` 或任何页面读取工具。
+- 明确禁止模型调用页面工具重复读取页面。
 - 输出语言与目标语言一致。
 
 ## 7. 消息协议

@@ -4,6 +4,7 @@ import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from
 import { OpenAiCompatibleProvider } from '../providers/openai/provider';
 import { CodexProvider } from '../providers/codex/provider';
 import { getDefaultToolRegistry } from '../tools/tool-registry';
+import { buildBrowserAgentSystemPrompt } from './browser-agent-system-prompt';
 import { runToolCallOrchestrator } from './tool-call-orchestrator';
 
 export interface ChatCompletionServiceConfig {
@@ -35,11 +36,9 @@ export class ChatCompletionService {
 
   private toLlmMessages(history: ChatMessage[], input: ChatMessageContent): LlmChatMessage[] {
     const trimmedHistory = history.slice(-this.config.settings.maxHistory);
-    const messages: LlmChatMessage[] = [];
-
-    if (this.config.settings.systemPrompt.trim()) {
-      messages.push({ role: 'system', content: this.config.settings.systemPrompt.trim() });
-    }
+    const messages: LlmChatMessage[] = [
+      { role: 'system', content: buildBrowserAgentSystemPrompt(this.config.settings.systemPrompt) },
+    ];
 
     trimmedHistory.forEach((message) => {
       if (message.role === 'user') {

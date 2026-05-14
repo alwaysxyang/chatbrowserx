@@ -1,4 +1,4 @@
-import type { GetPageInteractablesToolPayload } from '../../../shared/types/tools';
+import type { GetPageElementsToolPayload } from '../../../shared/types/tools';
 import type { CompactRect } from './geometry';
 
 export const maxItems = 60;
@@ -10,6 +10,8 @@ export interface CandidateItem {
   name: string;
   hint?: string;
   inputType?: string;
+  canOperate?: boolean;
+  canWrite?: boolean;
   checked?: boolean;
   expanded?: boolean;
   pressed?: boolean;
@@ -17,7 +19,7 @@ export interface CandidateItem {
   rect: CompactRect;
 }
 
-type SnapshotMeta = NonNullable<GetPageInteractablesToolPayload['items'][number][4]>;
+type SnapshotMeta = NonNullable<GetPageElementsToolPayload['items'][number][4]>;
 
 /**
  * Finds a nested checkbox or radio control inside a composite clickable row.
@@ -41,6 +43,8 @@ export function buildMeta(item: CandidateItem): SnapshotMeta | undefined {
 
   if (item.hint) meta.h = item.hint;
   if (item.inputType) meta.t = item.inputType;
+  if (item.canOperate) meta.op = true;
+  if (item.canWrite) meta.w = true;
   if (item.checked !== undefined) meta.checked = item.checked;
   if (item.expanded !== undefined) meta.expanded = item.expanded;
   if (item.pressed !== undefined) meta.pressed = item.pressed;

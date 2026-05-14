@@ -3,6 +3,7 @@ import { ContentApp } from './ContentApp';
 import styles from './styles.css?inline';
 import { registerTools } from '../tools';
 import { chatSessionPortName } from '../../shared/types/chat';
+import { installContentKeyboardEventIsolation } from './keyboard-event-isolation';
 
 const hostId = 'chatbrowserx-root';
 const sessionPort = chrome.runtime.connect({ name: chatSessionPortName });
@@ -21,6 +22,7 @@ function mountContentApp() {
   }
 
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
+  installContentKeyboardEventIsolation(shadowRoot);
 
   if (!shadowRoot.getElementById('chatbrowserx-style')) {
     const styleElement = document.createElement('style');

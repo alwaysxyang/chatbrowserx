@@ -7,6 +7,6 @@ describe('ui tools index', () => {
 
     registerTools();
 
-    expect(addListenerMock).toHaveBeenCalledTimes(3);
+    expect(addListenerMock).toHaveBeenCalledTimes(2);
   });
 });

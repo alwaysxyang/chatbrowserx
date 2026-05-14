@@ -112,8 +112,37 @@ describe('page action tools', () => {
     const definition = await createPageScrollTool().definition();
 
     expect(definition?.function.description).toContain('After scrolling');
-    expect(definition?.function.description).toContain('get_current_page_interactables');
+    expect(definition?.function.description).toContain('get_current_page_elements');
     expect(definition?.function.description).toContain('scrolled=true/false');
+    expect(definition?.function.description).toContain('canScrollMore=true/false');
+    expect(definition?.function.description).toContain('If scrolled=true');
+    expect(definition?.function.description).toContain('do not answer from the pre-scroll snapshot');
+    expect(definition?.function.description).toContain('continue the observe-scroll-observe loop while canScrollMore=true');
+    expect(definition?.function.description).toContain('After scrolled=false, refreshing is usually unnecessary');
+    expect(definition?.function.description).toContain('unless async content may have changed');
+    expect(definition?.function.description).toContain('viewport center');
+    expect(definition?.function.description).toContain('does not switch to unrelated scrollareas');
+  });
+
+  it('guides the model to infer human-sized scroll amounts from the visible area', async () => {
+    const definition = await createPageScrollTool().definition();
+    const parameters = definition?.function.parameters as { properties: { amount?: { description?: string } } } | undefined;
+    const amountProperty = parameters?.properties.amount;
+    const scrollGuidance = `${definition?.function.description ?? ''} ${amountProperty?.description ?? ''}`;
+
+    expect(scrollGuidance).toContain('Prefer omitting amount');
+    expect(scrollGuidance).toContain('visible height');
+    expect(scrollGuidance).toContain('avoid jumping past');
+    expect(amountProperty?.description ?? '').not.toMatch(/\d/);
+  });
+
+  it('guides the model to avoid oscillating scroll direction during page analysis', async () => {
+    const definition = await createPageScrollTool().definition();
+    const description = definition?.function.description ?? '';
+
+    expect(description).toContain('stable scan direction');
+    expect(description).toContain('do not alternate between down and up');
+    expect(description).toContain('Use the opposite direction only');
   });
 
   it('describes action verification state in click and type tools', async () => {
@@ -122,6 +151,17 @@ describe('page action tools', () => {
 
     expect(clickDefinition?.function.description).toContain('before/after state');
     expect(typeDefinition?.function.description).toContain('before/after input state');
+  });
+
+  it('warns against read-only analysis clicks and stale snapshot retries', async () => {
+    const clickDefinition = await createPageClickTool().definition();
+    const description = clickDefinition?.function.description ?? '';
+
+    expect(description).toContain('For read-only page analysis');
+    expect(description).toContain('do not click navigation, outline, menu, toolbar, or AI summary controls');
+    expect(description).toContain('PAGE_ACTION_SNAPSHOT_EXPIRED');
+    expect(description).toContain('get_current_page_elements');
+    expect(description).toContain('latest sid/ref');
   });
 
   it('validates required page action arguments before sending messages', async () => {

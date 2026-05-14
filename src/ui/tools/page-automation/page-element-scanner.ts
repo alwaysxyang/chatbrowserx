@@ -1,4 +1,4 @@
-import type { GetPageInteractablesToolPayload } from '../../../shared/types/tools';
+import type { GetPageElementsToolPayload } from '../../../shared/types/tools';
 import {
   buildMeta,
   diagnosticsVersion,
@@ -27,6 +27,7 @@ import {
   isOwnedByChatBrowserX,
 } from './dom-targets';
 import { replaceLatestInteractablesSnapshot } from './snapshot-store';
+import { readVisibleTextItems } from './page-text-scanner';
 
 /**
  * Builds a candidate item after all visibility and role filters have passed.
@@ -45,6 +46,8 @@ function buildCandidateItem(
 ): CandidateItem {
   const writableControl = findNestedWritableControl(element, windowObject);
   const nestedCheckable = findNestedCheckableInput(element);
+  const canWrite = role === 'textbox' || role === 'searchbox' || role === 'combobox' || Boolean(writableControl);
+  const canOperate = role !== 'textbox' && role !== 'searchbox' && role !== 'scrollarea';
 
   return {
     element,
@@ -58,6 +61,8 @@ function buildCandidateItem(
         : writableControl instanceof HTMLInputElement
           ? writableControl.type
         : undefined,
+    canOperate,
+    canWrite,
     checked: element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
       ? element.checked
       : nestedCheckable?.checked,
@@ -97,9 +102,9 @@ function recordCandidateDiagnostics(
  *
  * @param items - Deduplicated candidate items.
  * @param windowObject - The window used for viewport dimensions.
- * @returns A token-bounded interactables snapshot.
+ * @returns A token-bounded page element snapshot.
  */
-function serializeSnapshot(items: CandidateItem[], windowObject: Window): GetPageInteractablesToolPayload {
+function serializeSnapshot(items: CandidateItem[], windowObject: Window): GetPageElementsToolPayload {
   const exposedItems = items.slice(0, maxItems);
   const snapshot = replaceLatestInteractablesSnapshot(exposedItems.map((item) => item.element));
 
@@ -108,7 +113,7 @@ function serializeSnapshot(items: CandidateItem[], windowObject: Window): GetPag
     sid: snapshot.sid,
     items: exposedItems.map((item, index) => {
       const ref = snapshot.refs[index];
-      const tuple: GetPageInteractablesToolPayload['items'][number] = [ref, item.role, item.name, item.rect];
+      const tuple: GetPageElementsToolPayload['items'][number] = [ref, item.role, item.name, item.rect];
       const meta = buildMeta(item);
       if (meta) tuple.push(meta);
       return tuple;
@@ -117,16 +122,16 @@ function serializeSnapshot(items: CandidateItem[], windowObject: Window): GetPag
 }
 
 /**
- * Reads a compact snapshot of interactable elements in the current viewport.
+ * Reads a compact snapshot of visible page elements in the current viewport.
  *
  * @param documentObject - The document to scan.
  * @param windowObject - The window that owns the document.
- * @returns A token-bounded interactables snapshot.
+ * @returns A token-bounded page element snapshot.
  */
-export function readCurrentPageInteractables(
+export function readCurrentPageElements(
   documentObject: Document = document,
   windowObject: Window = window,
-): GetPageInteractablesToolPayload {
+): GetPageElementsToolPayload {
   const candidates = Array.from(new Set(
     Array.from(documentObject.querySelectorAll(candidateSelector)).map((element) => findCodeEditorSurface(element) ?? element),
   ));
@@ -135,13 +140,23 @@ export function readCurrentPageInteractables(
 
   for (const element of candidates) {
     diagnostics.q.total += 1;
-    recordCandidateDiagnostics(element, windowObject, diagnostics);
 
     if (isOwnedByChatBrowserX(element)) {
       diagnostics.q.owned += 1;
       addDiagnosticsSample(diagnostics, element, 'owned');
       continue;
     }
+
+    const rect = element.getBoundingClientRect();
+    const compactedRect = compactRect(rect);
+    if (rect.width < 2 || rect.height < 2 || !rectIntersectsViewport(rect, windowObject)) {
+      diagnostics.q.small += 1;
+      addDiagnosticsSample(diagnostics, element, 'small', undefined, compactedRect);
+      continue;
+    }
+
+    recordCandidateDiagnostics(element, windowObject, diagnostics);
+
     if (isHiddenBySelfOrAncestor(element, windowObject)) {
       diagnostics.q.hidden += 1;
       addDiagnosticsSample(diagnostics, element, 'hidden');
@@ -160,13 +175,6 @@ export function readCurrentPageInteractables(
       continue;
     }
 
-    const rect = element.getBoundingClientRect();
-    const compactedRect = compactRect(rect);
-    if (rect.width < 2 || rect.height < 2 || !rectIntersectsViewport(rect, windowObject)) {
-      diagnostics.q.small += 1;
-      addDiagnosticsSample(diagnostics, element, 'small', role, compactedRect);
-      continue;
-    }
     if (!passesHitTest(element, role, rect, documentObject, windowObject)) {
       diagnostics.q.covered += 1;
       addDiagnosticsSample(diagnostics, element, 'covered', role, compactedRect);
@@ -180,9 +188,11 @@ export function readCurrentPageInteractables(
   }
 
   const deduplicatedItems = deduplicateNestedCandidates(items);
-  deduplicatedItems.sort((a, b) => a.rect[1] - b.rect[1] || a.rect[0] - b.rect[0]);
+  const textItems = readVisibleTextItems(documentObject, windowObject, deduplicatedItems);
+  const visibleItems = [...deduplicatedItems, ...textItems];
+  visibleItems.sort((a, b) => a.rect[1] - b.rect[1] || a.rect[0] - b.rect[0]);
 
-  const payload = serializeSnapshot(deduplicatedItems, windowObject);
+  const payload = serializeSnapshot(visibleItems, windowObject);
   const hasTextbox = payload.items.some((item) => item[1] === 'textbox' || item[1] === 'searchbox');
   if (!hasTextbox && payload.items.length <= 8 && diagnostics.q.writable > 0) {
     payload.d = {

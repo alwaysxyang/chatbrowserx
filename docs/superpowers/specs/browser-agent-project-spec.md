@@ -19,7 +19,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。当
 - `docs/superpowers/specs/browser-agent-project-spec.md`
   - 主 spec：全局目录、职责、依赖方向、阶段范围与交付约束。
 - `docs/superpowers/specs/llm-tools-spec.md`
-  - feature / folder spec：`llm/tools`、Tavily、页面内容读取、页面交互快照与页面动作工具。
+  - feature / folder spec：`llm/tools`、Tavily、页面元素快照与页面动作工具。
 - `docs/superpowers/specs/speech-feature-spec.md`
   - feature spec：speech UI、background speech 编排、speech service、`volcengine` provider。
 - `docs/superpowers/specs/selection-bubble-feature-spec.md`
@@ -43,8 +43,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。当
 - 聊天输入图片能力：当前可视区域截图、选区截图、选区长截图、剪贴板图片、图片预览。
 - 页面选中文本气泡能力：Translate、Ask AI、结果面板、Markdown 展示。
 - LLM 工具能力：
-  - `get_current_page_content`
-  - `get_current_page_interactables`
+  - `get_current_page_elements`
   - `page_mouse_move`
   - `page_click`
   - `page_type`
@@ -110,7 +109,6 @@ src/
     shared/
     tools/
       page-automation/
-      page-content/
 ```
 
 ## 6. 目录职责边界
@@ -127,6 +125,7 @@ src/
   - 负责 content script 中的插件主 UI：Shadow Root 挂载、Shell、聊天、设置、字幕入口、PDF 入口、页面 selection 气泡装配。
   - 允许通过 runtime message 与 `background` 交互。
   - 负责本地 panel 状态（如 pinned/open）与 UI 语言水合；panel 状态使用按 hostname 归一化后的 `chatbrowserx.panel` storage key。
+  - 负责隔离插件主 UI 的键盘事件，避免宿主页面全局快捷键消费插件输入框内的 `Ctrl+A` / `Meta+A` 等输入快捷键。
   - 不直接依赖 provider 实现。
 - `src/ui/content/chat`
   - 负责聊天 UI、输入区、消息展示、图片输入、截图交互、图片预览与流式文本展示。
@@ -138,7 +137,8 @@ src/
   - 负责字幕 overlay、语音按钮触发后的本地展示状态，以及 `speechResult` / `speechError` 消费。
   - 字幕展示状态默认不写入 storage。
 - `src/ui/content/pdf`
-  - 负责滚动扫描、截图采集、预览窗口与 `window.print()` 调用。
+  - 负责 PDF 截图链路的滚动扫描、截图采集、预览窗口与 `window.print()` 调用。
+  - `pdf-page-scanner.ts` 仅服务用户主动触发的打印/保存为 PDF，不作为 LLM tool 的页面阅读能力暴露。
   - 不作为 LLM tool 暴露，不提供 PDF 解析/阅读/编辑能力。
 - `src/ui/page`
   - 负责面向宿主网页的页面级增强，例如 selection 监听、视口定位、页面浮层。
@@ -151,8 +151,7 @@ src/
   - 不放 runtime message、provider 编排、DOM tool 执行或业务长流程。
 - `src/ui/tools`
   - 负责需要 content script / DOM 能力的工具执行逻辑。
-  - `page-content` 负责页面文本读取与滚动扫描辅助。
-  - `page-automation` 负责交互元素快照、快照存储、页面动作执行、富代码编辑器窄桥接与虚拟鼠标。
+  - `page-automation` 负责当前视口元素快照、快照存储、页面动作执行、富代码编辑器窄桥接与虚拟鼠标。
 
 ### 6.3 `src/background`
 
@@ -175,6 +174,7 @@ src/
 - `src/llm/model` 放置 LLM 协议层消息模型。
 - `src/llm/providers` 放置 provider 具体实现与 wire format；当前包含 `openai`、`codex`、`shared`。
 - `src/llm/services` 放置聊天完成服务与 tool call 编排。
+  - `ChatCompletionService` 发送请求时必须加入内部浏览器 Agent 工具使用约束，并保留用户设置里的 `systemPrompt` 作为附加系统提示。
 - `src/llm/tools` 放置工具定义、工具注册、active tab 路由与工具级接口。
   - `src/llm/tools` 可使用 Chrome API 获取 tab 能力。
   - `src/llm/tools` 不依赖 DOM；DOM 读取、滚动、点击、输入必须留在 `src/ui/tools`。
@@ -204,9 +204,9 @@ src/
 ## 7. 关键运行链路
 
 - Content script 挂载：manifest 注入 `src/ui/tools/page-automation/rich-editor-bridge-main.ts` 到 `MAIN` world，再注入 `src/ui/content/index.tsx` 到 isolated world；后者挂载 Shadow Root、建立 `chatSessionPortName` 生命周期端口，并注册 content 侧工具 listener。
-- 聊天：`ui/content/chat` -> `background/chat` -> `llm/services` -> `llm/providers/*` -> 流式回推 content UI。
+- 聊天：`ui/content/chat` -> `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*` -> 流式回推 content UI。
 - 图片输入：截图或剪贴板图片在 `ui/content/chat` 内构造为 Data URL，并作为聊天输入发送。
-- 页面工具：`llm/tools` 定义工具并向 active tab 发消息；`ui/tools` 在 content script 中执行 DOM 读取或动作。
+- 页面工具：`llm/tools` 定义工具并向 active tab 发消息；`ui/tools` 在 content script 中执行当前视口元素快照或动作。LLM 页面工具不做自动滚动阅读，模型需要更多内容时应显式调用 `page_scroll` 后重新获取元素；只读页面分析不得为了发现内容而点击导航、目录、工具栏或 AI 摘要控件。
 - Selection 气泡：`ui/page/selection` 构造 prompt -> `background/selection` -> `background/llm` -> 流式回推结果面板。
 - Speech：`ui/content/speech` 发起启停 -> `background/speech` -> `AudioCapture` + `SpeechRecognitionService` -> `speech/providers/volcengine` -> 结果回推 UI。
 - 打印/保存为 PDF：`ui/content/pdf` 使用 `scanPage` 滚动扫描，通过 `content-screenshot-bridge` 请求截图，在新窗口预览并由用户调用浏览器打印。
@@ -217,7 +217,7 @@ src/
 - Chat：`chatbrowserx.chat.request`、`chatbrowserx.chat.stream.chunk`、`chatbrowserx.chat.cancel`、`chatbrowserx.chat.session`、`chatbrowserx.chat.screenshot.capture`。
 - Selection：`chatbrowserx.selection.request`、`chatbrowserx.selection.stream.chunk`、`chatbrowserx.selection.cancel`。
 - Speech：`chatbrowserx.speech.start`、`chatbrowserx.speech.stop`、`chatbrowserx.speech.result`、`chatbrowserx.speech.error`、`chatbrowserx.speech.state.query`。
-- Page tools：`chatbrowserx.tool.get-page-content.request`、`chatbrowserx.tool.get-page-interactables.request`、`chatbrowserx.tool.page-action.request`。
+- Page tools：`chatbrowserx.tool.get-page-elements.request`、`chatbrowserx.tool.page-action.request`。
 - Rich editor bridge：`chatbrowserx.rich-editor-write.request`、`chatbrowserx.rich-editor-write.result`，仅用于 isolated world 与 `MAIN` world 的富代码编辑器写入桥接。
 - Storage：`chatbrowserx.settings` 存放全局设置；`chatbrowserx.history` 与 `chatbrowserx.panel` 使用 hostname scope。
 
