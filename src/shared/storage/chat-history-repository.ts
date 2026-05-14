@@ -1,16 +1,27 @@
 import type { ChatMessage } from '../types/chat';
-import { buildScopedStorageKey, loadStoredValue, removeStoredValue, saveStoredValue } from './chrome-local-storage';
+import { loadStoredValue, removeStoredValue, saveStoredValue } from './chrome-local-storage';
 
-const getStorageKey = (hostname: string) => buildScopedStorageKey('chatbrowserx.history', hostname);
+const chatHistoryStorageKey = 'chatbrowserx.history';
 
-export async function loadChatHistory(hostname: string): Promise<ChatMessage[]> {
-  return loadStoredValue(getStorageKey(hostname), [] as ChatMessage[]);
+/**
+ * Loads the profile-wide chat transcript.
+ */
+export async function loadChatHistory(): Promise<ChatMessage[]> {
+  return loadStoredValue(chatHistoryStorageKey, [] as ChatMessage[]);
 }
 
-export async function saveChatHistory(hostname: string, messages: ChatMessage[]): Promise<void> {
-  await saveStoredValue(getStorageKey(hostname), messages);
+/**
+ * Saves the profile-wide chat transcript.
+ *
+ * @param messages - The complete global chat transcript.
+ */
+export async function saveChatHistory(messages: ChatMessage[]): Promise<void> {
+  await saveStoredValue(chatHistoryStorageKey, messages);
 }
 
-export async function clearChatHistory(hostname: string): Promise<void> {
-  await removeStoredValue(getStorageKey(hostname));
+/**
+ * Clears the profile-wide chat transcript.
+ */
+export async function clearChatHistory(): Promise<void> {
+  await removeStoredValue(chatHistoryStorageKey);
 }

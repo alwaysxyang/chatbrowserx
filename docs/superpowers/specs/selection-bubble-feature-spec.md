@@ -114,7 +114,7 @@ const selectionCancelType = 'chatbrowserx.selection.cancel';
 - `src/background/selection` 持有独立 `LlmOrchestrator` 实例。
 - selection 模块内部同一 tab 同时最多 1 个 in-flight 请求。
 - 该限制不代表 chat 与 selection 共享全局锁。
-- content script 断开 `chatSessionPortName` 端口时，background 会取消 selection 请求，用于页面生命周期清理。
+- content script 断开 `chatSessionPortName` 端口时，background 会取消 selection 请求，用于页面生命周期清理；该端口断开不再取消 chat 请求。
 
 ## 9. 未来设计
 

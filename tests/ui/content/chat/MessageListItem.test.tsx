@@ -65,6 +65,22 @@ describe('MessageListItem', () => {
     expect(screen.getByTestId('assistant-avatar-error')).toBeInTheDocument();
   });
 
+  it('displays warning indicator for manually interrupted assistant message', () => {
+    const message: ChatMessage = {
+      id: 'a1',
+      role: 'assistant',
+      content: '已经输出的部分内容',
+      status: 'interrupted',
+      errorMessage: '用户已停止当前请求。',
+      createdAt: '10:31',
+    };
+
+    render(<MessageListItem message={message} isSending={false} />);
+
+    expect(screen.getByText('已经输出的部分内容')).toBeInTheDocument();
+    expect(screen.getByTestId('assistant-avatar-error')).toBeInTheDocument();
+  });
+
   it('copies text and images when copy button is clicked', async () => {
     const user = userEvent.setup();
     const message: ChatMessage = {

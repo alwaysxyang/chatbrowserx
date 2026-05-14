@@ -1,63 +1,174 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import { getChatMessageTextContent } from '../../../../src/shared/types/chat';
 import { useChatController } from '../../../../src/ui/content/chat/use-chat-controller';
 
-describe('useChatController', () => {
-  it('sends only previous history to background and appends the reply', async () => {
-    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+const emptyStateResponse = {
+  ok: true,
+  data: {
+    messages: [],
+    isRunning: false,
+    requestId: null,
+    activeAssistantMessageId: null,
+  },
+};
 
-    sendMessageMock.mockResolvedValue({
+describe('useChatController', () => {
+  it('queries global chat state on mount and renders a running task', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock.mockResolvedValueOnce({
       ok: true,
-      data: { reply: 'assistant reply' },
+      data: {
+        messages: [
+          { id: 'u1', role: 'user', content: '正在执行' },
+          { id: 'a1', role: 'assistant', content: '处理中', status: 'streaming' },
+        ],
+        isRunning: true,
+        requestId: 7,
+        activeAssistantMessageId: 'a1',
+      },
     });
 
-    const { result } = renderHook(() => useChatController('example.com'));
+    const { result } = renderHook(() => useChatController());
+
+    await waitFor(() => {
+      expect(result.current.isSending).toBe(true);
+      expect(result.current.messages).toHaveLength(2);
+    });
+
+    expect(sendMessageMock).toHaveBeenCalledWith({ type: 'chatbrowserx.chat.state.query' });
+  });
+
+  it('applies full state sync messages from background', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock.mockResolvedValueOnce(emptyStateResponse);
+
+    const { result } = renderHook(() => useChatController());
+
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith({ type: 'chatbrowserx.chat.state.query' });
+    });
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.chat.state.sync',
+        payload: {
+          messages: [{ id: 'a1', role: 'assistant', content: '同步内容' }],
+          isRunning: true,
+          requestId: 9,
+          activeAssistantMessageId: 'a1',
+        },
+      });
+    });
+
+    expect(result.current.isSending).toBe(true);
+    expect(result.current.messages).toEqual([{ id: 'a1', role: 'assistant', content: '同步内容' }]);
+  });
+
+  it('appends matching stream chunks and ignores stale request ids', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        messages: [{ id: 'a1', role: 'assistant', content: '处理中', status: 'streaming' }],
+        isRunning: true,
+        requestId: 7,
+        activeAssistantMessageId: 'a1',
+      },
+    });
+
+    const { result } = renderHook(() => useChatController());
+
+    await waitFor(() => {
+      expect(result.current.messages).toHaveLength(1);
+    });
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.chat.stream.chunk',
+        payload: { requestId: 8, messageId: 'a1', content: ' stale' },
+      });
+    });
+
+    expect(result.current.messages[0].content).toBe('处理中');
+
+    await act(async () => {
+      globalThis.__chromeTestUtils.dispatchRuntimeMessage({
+        type: 'chatbrowserx.chat.stream.chunk',
+        payload: { requestId: 7, messageId: 'a1', content: ' done' },
+      });
+    });
+
+    expect(result.current.messages[0].content).toBe('处理中 done');
+  });
+
+  it('sends chat requests through background without local history ownership', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock
+      .mockResolvedValueOnce(emptyStateResponse)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { reply: 'assistant reply' },
+      });
+
+    const { result } = renderHook(() => useChatController());
+
+    await waitFor(() => {
+      expect(sendMessageMock).toHaveBeenCalledWith({ type: 'chatbrowserx.chat.state.query' });
+    });
 
     await act(async () => {
       await result.current.sendMessage('hello');
     });
 
-    expect(sendMessageMock).toHaveBeenCalledWith({
+    expect(sendMessageMock).toHaveBeenLastCalledWith({
       type: 'chatbrowserx.chat.request',
       payload: {
         input: 'hello',
         history: [],
       },
     });
-
-    await waitFor(() => {
-      expect(result.current.messages.map((message) => message.content)).toEqual(['hello', 'assistant reply']);
-    });
   });
 
-  it('hydrates stored history without overwriting it on mount', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [
-        { id: 'm1', role: 'assistant', content: 'stored reply' },
-      ],
+  it('sends stop only while a global request is running', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        messages: [],
+        isRunning: true,
+        requestId: 7,
+        activeAssistantMessageId: 'a1',
+      },
     });
 
-    const { result } = renderHook(() => useChatController('example.com'));
+    const { result } = renderHook(() => useChatController());
 
     await waitFor(() => {
-      expect(result.current.messages).toHaveLength(1);
+      expect(result.current.isSending).toBe(true);
     });
 
-    const persisted = await chrome.storage.local.get('chatbrowserx.history.example.com');
-    expect(persisted['chatbrowserx.history.example.com']).toEqual([
-      { id: 'm1', role: 'assistant', content: 'stored reply' },
-    ]);
+    await act(async () => {
+      await result.current.stop();
+    });
+
+    expect(sendMessageMock).toHaveBeenLastCalledWith({ type: 'chatbrowserx.chat.cancel' });
   });
 
-  it('clears chat history from state and storage', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [
-        { id: 'm1', role: 'assistant', content: 'stored reply' },
-      ],
-    });
+  it('clears history through background and waits for state sync', async () => {
+    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
+    sendMessageMock
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          messages: [{ id: 'm1', role: 'assistant', content: 'stored reply' }],
+          isRunning: false,
+          requestId: null,
+          activeAssistantMessageId: null,
+        },
+      })
+      .mockResolvedValueOnce({ ok: true, data: null });
 
-    const { result } = renderHook(() => useChatController('example.com'));
+    const { result } = renderHook(() => useChatController());
 
     await waitFor(() => {
       expect(result.current.messages).toHaveLength(1);
@@ -67,269 +178,6 @@ describe('useChatController', () => {
       await result.current.clearHistory();
     });
 
-    expect(result.current.messages).toEqual([]);
-
-    const persisted = await chrome.storage.local.get('chatbrowserx.history.example.com');
-    expect(persisted['chatbrowserx.history.example.com']).toBeUndefined();
-  });
-
-  it('appends a new assistant error message for each failed send', async () => {
-    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
-    sendMessageMock.mockRejectedValue(new Error('请先在设置中填写 API Base URL、API Key 和 Model。'));
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await act(async () => {
-      await expect(result.current.sendMessage('first')).rejects.toThrow();
-    });
-
-    await act(async () => {
-      await expect(result.current.sendMessage('second')).rejects.toThrow();
-    });
-
-    const assistantErrors = result.current.messages.filter(
-      (message) => message.role === 'assistant' && getChatMessageTextContent(message.content).includes('请先在设置中填写'),
-    );
-
-    expect(assistantErrors).toHaveLength(2);
-  });
-
-  it('uses runtime error payloads when the background resolves with ok false', async () => {
-    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
-    sendMessageMock.mockResolvedValue({
-      ok: false,
-      error: '后台报错',
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await act(async () => {
-      await expect(result.current.sendMessage('first')).rejects.toThrow('后台报错');
-    });
-
-    expect(result.current.messages.at(-1)).toMatchObject({
-      role: 'assistant',
-      status: 'error',
-      errorMessage: '后台报错',
-    });
-  });
-
-  it('strips images from history before sending the next request', async () => {
-    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
-    sendMessageMock.mockResolvedValue({
-      ok: true,
-      data: { reply: 'assistant reply' },
-    });
-
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [
-        {
-          id: 'u1',
-          role: 'user',
-          content: [
-            { type: 'text', text: '历史图片说明' },
-            { type: 'image_url', image_url: { url: 'https://example.com/history.png' } },
-          ],
-        },
-        { id: 'a1', role: 'assistant', content: '上一轮回复' },
-      ],
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await waitFor(() => {
-      expect(result.current.messages).toHaveLength(2);
-    });
-
-    await act(async () => {
-      await result.current.sendMessage('新问题');
-    });
-
-    expect(sendMessageMock).toHaveBeenCalledWith({
-      type: 'chatbrowserx.chat.request',
-      payload: {
-        input: '新问题',
-        history: [
-          { id: 'u1', role: 'user', content: '历史图片说明' },
-          { id: 'a1', role: 'assistant', content: '上一轮回复' },
-        ],
-      },
-    });
-  });
-
-  it('preserves screenshots in the current multimodal input', async () => {
-    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
-    sendMessageMock.mockResolvedValue({
-      ok: true,
-      data: { reply: 'assistant reply' },
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await act(async () => {
-      await result.current.sendMessage([
-        { type: 'image_url', image_url: { url: 'data:image/png;base64,shot1' } },
-        { type: 'text', text: '帮我看这张图' },
-      ]);
-    });
-
-    expect(sendMessageMock).toHaveBeenCalledWith({
-      type: 'chatbrowserx.chat.request',
-      payload: {
-        input: [
-          { type: 'image_url', image_url: { url: 'data:image/png;base64,shot1' } },
-          { type: 'text', text: '帮我看这张图' },
-        ],
-        history: [],
-      },
-    });
-  });
-
-  it('keeps persisted pending replies out of hydration until that behavior is implemented', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [{ id: 'u1', role: 'user', content: '上一轮提问' }],
-      'chatbrowserx.pending.example.com': {
-        content: '未完成的回答',
-        errorMessage: '页面已刷新，当前请求已中断。',
-        createdAt: '10:32',
-      },
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await waitFor(() => {
-      expect(result.current.messages).toHaveLength(1);
-    });
-
-    expect(result.current.messages[0]).toMatchObject({
-      role: 'user',
-      content: '上一轮提问',
-    });
-
-    const persisted = await chrome.storage.local.get('chatbrowserx.pending.example.com');
-    expect(persisted['chatbrowserx.pending.example.com']).toEqual({
-      content: '未完成的回答',
-      errorMessage: '页面已刷新，当前请求已中断。',
-      createdAt: '10:32',
-    });
-  });
-
-  it('converts streaming assistant messages to error on page refresh', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [
-        { id: 'u1', role: 'user', content: '分析这张图片' },
-        { id: 'a1', role: 'assistant', content: '正在分析', status: 'streaming' },
-      ],
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await waitFor(() => {
-      expect(result.current.messages).toHaveLength(2);
-    });
-
-    const assistantMessage = result.current.messages[1];
-    expect(assistantMessage).toMatchObject({
-      role: 'assistant',
-      status: 'error',
-      errorMessage: '页面已刷新，当前请求已中断。',
-    });
-  });
-
-  it('converts streaming assistant messages with image input to error on page refresh', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [
-        {
-          id: 'u1',
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
-            { type: 'text', text: '分析这张图片' },
-          ],
-        },
-        { id: 'a1', role: 'assistant', content: '正在分析', status: 'streaming' },
-      ],
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await waitFor(() => {
-      expect(result.current.messages).toHaveLength(2);
-    });
-
-    const userMessage = result.current.messages[0];
-    expect(userMessage.content).toEqual([
-      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
-      { type: 'text', text: '分析这张图片' },
-    ]);
-
-    const assistantMessage = result.current.messages[1];
-    expect(assistantMessage).toMatchObject({
-      role: 'assistant',
-      status: 'error',
-      errorMessage: '页面已刷新，当前请求已中断。',
-      content: '正在分析',
-    });
-  });
-
-  it('converts streaming assistant messages with empty content to error on page refresh', async () => {
-    await chrome.storage.local.set({
-      'chatbrowserx.history.example.com': [
-        {
-          id: 'u1',
-          role: 'user',
-          content: [
-            { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
-            { type: 'text', text: '分析这张图片' },
-          ],
-        },
-        { id: 'a1', role: 'assistant', content: '', status: 'streaming' },
-      ],
-    });
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await waitFor(() => {
-      expect(result.current.messages).toHaveLength(2);
-    });
-
-    const userMessage = result.current.messages[0];
-    expect(userMessage.content).toEqual([
-      { type: 'image_url', image_url: { url: 'data:image/png;base64,abc123' } },
-      { type: 'text', text: '分析这张图片' },
-    ]);
-
-    const assistantMessage = result.current.messages[1];
-    expect(assistantMessage).toMatchObject({
-      role: 'assistant',
-      status: 'error',
-      errorMessage: '页面已刷新，当前请求已中断。',
-      content: '页面已刷新，当前请求已中断。',
-    });
-  });
-
-  it('handles storage quota errors gracefully when saving large images', async () => {
-    const sendMessageMock = globalThis.__chromeTestUtils.getRuntimeSendMessageMock();
-    sendMessageMock.mockResolvedValue({
-      ok: true,
-      data: { reply: 'assistant reply' },
-    });
-
-    const largeImageUrl = 'data:image/png;base64,' + 'a'.repeat(1024 * 1024 * 5); // 5MB
-
-    const { result } = renderHook(() => useChatController('example.com'));
-
-    await act(async () => {
-      await result.current.sendMessage([
-        { type: 'image_url', image_url: { url: largeImageUrl } },
-        { type: 'text', text: '分析这张大图片' },
-      ]);
-    });
-
-    expect(result.current.messages).toHaveLength(2);
-    expect(result.current.messages[0].content).toEqual([
-      { type: 'image_url', image_url: { url: largeImageUrl } },
-      { type: 'text', text: '分析这张大图片' },
-    ]);
+    expect(sendMessageMock).toHaveBeenLastCalledWith({ type: 'chatbrowserx.chat.clear' });
   });
 });

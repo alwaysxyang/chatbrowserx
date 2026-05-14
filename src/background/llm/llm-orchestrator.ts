@@ -2,7 +2,9 @@ import { ChatCompletionService } from '../../llm/services/chat-completion';
 import { loadSettings } from '../../shared/storage/settings-repository';
 import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types/chat';
 
-interface TabSession {
+export type LlmSessionScope = number | string;
+
+interface LlmSession {
   requestId: number;
   controller: AbortController;
   onChunk?: (chunk: string) => void;
@@ -11,39 +13,38 @@ interface TabSession {
 /**
  * Orchestrates LLM chat completion requests for background modules.
  *
- * - One in-flight request per tab.
- * - New requests cancel older ones for the same tab.
+ * - One in-flight request per scope.
+ * - New requests cancel older ones for the same scope.
  * - Streaming callbacks are guarded to avoid stale chunks after replacement/cancel.
  */
 export class LlmOrchestrator {
-  private sessions = new Map<number, TabSession>();
+  private sessions = new Map<LlmSessionScope, LlmSession>();
   private nextRequestId = 1;
 
   /**
-   * Runs a chat completion request for a tab and optionally streams chunks.
+   * Runs a chat completion request for a scope and optionally streams chunks.
    *
-   * @param tabId - The tab ID making the request.
+   * @param scope - The session scope making the request.
    * @param payload - Chat payload including history and input.
    * @param onChunk - Optional streaming callback for incremental output.
    * @returns The final reply text.
    */
-  async complete(tabId: number, payload: ChatRequestPayload, onChunk?: (chunk: string) => void): Promise<ChatResponsePayload> {
-    // Enforce "single in-flight per tab": stop the previous request if any.
-    this.cancel(tabId);
+  async complete(scope: LlmSessionScope, payload: ChatRequestPayload, onChunk?: (chunk: string) => void): Promise<ChatResponsePayload> {
+    this.cancel(scope);
 
     const requestId = this.nextRequestId++;
     const settings = await loadSettings();
     const controller = new AbortController();
     const service = new ChatCompletionService({ settings: settings.model });
 
-    this.sessions.set(tabId, { requestId, controller, onChunk });
+    this.sessions.set(scope, { requestId, controller, onChunk });
 
     try {
       const reply = await service.complete(
         payload.history,
         payload.input,
         (chunk) => {
-          const current = this.sessions.get(tabId);
+          const current = this.sessions.get(scope);
           if (current?.requestId !== requestId) return;
           current.onChunk?.(chunk);
         },
@@ -52,23 +53,23 @@ export class LlmOrchestrator {
 
       return { reply };
     } finally {
-      const current = this.sessions.get(tabId);
+      const current = this.sessions.get(scope);
       if (current?.requestId === requestId) {
-        this.sessions.delete(tabId);
+        this.sessions.delete(scope);
       }
     }
   }
 
   /**
-   * Cancels the current in-flight request (if any) for a tab.
+   * Cancels the current in-flight request (if any) for a scope.
    *
-   * @param tabId - The tab ID to cancel.
+   * @param scope - The session scope to cancel.
    */
-  cancel(tabId: number): void {
-    const session = this.sessions.get(tabId);
+  cancel(scope: LlmSessionScope): void {
+    const session = this.sessions.get(scope);
     if (!session) return;
 
     session.controller.abort();
-    this.sessions.delete(tabId);
+    this.sessions.delete(scope);
   }
 }

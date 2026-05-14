@@ -38,7 +38,7 @@ describe('ChatPanel', () => {
         <ChatPanel
           messages={[]}
           isSending={false}
-          onSendMessage={vi.fn(async () => 'unused')}
+          onSendMessage={vi.fn(async () => undefined)}
           onClearHistory={vi.fn()}
         />,
       );
@@ -74,7 +74,7 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={[]}
         isSending={false}
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
       />,
     );
@@ -93,7 +93,7 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={messages}
         isSending={false}
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
       />,
     );
@@ -190,7 +190,7 @@ describe('ChatPanel', () => {
           },
         ]}
         isSending={false}
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
       />,
     );
@@ -208,7 +208,7 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={messages}
         isSending
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
       />,
     );
@@ -221,7 +221,7 @@ describe('ChatPanel', () => {
     const user = userEvent.setup();
     const messages: ChatMessage[] = [];
 
-    const onSendMessage = vi.fn(async () => '你好，我是助手');
+    const onSendMessage = vi.fn(async () => undefined);
 
     render(
       <ChatPanel
@@ -253,7 +253,7 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={[]}
         isSending={false}
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
       />,
     );
@@ -264,7 +264,7 @@ describe('ChatPanel', () => {
 
   it('adds multiple captured screenshots to the composer and sends them with text', async () => {
     const user = userEvent.setup();
-    const onSendMessage = vi.fn(async () => '你好，我是助手');
+    const onSendMessage = vi.fn(async () => undefined);
     const onStartScreenshot = vi.fn((onCaptured: (dataUrl: string) => void) => {
       onCaptured('data:image/png;base64,shot1');
       onCaptured('data:image/png;base64,shot2');
@@ -306,7 +306,7 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={[]}
         isSending={false}
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
         onStartScreenshot={onStartScreenshot}
         onPreviewImage={onPreviewImage}
@@ -329,7 +329,7 @@ describe('ChatPanel', () => {
       <ChatPanel
         messages={[]}
         isSending={false}
-        onSendMessage={vi.fn(async () => 'unused')}
+        onSendMessage={vi.fn(async () => undefined)}
         onClearHistory={vi.fn()}
         onStartScreenshot={onStartScreenshot}
       />,
@@ -349,7 +349,7 @@ describe('ChatPanel', () => {
     const user = userEvent.setup();
     const messages: ChatMessage[] = [];
 
-    const onSendMessage = vi.fn(async () => '你好，我是助手');
+    const onSendMessage = vi.fn(async () => undefined);
     const pageShortcutListener = vi.fn((event: KeyboardEvent) => {
       if (event.key === 'Enter' && event.metaKey) {
         event.preventDefault();

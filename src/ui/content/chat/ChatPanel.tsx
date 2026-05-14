@@ -8,7 +8,7 @@ import { translateMessage } from '../../../shared/i18n/i18n';
 interface ChatPanelProps {
   messages: ChatMessage[];
   isSending: boolean;
-  onSendMessage: (input: ChatMessageContent) => Promise<string>;
+  onSendMessage: (input: ChatMessageContent) => Promise<void>;
   onClearHistory: () => void;
   onStop?: () => void;
   onStartScreenshot?: (onCaptured: (dataUrl: string) => void) => void;

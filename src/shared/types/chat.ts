@@ -137,9 +137,24 @@ export const chatRequestType = 'chatbrowserx.chat.request';
 export const chatStreamChunkType = 'chatbrowserx.chat.stream.chunk';
 
 /**
+ * Message type identifier for querying the global chat session state.
+ */
+export const chatStateQueryType = 'chatbrowserx.chat.state.query';
+
+/**
+ * Message type identifier for broadcasting the global chat session state.
+ */
+export const chatStateSyncType = 'chatbrowserx.chat.state.sync';
+
+/**
  * Message type identifier for canceling an ongoing chat request.
  */
 export const chatCancelType = 'chatbrowserx.chat.cancel';
+
+/**
+ * Message type identifier for clearing the global chat session.
+ */
+export const chatClearType = 'chatbrowserx.chat.clear';
 
 /**
  * Port name used for establishing long-lived connections for chat sessions.
@@ -164,10 +179,39 @@ export interface ChatRequestMessage extends RuntimeMessage<typeof chatRequestTyp
 export type ChatRuntimeResponse = RuntimeResponse<ChatResponsePayload>;
 
 /**
+ * Snapshot of the authoritative global chat session state.
+ */
+export interface ChatSessionState {
+  messages: ChatMessage[];
+  isRunning: boolean;
+  requestId: number | null;
+  activeAssistantMessageId: string | null;
+}
+
+/**
+ * Message sent to query the current global chat session state.
+ */
+export interface ChatStateQueryMessage extends RuntimeMessage<typeof chatStateQueryType> {}
+
+/**
+ * Message sent to synchronize global chat session state to content UIs.
+ */
+export interface ChatStateSyncMessage extends RuntimeMessage<typeof chatStateSyncType> {
+  payload: ChatSessionState;
+}
+
+/**
+ * Runtime response envelope for global chat state queries.
+ */
+export type ChatStateRuntimeResponse = RuntimeResponse<ChatSessionState>;
+
+/**
  * Message sent during streaming chat responses containing a chunk of content.
  */
 export interface ChatStreamChunkMessage extends RuntimeMessage<typeof chatStreamChunkType> {
   payload: {
+    requestId: number;
+    messageId: string;
     content: string;
   };
 }
@@ -176,6 +220,11 @@ export interface ChatStreamChunkMessage extends RuntimeMessage<typeof chatStream
  * Message sent to cancel an ongoing chat request.
  */
 export interface ChatCancelMessage extends RuntimeMessage<typeof chatCancelType> {}
+
+/**
+ * Message sent to clear the global chat session.
+ */
+export interface ChatClearMessage extends RuntimeMessage<typeof chatClearType> {}
 
 /**
  * Message sent to request a screenshot capture of the current page.
@@ -189,7 +238,10 @@ export type ScreenshotCaptureRuntimeResponse = RuntimeResponse<ScreenshotCapture
 
 const isChatRequestMessageGuard = createRuntimeMessageGuard<ChatRequestMessage>(chatRequestType);
 const isChatStreamChunkMessageGuard = createRuntimeMessageGuard<ChatStreamChunkMessage>(chatStreamChunkType);
+const isChatStateQueryMessageGuard = createRuntimeMessageGuard<ChatStateQueryMessage>(chatStateQueryType);
+const isChatStateSyncMessageGuard = createRuntimeMessageGuard<ChatStateSyncMessage>(chatStateSyncType);
 const isChatCancelMessageGuard = createRuntimeMessageGuard<ChatCancelMessage>(chatCancelType);
+const isChatClearMessageGuard = createRuntimeMessageGuard<ChatClearMessage>(chatClearType);
 const isScreenshotCaptureRequestMessageGuard = createRuntimeMessageGuard<ScreenshotCaptureRequestMessage>(
   screenshotCaptureRequestType,
 );
@@ -215,6 +267,26 @@ export function isChatStreamChunkMessage(message: unknown): message is ChatStrea
 }
 
 /**
+ * Type guard that checks if an unknown value is a ChatStateQueryMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ChatStateQueryMessage
+ */
+export function isChatStateQueryMessage(message: unknown): message is ChatStateQueryMessage {
+  return isChatStateQueryMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a ChatStateSyncMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ChatStateSyncMessage
+ */
+export function isChatStateSyncMessage(message: unknown): message is ChatStateSyncMessage {
+  return isChatStateSyncMessageGuard(message);
+}
+
+/**
  * Type guard that checks if an unknown value is a ChatCancelMessage.
  *
  * @param message - The value to check
@@ -222,6 +294,16 @@ export function isChatStreamChunkMessage(message: unknown): message is ChatStrea
  */
 export function isChatCancelMessage(message: unknown): message is ChatCancelMessage {
   return isChatCancelMessageGuard(message);
+}
+
+/**
+ * Type guard that checks if an unknown value is a ChatClearMessage.
+ *
+ * @param message - The value to check
+ * @returns True if the message is a ChatClearMessage
+ */
+export function isChatClearMessage(message: unknown): message is ChatClearMessage {
+  return isChatClearMessageGuard(message);
 }
 
 /**

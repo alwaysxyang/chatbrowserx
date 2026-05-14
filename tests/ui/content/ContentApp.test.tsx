@@ -4,17 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { ContentApp } from '../../../src/ui/content/ContentApp';
 
-const normalizeHostnameForStorage = (hostname: string): string => {
-  const raw = (hostname || '').trim().toLowerCase();
-  if (!raw) return 'default';
-  const parts = raw.split('.');
-  if (parts.length <= 2) return raw;
-  const secondLevel = parts[parts.length - 2];
-  const topLevel = parts[parts.length - 1];
-  return `${secondLevel}.${topLevel}`;
-};
-
-const panelStateKey = `chatbrowserx.panel.${normalizeHostnameForStorage(window.location.hostname || 'default')}`;
+const panelStateKey = 'chatbrowserx.panel';
 
 describe('ContentApp', () => {
   it('opens by default only when current site was pinned and open', async () => {

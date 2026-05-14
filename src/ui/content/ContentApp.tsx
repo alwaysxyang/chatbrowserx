@@ -10,15 +10,13 @@ import { SubtitleOverlay } from './speech/SubtitleOverlay';
 import { useSubtitleController } from './speech/use-subtitle-controller';
 import { SelectionBubble } from '../page/selection/SelectionBubble';
 import { translateMessage } from '../../shared/i18n/i18n';
-import { normalizeHostnameForStorage } from './content-panel-state';
 import { requestVisibleTabScreenshot } from './content-screenshot-bridge';
 import { useContentShell } from './use-content-shell';
 import { capturePage } from './pdf/pdf-capture';
 
 export function ContentApp() {
-  const hostname = useMemo(() => normalizeHostnameForStorage(window.location.hostname || 'default'), []);
   const buildLabel = useMemo(() => `Build ${__CHATBROWSERX_BUILD_TIME__}`, []);
-  const { messages, isSending, sendMessage, clearHistory, stop } = useChatController(hostname);
+  const { messages, isSending, sendMessage, clearHistory, stop } = useChatController();
   const { subtitle, startRecognition, stopRecognition } = useSubtitleController();
   const {
     isOpen,
@@ -38,7 +36,7 @@ export function ContentApp() {
     startScreenshotSession,
     closeScreenshotSession,
     handleScreenshotComplete,
-  } = useContentShell(hostname);
+  } = useContentShell();
 
   const handleVoiceToggle = async (isActive: boolean) => {
     try {

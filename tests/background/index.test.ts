@@ -42,18 +42,20 @@ describe('background action click', () => {
     expect(chrome.tabs.reload).not.toHaveBeenCalled();
   });
 
-  it('cancels in-flight chat when the content runtime port disconnects', async () => {
+  it('does not cancel in-flight chat when the content runtime port disconnects', async () => {
     const cancelMock = vi.fn();
-    const completeMock = vi.fn();
 
-    vi.doMock('../../src/background/llm/llm-orchestrator', () => ({
-      LlmOrchestrator: vi.fn().mockImplementation(() => ({
-        complete: completeMock,
+    vi.doMock('../../src/background/chat/chat-session-coordinator', () => ({
+      ChatSessionCoordinator: vi.fn().mockImplementation(() => ({
         cancel: cancelMock,
+        request: vi.fn(),
+        getState: vi.fn(),
+        clear: vi.fn(),
       })),
     }));
 
-    await import('../../src/background/index');
+    const { initChatModule } = await import('../../src/background/chat');
+    initChatModule();
 
     const port = globalThis.__chromeTestUtils.createRuntimePort({
       name: 'chatbrowserx.chat.session',
@@ -62,6 +64,6 @@ describe('background action click', () => {
 
     port.__disconnect();
 
-    expect(cancelMock).toHaveBeenCalledWith(37);
+    expect(cancelMock).not.toHaveBeenCalled();
   });
 });

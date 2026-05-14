@@ -124,7 +124,7 @@ src/
 - `src/ui/content`
   - 负责 content script 中的插件主 UI：Shadow Root 挂载、Shell、聊天、设置、字幕入口、PDF 入口、页面 selection 气泡装配。
   - 允许通过 runtime message 与 `background` 交互。
-  - 负责本地 panel 状态（如 pinned/open）与 UI 语言水合；panel 状态使用按 hostname 归一化后的 `chatbrowserx.panel` storage key。
+  - 负责本地 panel 状态（如 pinned/open）与 UI 语言水合；panel 状态使用 profile-wide `chatbrowserx.panel` storage key。
   - 负责隔离插件主 UI 的键盘事件，避免宿主页面全局快捷键消费插件输入框内的 `Ctrl+A` / `Meta+A` 等输入快捷键。
   - 不直接依赖 provider 实现。
 - `src/ui/content/chat`
@@ -159,10 +159,13 @@ src/
 
 - `src/background/index.ts` 只做初始化、监听注册、模块装配与浏览器 action 点击到 panel command 的转发。
 - `src/background/runtime-message.ts` 放置 background 内部复用的 runtime message 辅助，例如 sender tab 校验与 async response 包装；不承载具体业务编排。
-- `src/background/chat` 负责聊天请求路由、流式响应转发、取消请求、tab 维度会话控制与截图后台桥接。
-- `src/background/llm` 负责可复用的 LLM 编排和 tab 维度 in-flight session 管理。
+- `src/background/chat` 负责 profile-wide 聊天会话控制、聊天请求路由、流式响应广播、显式取消请求、全局状态查询 / 清空与截图后台桥接。
+  - `ChatSessionCoordinator` 是聊天 transcript 与 running 状态的唯一 owner；content UI 只通过 runtime message 查询或订阅状态。
+  - 同一 profile 同时最多 1 个 chat in-flight 请求；running 期间新的 `chatbrowserx.chat.request` 返回 `CHAT_SESSION_BUSY`，不会取消旧请求。
+  - 聊天流式 chunk 与完整状态会广播给所有可接收 content script 的 tab。
+- `src/background/llm` 负责可复用的 LLM 编排和 scoped in-flight session 管理。
   - 当前 `LlmOrchestrator` 被 `background/chat` 与 `background/selection` 分别持有。
-  - 同一 orchestrator 实例内，同一 `tabId` 同时最多 1 个 in-flight 请求；新请求先取消旧请求。
+  - 同一 orchestrator 实例内，同一 scope 同时最多 1 个 in-flight 请求；chat 使用固定 `global-chat` scope，selection 使用 `tabId` scope；新请求先取消同 scope 旧请求。
   - `LlmOrchestrator` 允许依赖 `src/llm/services`、`src/shared` 与 Chrome API，不依赖 `src/ui`。
 - `src/background/selection` 负责 selection runtime message 处理、调用 `LlmOrchestrator`、回推 `selectionStreamChunkType`。
 - `src/background/speech` 负责 `speechStart`、`speechStop`、`speechStateQuery`，创建和清理 `AudioCapture` 与 `SpeechRecognitionService`，并回推 `speechResult` / `speechError`。
@@ -188,8 +191,8 @@ src/
 - `src/shared/types/tools` 只放工具跨层协议类型与类型守卫。
 - `src/shared/storage` 放置 `settings-repository`、`settings-normalizer`、`chat-history-repository`、`chrome-local-storage`。
   - 全局设置使用 `chatbrowserx.settings`。
-  - 聊天历史使用按 hostname scope 的 `chatbrowserx.history`。
-  - content panel 状态由 `src/ui/content/content-panel-state.ts` 生成按 hostname scope 的 `chatbrowserx.panel` key。
+  - 聊天历史使用 profile-wide `chatbrowserx.history`。
+  - content panel 状态由 `src/ui/content/content-panel-state.ts` 生成 profile-wide `chatbrowserx.panel` key。
 - `src/shared/i18n` 放置消息目录、语言状态与翻译函数。
 
 ### 6.6 `src/speech`
@@ -203,8 +206,8 @@ src/
 
 ## 7. 关键运行链路
 
-- Content script 挂载：manifest 注入 `src/ui/tools/page-automation/rich-editor-bridge-main.ts` 到 `MAIN` world，再注入 `src/ui/content/index.tsx` 到 isolated world；后者挂载 Shadow Root、建立 `chatSessionPortName` 生命周期端口，并注册 content 侧工具 listener。
-- 聊天：`ui/content/chat` -> `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*` -> 流式回推 content UI。
+- Content script 挂载：manifest 注入 `src/ui/tools/page-automation/rich-editor-bridge-main.ts` 到 `MAIN` world，再注入 `src/ui/content/index.tsx` 到 isolated world；后者挂载 Shadow Root、建立供页面级功能使用的 `chatSessionPortName` 生命周期端口，并注册 content 侧工具 listener。
+- 聊天：`ui/content/chat` 启动时通过 `chatbrowserx.chat.state.query` 同步 background 全局会话；用户请求经 `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*`；流式 chunk 与完整状态由 `background/chat` 广播回所有 content UI。页面刷新、同 tab 导航或 content script 重挂载不取消 chat agent loop，只有用户显式停止或后台生命周期结束才结束。
 - 图片输入：截图或剪贴板图片在 `ui/content/chat` 内构造为 Data URL，并作为聊天输入发送。
 - 页面工具：`llm/tools` 定义工具并向 active tab 发消息；`ui/tools` 在 content script 中执行当前视口元素快照或动作。LLM 页面工具不做自动滚动阅读，模型需要更多内容时应显式调用 `page_scroll` 后重新获取元素；只读页面分析不得为了发现内容而点击导航、目录、工具栏或 AI 摘要控件。
 - Selection 气泡：`ui/page/selection` 构造 prompt -> `background/selection` -> `background/llm` -> 流式回推结果面板。
@@ -214,12 +217,12 @@ src/
 ## 8. 关键消息与存储协议
 
 - UI panel：`chatbrowserx.panel.command`，用于 background action 点击或其他入口控制 content panel。
-- Chat：`chatbrowserx.chat.request`、`chatbrowserx.chat.stream.chunk`、`chatbrowserx.chat.cancel`、`chatbrowserx.chat.session`、`chatbrowserx.chat.screenshot.capture`。
+- Chat：`chatbrowserx.chat.request`、`chatbrowserx.chat.stream.chunk`、`chatbrowserx.chat.state.query`、`chatbrowserx.chat.state.sync`、`chatbrowserx.chat.cancel`、`chatbrowserx.chat.clear`、`chatbrowserx.chat.session`、`chatbrowserx.chat.screenshot.capture`。
 - Selection：`chatbrowserx.selection.request`、`chatbrowserx.selection.stream.chunk`、`chatbrowserx.selection.cancel`。
 - Speech：`chatbrowserx.speech.start`、`chatbrowserx.speech.stop`、`chatbrowserx.speech.result`、`chatbrowserx.speech.error`、`chatbrowserx.speech.state.query`。
 - Page tools：`chatbrowserx.tool.get-page-elements.request`、`chatbrowserx.tool.page-action.request`。
 - Rich editor bridge：`chatbrowserx.rich-editor-write.request`、`chatbrowserx.rich-editor-write.result`，仅用于 isolated world 与 `MAIN` world 的富代码编辑器写入桥接。
-- Storage：`chatbrowserx.settings` 存放全局设置；`chatbrowserx.history` 与 `chatbrowserx.panel` 使用 hostname scope。
+- Storage：`chatbrowserx.settings` 存放全局设置；`chatbrowserx.history` 存放 profile-wide 聊天历史；`chatbrowserx.panel` 存放 profile-wide panel pinned/open 状态。
 
 ## 9. 依赖方向
 

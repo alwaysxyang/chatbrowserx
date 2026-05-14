@@ -17,6 +17,8 @@ export function MessageListItem({ message, isSending, onPreviewImage }: MessageL
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
   const isError = isAssistant && message.status === 'error';
+  const isInterrupted = isAssistant && message.status === 'interrupted';
+  const isUnsuccessfulAssistant = isError || isInterrupted;
   const isStreamingAssistant = isAssistant && message.status === 'streaming' && isSending;
   const textContent = getChatMessageTextContent(message.content);
   const imageParts = isUser
@@ -25,22 +27,22 @@ export function MessageListItem({ message, isSending, onPreviewImage }: MessageL
   const hasCopyableText = !!textContent;
   const avatarClassName = isUser
     ? 'message-avatar message-avatar-user'
-    : isError
+    : isUnsuccessfulAssistant
     ? 'message-avatar message-avatar-error'
     : isStreamingAssistant
     ? 'message-avatar message-avatar-loading'
     : 'message-avatar message-avatar-assistant';
   const avatarTestId = isUser
     ? 'user-avatar'
-    : isError
+    : isUnsuccessfulAssistant
     ? 'assistant-avatar-error'
     : isStreamingAssistant
     ? 'assistant-avatar-loading'
     : 'assistant-avatar-completed';
-  const cardClassName = isError
+  const cardClassName = isUnsuccessfulAssistant
     ? 'message-card message-card-assistant message-card-error'
     : `message-card message-card-${message.role}`;
-  const hasErrorDetail = isError && !!message.errorMessage && !!textContent.trim();
+  const hasErrorDetail = isUnsuccessfulAssistant && !!message.errorMessage && !!textContent.trim();
   const showRightIndicator = isAssistant && hasErrorDetail;
 
   return (

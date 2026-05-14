@@ -1,79 +1,92 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { clearChatHistory, loadChatHistory, saveChatHistory } from '../../../shared/storage/chat-history-repository';
-import { getChatMessageTextContent, type ChatMessage, type ChatMessageContent, type ChatRequestPayload } from '../../../shared/types/chat';
 import {
-  getRuntimeResponseData,
-} from '../../../shared/types/runtime-messages';
-import {
-  chatRequestType,
+  chatClearType,
   chatCancelType,
-  type ChatRuntimeResponse,
+  chatRequestType,
+  chatStateQueryType,
+  getChatMessageTextContent,
+  isChatStateSyncMessage,
   isChatStreamChunkMessage,
+  type ChatMessage,
+  type ChatMessageContent,
+  type ChatRequestPayload,
+  type ChatRuntimeResponse,
+  type ChatSessionState,
+  type ChatStateRuntimeResponse,
 } from '../../../shared/types/chat';
 import { translateMessage } from '../../../shared/i18n/i18n';
-import {
-  buildChatErrorMessage,
-  buildChatRequestHistory,
-  createChatMessage,
-  updateChatMessageById,
-} from './message/chat-message-state';
+import { getRuntimeResponseData } from '../../../shared/types/runtime-messages';
 
 /**
- * Converts a send failure into the text shown in the assistant error message.
+ * Checks whether a runtime payload has the global chat state shape.
  *
- * @param error - The caught send error.
- * @returns Localized error text for the chat transcript.
+ * @param value - The runtime payload to check.
+ * @returns True when the payload can hydrate chat UI state.
  */
-function resolveSendErrorText(error: unknown): string {
-  const fallbackSend = translateMessage('error.message.sendFailed');
-  const misconfigured = translateMessage('error.model.misconfigured');
+function isChatSessionState(value: unknown): value is ChatSessionState {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
 
-  if (!(error instanceof Error)) return fallbackSend;
-  if (error.message === 'MODEL_MISCONFIGURED') return misconfigured;
-  return error.message || fallbackSend;
+  const candidate = value as ChatSessionState;
+  return Array.isArray(candidate.messages)
+    && typeof candidate.isRunning === 'boolean'
+    && (candidate.requestId === null || typeof candidate.requestId === 'number')
+    && (candidate.activeAssistantMessageId === null || typeof candidate.activeAssistantMessageId === 'string');
 }
 
 /**
- * Coordinates chat history, streaming chunks, runtime requests, and cancellation for one hostname.
+ * Coordinates chat UI state with the background-owned global chat session.
  *
- * @param hostname - Hostname-scoped chat history key.
  * @returns Chat UI state and command handlers.
  */
-export function useChatController(hostname: string) {
+export function useChatController() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
-  const [isHydrated, setIsHydrated] = useState(false);
-  const hasUserInteractedRef = useRef(false);
-  const streamingAssistantIdRef = useRef<string | null>(null);
+  const requestIdRef = useRef<number | null>(null);
+  const activeAssistantMessageIdRef = useRef<string | null>(null);
 
-  useEffect(() => {
-    loadChatHistory(hostname).then((history) => {
-      if (!hasUserInteractedRef.current) {
-        setMessages(history.map<ChatMessage>((message) => {
-          if (message.role !== 'assistant' || message.status !== 'streaming') {
-            return message;
-          }
-          return buildChatErrorMessage(message, translateMessage('error.message.pageRefreshInterrupted'));
-        }));
-      }
-      setIsHydrated(true);
-    });
-  }, [hostname]);
+  const applyState = useCallback((state: ChatSessionState) => {
+    requestIdRef.current = state.requestId;
+    activeAssistantMessageIdRef.current = state.activeAssistantMessageId;
+    setMessages(state.messages);
+    setIsSending(state.isRunning);
+  }, []);
 
   useEffect(() => {
     const listener = (message: unknown, _sender: chrome.runtime.MessageSender) => {
+      if (isChatStateSyncMessage(message)) {
+        applyState(message.payload);
+        return;
+      }
+
       if (!isChatStreamChunkMessage(message)) return;
       if (!message.payload?.content) return;
+      if (message.payload.requestId !== requestIdRef.current) return;
+      if (message.payload.messageId !== activeAssistantMessageIdRef.current) return;
 
       const chunk = message.payload.content;
+      const messageId = message.payload.messageId;
 
       setMessages((prevMessages) => {
-        return updateChatMessageById(prevMessages, streamingAssistantIdRef.current, (message) => {
-          return {
-            ...message,
-            content: getChatMessageTextContent(message.content) + chunk,
-          };
-        });
+        let messageIndex = -1;
+        for (let index = prevMessages.length - 1; index >= 0; index -= 1) {
+          if (prevMessages[index].id === messageId) {
+            messageIndex = index;
+            break;
+          }
+        }
+        if (messageIndex < 0) {
+          return prevMessages;
+        }
+
+        const nextMessages = [...prevMessages];
+        const targetMessage = nextMessages[messageIndex];
+        nextMessages[messageIndex] = {
+          ...targetMessage,
+          content: getChatMessageTextContent(targetMessage.content) + chunk,
+        };
+        return nextMessages;
       });
     };
 
@@ -81,74 +94,48 @@ export function useChatController(hostname: string) {
     return () => {
       chrome.runtime.onMessage.removeListener(listener);
     };
-  }, [hostname]);
+  }, [applyState]);
 
   useEffect(() => {
-    if (!isHydrated) {
-      return;
-    }
+    let isMounted = true;
 
-    if (!messages.length) {
-      void clearChatHistory(hostname);
-      return;
-    }
+    void (async () => {
+      try {
+        const response = (await chrome.runtime.sendMessage({ type: chatStateQueryType })) as ChatStateRuntimeResponse;
+        const state = getRuntimeResponseData(response, translateMessage('error.message.sendFailed'));
+        if (isMounted && isChatSessionState(state)) {
+          applyState(state);
+        }
+      } catch {
+        // Content UI can still mount on pages where the background is temporarily unavailable.
+      }
+    })();
 
-    saveChatHistory(hostname, messages).catch((error) => {
-      console.error('[ChatBrowserX] Failed to save chat history:', error);
-    });
-  }, [hostname, isHydrated, messages]);
+    return () => {
+      isMounted = false;
+    };
+  }, [applyState]);
 
   const sendMessage = useCallback(async (input: ChatMessageContent) => {
     setIsSending(true);
-    hasUserInteractedRef.current = true;
-    streamingAssistantIdRef.current = null;
-
-    const userMessage = createChatMessage('user', input);
-    const assistantPlaceholder: ChatMessage = createChatMessage('assistant', '', 'streaming');
-
-    streamingAssistantIdRef.current = assistantPlaceholder.id;
-    const currentId = assistantPlaceholder.id;
-    setMessages([...messages, userMessage, assistantPlaceholder]);
-
     try {
       const response = (await chrome.runtime.sendMessage({
         type: chatRequestType,
         payload: {
           input,
-          history: buildChatRequestHistory(messages),
+          history: [],
         } satisfies ChatRequestPayload,
       })) as ChatRuntimeResponse;
 
-      const reply = getRuntimeResponseData(response, translateMessage('error.message.sendFailed')).reply;
-      setMessages((prevMessages) => {
-        return updateChatMessageById(prevMessages, currentId, (message) => ({
-          ...message,
-          content: reply,
-          status: 'completed',
-        }));
-      });
-
-      return reply;
-    } catch (error) {
-      const errorText = resolveSendErrorText(error);
-
-      setMessages((prevMessages) => {
-        return updateChatMessageById(prevMessages, currentId, (message) => {
-          return buildChatErrorMessage(message, errorText);
-        });
-      });
-      throw error;
+      getRuntimeResponseData(response, translateMessage('error.message.sendFailed'));
     } finally {
-      streamingAssistantIdRef.current = null;
       setIsSending(false);
     }
-  }, [messages]);
+  }, []);
 
   const clearHistory = useCallback(async () => {
-    hasUserInteractedRef.current = true;
-    setMessages([]);
-    await clearChatHistory(hostname);
-  }, [hostname]);
+    await chrome.runtime.sendMessage({ type: chatClearType });
+  }, []);
 
   const stop = useCallback(async () => {
     if (!isSending) return;

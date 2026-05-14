@@ -12,8 +12,8 @@ interface ScreenshotSession {
   onCaptured: (dataUrl: string) => void;
 }
 
-export function useContentShell(hostname: string) {
-  const panelStateStorageKey = useMemo(() => getPanelStateStorageKey(hostname), [hostname]);
+export function useContentShell() {
+  const panelStateStorageKey = useMemo(() => getPanelStateStorageKey(), []);
   const [uiLanguage, setUiLanguage] = useState<UiLanguage>(defaultSettings.general.uiLanguage);
   const [isOpen, setIsOpen] = useState(false);
   const [activeView, setActiveView] = useState<ContentView>('chat');

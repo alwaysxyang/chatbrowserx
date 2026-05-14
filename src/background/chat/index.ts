@@ -1,14 +1,14 @@
-import { LlmOrchestrator } from '../llm/llm-orchestrator';
 import { registerScreenshotCaptureHandler } from './screenshot-capture';
 import {
-  chatSessionPortName,
+  isChatClearMessage,
   isChatCancelMessage,
   isChatRequestMessage,
-  chatStreamChunkType,
+  isChatStateQueryMessage,
 } from '../../shared/types/chat';
-import { getSenderTabIdOrRespond, sendAsyncRuntimeResponse } from '../runtime-message';
+import { sendAsyncRuntimeResponse } from '../runtime-message';
+import { ChatSessionCoordinator } from './chat-session-coordinator';
 
-const llmOrchestrator = new LlmOrchestrator();
+const chatSessionCoordinator = new ChatSessionCoordinator();
 
 /**
  * Initialize chat module
@@ -17,57 +17,43 @@ const llmOrchestrator = new LlmOrchestrator();
 export function initChatModule(): void {
   registerScreenshotCaptureHandler();
 
-  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!isChatRequestMessage(message)) {
       return undefined;
     }
 
-    const tabId = getSenderTabIdOrRespond(sender, sendResponse);
-    if (tabId == null) {
-      return true;
-    }
-
-    sendAsyncRuntimeResponse(llmOrchestrator.complete(tabId, message.payload, (chunk) => {
-      if (!chunk) {
-        return;
-      }
-
-      void chrome.tabs
-        .sendMessage(tabId, {
-          type: chatStreamChunkType,
-          payload: { content: chunk },
-        })
-        .catch(() => undefined);
-    }), sendResponse);
+    sendAsyncRuntimeResponse(chatSessionCoordinator.request(message.payload), sendResponse);
 
     return true;
   });
 
-  chrome.runtime.onMessage.addListener((message, sender) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!isChatStateQueryMessage(message)) {
+      return undefined;
+    }
+
+    sendAsyncRuntimeResponse(chatSessionCoordinator.getState(), sendResponse);
+
+    return true;
+  });
+
+  chrome.runtime.onMessage.addListener((message) => {
     if (!isChatCancelMessage(message)) {
       return undefined;
     }
 
-    const tabId = sender.tab?.id;
-    if (tabId != null) {
-      llmOrchestrator.cancel(tabId);
-    }
+    void chatSessionCoordinator.cancel();
 
     return undefined;
   });
 
-  chrome.runtime.onConnect.addListener((port) => {
-    if (port.name !== chatSessionPortName) {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!isChatClearMessage(message)) {
       return;
     }
 
-    const tabId = port.sender?.tab?.id;
-    if (tabId == null) {
-      return;
-    }
+    sendAsyncRuntimeResponse(chatSessionCoordinator.clear(), sendResponse);
 
-    port.onDisconnect.addListener(() => {
-      llmOrchestrator.cancel(tabId);
-    });
+    return true;
   });
 }
