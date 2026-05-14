@@ -42,6 +42,17 @@ const codeEditorDescendantSelector = [
 const ownedRootSelector = '#chatbrowserx-root,#chatbrowserx-page-action-overlay,#chatbrowserx-subtitle-container';
 
 /**
+ * Checks whether a native text control is readonly.
+ *
+ * @param element - The element to inspect.
+ * @returns True when the control should not receive direct writes.
+ */
+function isReadonlyTextControl(element: Element): boolean {
+  const control = element as HTMLInputElement | HTMLTextAreaElement;
+  return control.readOnly || element.hasAttribute('readonly') || element.getAttribute('aria-readonly') === 'true';
+}
+
+/**
  * Checks whether an element or ancestor is hidden from users or the accessibility tree.
  *
  * @param element - The element to inspect.
@@ -140,13 +151,15 @@ export function isCodeEditorElement(element: Element): boolean {
  * @returns True when the element can receive direct text writes.
  */
 export function isWritableTextElement(element: Element): boolean {
-  if (element instanceof HTMLInputElement) {
-    const type = (element.type || 'text').toLowerCase();
-    return !textInputExcludedTypes.includes(type);
+  const tagName = element.tagName.toLowerCase();
+  if (tagName === 'input') {
+    const input = element as HTMLInputElement;
+    const type = (input.type || 'text').toLowerCase();
+    return !isReadonlyTextControl(input) && !textInputExcludedTypes.includes(type);
   }
 
-  return element instanceof HTMLTextAreaElement ||
-    element instanceof HTMLSelectElement ||
+  return tagName === 'textarea' && !isReadonlyTextControl(element) ||
+    tagName === 'select' ||
     (element instanceof HTMLElement && (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === ''));
 }
 

@@ -145,6 +145,16 @@ describe('page action tools', () => {
     expect(description).toContain('Use the opposite direction only');
   });
 
+  it('guides the model to scroll option popups instead of guessing missing selections', async () => {
+    const definition = await createPageScrollTool().definition();
+    const description = definition?.function.description ?? '';
+
+    expect(description).toContain('dropdown/listbox/menu/cascader/picker option searches');
+    expect(description).toContain('scroll the popup/list scrollarea');
+    expect(description).toContain('desired option is not visible');
+    expect(description).toContain('stop instead of clicking nearby options');
+  });
+
   it('describes action verification state in click and type tools', async () => {
     const clickDefinition = await createPageClickTool().definition();
     const typeDefinition = await createPageTypeTool().definition();

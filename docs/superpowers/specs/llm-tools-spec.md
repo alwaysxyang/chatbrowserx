@@ -119,6 +119,7 @@ LLM 侧工具通过 `chatbrowserx.tool.get-page-elements.request` 请求 content
 - 如果当前可见元素不足以回答问题，且页面或 `scrollarea` 仍可能有后续内容，模型必须显式调用 `page_scroll`，再重新调用 `get_current_page_elements` 后继续分析，直到滚动不再带来新的相关内容或已找到答案。
 - 模型应避免在同一未变化视口中不必要地反复调用 `get_current_page_elements`；应在执行 `page_scroll` / `page_click` / `page_type` / `page_drag` 等页面动作后、距离上次快照已有足够时间可能发生异步更新时，或模型判断必须重新获取才能保证正确性时刷新元素快照。
 - 对线性页面阅读或分析，模型必须保持稳定扫描方向，通常从当前视口向下阅读；不得在没有用户要求回看、返回已知目标或任务位于上方的情况下上下反复滚动。
+- 对下拉框、列表框、菜单、级联选择器或日期/时间选择器选项查找，模型只能点击已经可见且携带 `op: true` 的目标选项；目标项不可见时，应优先对弹层或列表列的 `scrollarea` 调用 `page_scroll` 并重新获取快照，直到目标出现、`scrolled=false` 或 `canScrollMore=false`。如果弹层提供携带 `w: true` 的搜索输入框，可以先输入目标选项；滚到底仍找不到目标时必须停止并说明目标不可用，不得点击相近选项或只读 `text`。
 - 最多输出有界数量的候选，默认上限为 60。
 - 文本字段必须截断。
 - 不输出 DOM/HTML。
@@ -133,7 +134,7 @@ interface PageElementsSnapshot {
   sid: string;
   items: Array<[
     ref: string,
-    role: string, // 例如 "heading"、"text"、"button"、"link"、"textbox"、"scrollarea"
+    role: string, // 例如 "heading"、"text"、"button"、"link"、"textbox"、"combobox"、"option"、"scrollarea"
     name: string,
     rect: [number, number, number, number],
     meta?: {
@@ -159,22 +160,27 @@ interface PageElementsSnapshot {
 
 - `op: true` 表示适合 `page_click`、`page_mouse_move` 或 `page_drag` 的可操作目标。
 - `w: true` 表示适合 `page_type` 的可输入目标。
+- `w: true` 只应出现在明确可安全写入的文本目标上；`scrollarea`、普通 `combobox` 或包含内部实现用 `input` 的复合选择器不得仅因后代存在输入框而携带 `w`。
+- 复合选择器外壳应优先基于 `aria-haspopup` / `aria-controls` / `aria-expanded`、键盘可聚焦性、低高度外壳与内部实现用输入框等结构信号识别为可点击 `combobox`；常见 picker / selector / dropdown / menu / option class token 只能作为发现与兼容信号，不能绑定具体组件库或业务文案。弹层选项行、时间下拉行与日期格应以可点击的 `option` 暴露；包裹日历、日期输入区或时间列的宽面板容器不得仅因包含 `date` / `day` / `picker` 类名、点击样式或后代日期格而暴露为大范围 `button` / `option`；弹层内具备实际滚动能力的 menu / list 列应同时以 `scrollarea` 暴露，供模型对该列调用 `page_scroll` 后重新获取选项；内部搜索、占位或只读展示 `input` 如果只是组件实现细节，不应抢占外壳目标，也不得导致外层表单 wrapper 被误识别为点击目标。
 - `s` 表示可滚动区域方向，可配合 `sid` + `ref` 调用 `page_scroll`。
 - `h` / `t` / `checked` / `expanded` / `pressed` 是辅助模型理解与验证动作的紧凑语义。
 - `heading` / `text` 只用于阅读分析，不应携带 `op` / `w`，模型不得把它们作为点击或输入目标。
 
 ### 6.2 候选与命名规则
 
-- 结构化候选包括原生交互元素、`role`、非负 `tabindex`、`contenteditable`、常见可点击容器、富代码编辑器 surface、紧凑输入包装行、可滚动容器；结构化候选 selector 不全量枚举普通 `div` / `span` / `section` / `p` 等布局节点，只保留显式语义、内联样式、常见 class token 或表单包装器信号；包含输入框的全页壳、宽问题区或宽表单容器不得仅因存在后代输入框而暴露为 `textbox`。
+- 结构化候选包括原生交互元素、`role`、非负 `tabindex`、`contenteditable`、常见可点击容器、复合选择器外壳、弹层菜单项、弹层内可滚动 menu / list 列、富代码编辑器 surface、紧凑输入包装行、可滚动容器；结构化候选 selector 不全量枚举普通 `div` / `span` / `section` / `p` 等布局节点，只保留显式语义、内联样式、常见 class token 或表单包装器信号；包含输入框的全页壳、宽问题区或宽表单容器不得仅因存在后代输入框而暴露为 `textbox`。
 - 正文文本通过 text node 扫描补充：常见标题、段落、列表、表格单元格等按最近可见文本块输出；未知可见容器中的剩余文本兜底输出为 `text`，以覆盖当前视口可见 `innerText`。
 - `scrollarea` 仅表示可滚动能力，不代表其内部正文已经被表达；文本扫描必须继续保留 `scrollarea` 内部可见正文。
+- 正文文本扫描必须同时遵守 viewport 与 `overflow` / `clip` 祖先裁剪；在滚动菜单、级联选择器或其他可滚动容器中被裁剪到不可见或仅剩极小边缘残影的后续选项，不得作为普通 `text` 泄漏到快照。
 - 单个正文块超过字段上限时必须拆成多个连续 `heading` / `text` 项，不能直接截断丢失尾部内容。
 - 正文文本必须跳过已由按钮、链接、输入框 label 或其他结构化元素名称表达的重复内容。
 - 必须过滤隐藏、禁用、视窗外、尺寸过小、明显遮挡、ChatBrowserX 自身 UI 节点。
+- 弹层中的禁用日期、时间或菜单项不得暴露为可操作 `option`；禁用项文本也不应作为普通正文噪声混入当前交互快照。
 - 名称优先来自 `computeAccessibleName()`。
 - 对无文本图标按钮，可从短 token 推断常见语义，例如 `like`、`dislike`、`comments`、`bookmark`、`favorite`、`share`、`copy`、`menu`、`previous`、`next`。
 - 如果图标语义与短可见计数同时存在，名称应合并为 `like 32.2K`、`comments 922` 这类完整语义。
 - 如果仍无法推断，输出 `unlabeled <role>`；可以附加相邻短文本上下文，但不得根据页面坐标、元素序号或特定站点硬编码含义。
+- 对无独立可访问名称的表单型 `textbox` / `searchbox` / `combobox`，可从最近的紧凑 `label` 文本读取字段名作为名称；该规则只用于命名，不改变点击或输入目标的 DOM 边界。
 - 父子候选语义重复时优先保留覆盖语义更完整的候选。
 - 复合编辑器内部展示层、辅助可访问性文本框、装饰性图标节点不应暴露为独立控件。
 
@@ -186,29 +192,30 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 
 - `page_mouse_move`
   - 参数：`{ sid: string, ref: string }`
-  - 行为：移动虚拟鼠标到目标中心，不点击。
+  - 行为：只接受快照中携带 `op: true` 的可操作目标；移动虚拟鼠标到目标可见区域内可命中 `ref` surface 的点，不点击；DOM 侧应派发 `pointerover` / `mouseover` / `mouseenter` / `pointermove` / `mousemove`，以支持依赖 hover 展开子菜单或级联列的组件。
 - `page_click`
   - 参数：`{ sid: string, ref: string }`
-  - 行为：点击目标并返回可测量状态，例如 `checked`、`expanded`、`pressed`。
+  - 行为：只接受快照中携带 `op: true` 的可操作目标；`heading` / `text` 等只读项必须返回 `PAGE_ACTION_TARGET_NOT_OPERABLE`，不得派发点击事件；优先在目标被 viewport 与可滚动/裁剪祖先截出的可见区域内选择可命中 `ref` surface 的点执行浏览器式点击；再在 `ref` 对应 surface 内按坐标命中最深可见子元素作为真实事件 target，并派发 hover 进入事件；焦点优先落到可聚焦 surface，否则落到真实事件 target；随后在真实事件 target 上派发 `pointerdown` / `mousedown` / `pointerup` / `mouseup` / `click`，并返回可测量状态，例如 `checked`、`expanded`、`pressed`；如果点击后弹层 option 等目标从 DOM 中移除、隐藏或塌缩，即使没有显式状态字段，也应返回 `changed: true`。
   - 只读页面分析不得用 `page_click` 点击导航、目录、菜单、工具栏或 AI 摘要控件来发现内容；遇到 `PAGE_ACTION_SNAPSHOT_EXPIRED` 时必须先重新调用 `get_current_page_elements`，并且只有动作仍然必要时才用最新 `sid` / `ref` 重试。
 - `page_type`
   - 参数：`{ sid: string, ref: string, text: string, clear?: boolean }`
-  - 行为：先点击目标；若点击后产生新的深层 `activeElement`，优先写入该焦点目标，否则写入由快照 `ref` 解析出的文本目标，避免旧焦点输入框被误写；富代码编辑器优先走 `rich-editor-bridge-main.ts`；`clear=true` 表示整体替换。
+  - 行为：模型只应对快照中携带 `w: true` 的可写目标调用；先点击目标；若点击后产生新的深层 `activeElement`，优先写入该焦点目标，否则写入由快照 `ref` 解析出的文本目标，避免旧焦点输入框被误写；富代码编辑器优先走 `rich-editor-bridge-main.ts`；`clear=true` 表示整体替换。
   - 对原生 `input` / `textarea` 执行 `clear=true` 时，清空选择必须限定在目标控件内部，不得通过页面级 `Ctrl+A` / `Meta+A` 或 `document.execCommand("selectAll")` 触发整页选择。
 - `page_scroll`
   - 参数：`{ direction: "up" | "down" | "left" | "right", amount?: number, sid?: string, ref?: string }`
-  - 行为：有 `sid` + `ref` 时优先滚动对应 `scrollarea`，否则滚动 viewport 中心命中的可滚动祖先或 window。
-  - content 侧 fallback 必须模拟人类滚轮冒泡：有 `ref` 时只沿目标元素祖先链寻找可滚动容器，无 `ref` 时只沿 viewport 中心元素祖先链寻找可滚动容器；不得切换到无关的可见 `scrollarea`。
+  - 行为：有 `sid` + `ref` 时优先滚动对应 `scrollarea`；无 `ref` 时优先滚动当前视口内打开的浮层选择列表中具备实际滚动能力的 menu / list 列，否则滚动 viewport 中心命中的可滚动祖先或 window。
+  - content 侧 fallback 必须模拟人类滚轮冒泡：有 `ref` 时只沿目标元素祖先链寻找可滚动容器；无 `ref` 时只能优先选择命中可见、浮层定位且具备选择器语义的滚动列表，否则沿 viewport 中心元素祖先链寻找可滚动容器；不得切换到无关的可见 `scrollarea`。如果同一浮层中存在多个可滚动选择列，例如级联选择器的省份列与城市列，应优先选择布局上更靠后的末级列，再回退到 DOM 顺序。
   - `amount` 默认应省略；如果模型主动提供，应根据当前 viewport 或目标 `scrollarea` 的可见高度推断人类操作尺度，避免一次滚过多内容。
   - content 侧执行必须按实际滚动目标的可见高度限制显式 `amount`，避免模型给出过大的距离时跳过内容。
   - 返回的滚动遥测必须包含 `scrolled=true/false` 与当前方向的 `canScrollMore=true/false`。
   - 如果返回 `scrolled=true`，模型不得基于滚动前快照回答，必须重新调用 `get_current_page_elements`。
   - 如果返回 `scrolled=false`，通常不需要立即调用 `get_current_page_elements` 重复读取同一视口；但如果页面可能异步更新、距离上次快照已有足够时间、另一个动作导致页面可见内容变化，或模型判断必须重新获取才能保证正确性，可以再次刷新元素快照。
+  - 对下拉框、列表框、菜单、级联选择器或日期/时间选择器选项查找，如果目标选项不在当前快照中，模型应滚动弹层或列表列的 `scrollarea` 并刷新快照；若已到底仍不存在，模型应停止并说明目标不可用，而不是点击相近选项或只读文本。
   - 对整页或文档级分析，模型必须在 `canScrollMore=true` 且新视口仍有相关内容时继续 `page_scroll` + `get_current_page_elements`，直到 `canScrollMore=false` 或已找到答案。
   - 对线性页面阅读或分析，模型必须保持稳定扫描方向；除非用户明确要求回看、需要返回先前已见目标或任务明确位于上方，否则不得在 `down` 与 `up` 之间来回切换。
 - `page_drag`
   - 参数：`{ sid: string, fromRef: string, toRef: string }`
-  - 行为：从起点元素中心拖拽到终点元素中心。
+  - 行为：起点和终点都只接受快照中携带 `op: true` 的可操作目标；从起点元素可见区域内可命中 `fromRef` surface 的点拖拽到终点元素可见区域内可命中 `toRef` surface 的点。
 
 动作返回结构应包含 `ok`、`action`、`changed`、错误码、动作前后状态或滚动前后位置，供模型判断动作是否生效。
 页面动作必须尽量保持人类操作节奏：虚拟鼠标或提示动画应先移动/展示到位，再触发真实 DOM 事件、文本写入、滚动或拖拽遥测。

@@ -46,21 +46,23 @@ function buildCandidateItem(
 ): CandidateItem {
   const writableControl = findNestedWritableControl(element, windowObject);
   const nestedCheckable = findNestedCheckableInput(element);
-  const canWrite = role === 'textbox' || role === 'searchbox' || role === 'combobox' || Boolean(writableControl);
+  const canWrite = role === 'textbox' || role === 'searchbox';
   const canOperate = role !== 'textbox' && role !== 'searchbox' && role !== 'scrollarea';
 
   return {
     element,
     role,
     name: readControlName(element, role, windowObject),
-    hint: readValueHint(element),
-    inputType: isCodeEditorElement(element)
-      ? 'code'
-      : element instanceof HTMLInputElement
-        ? element.type
-        : writableControl instanceof HTMLInputElement
-          ? writableControl.type
-        : undefined,
+    hint: role === 'scrollarea' ? undefined : readValueHint(element),
+    inputType: canWrite
+      ? isCodeEditorElement(element)
+        ? 'code'
+        : element instanceof HTMLInputElement
+          ? element.type
+          : writableControl instanceof HTMLInputElement
+            ? writableControl.type
+          : undefined
+      : undefined,
     canOperate,
     canWrite,
     checked: element instanceof HTMLInputElement && ['checkbox', 'radio'].includes(element.type)
@@ -106,7 +108,7 @@ function recordCandidateDiagnostics(
  */
 function serializeSnapshot(items: CandidateItem[], windowObject: Window): GetPageElementsToolPayload {
   const exposedItems = items.slice(0, maxItems);
-  const snapshot = replaceLatestInteractablesSnapshot(exposedItems.map((item) => item.element));
+  const snapshot = replaceLatestInteractablesSnapshot(exposedItems);
 
   return {
     v: [Math.floor(windowObject.innerWidth), Math.floor(windowObject.innerHeight)],

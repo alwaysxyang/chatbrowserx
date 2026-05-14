@@ -260,6 +260,34 @@ describe('ui get page elements tool', () => {
     ]);
   });
 
+  it('does not mark scroll areas writable just because they contain an input', () => {
+    document.body.innerHTML = `
+      <main id="doc" aria-label="Document body" style="overflow-y: auto">
+        <input id="filter" placeholder="Filter rows" />
+        <p id="paragraph">Scrollable copy remains readable.</p>
+      </main>
+    `;
+    setViewportSize(1024, 768);
+
+    const doc = document.getElementById('doc')!;
+    const filter = document.getElementById('filter')!;
+    const paragraph = document.getElementById('paragraph')!;
+    Object.defineProperty(doc, 'clientHeight', { configurable: true, value: 400 });
+    Object.defineProperty(doc, 'scrollHeight', { configurable: true, value: 1200 });
+    setRect(doc, makeRect(0, 64, 1024, 400));
+    setRect(filter, makeRect(120, 96, 220, 32));
+    setRect(paragraph, makeRect(120, 150, 760, 32));
+    spyElementFromPoint(document).mockImplementation((_x, y) => y < 140 ? filter : paragraph);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'scrollarea', 'Document body', [0, 64, 1024, 400], { s: 'y' }),
+      writableItem('e2', 'textbox', 'Filter rows', [120, 96, 220, 32], { h: 'Filter rows', t: 'text' }),
+      pageElementItem('e3', 'text', 'Scrollable copy remains readable.', [120, 150, 760, 32]),
+    ]);
+  });
+
   it('splits long fallback text blocks instead of dropping the tail', () => {
     const firstChunk = 'A'.repeat(240);
     const tailChunk = 'B'.repeat(16);
@@ -522,6 +550,334 @@ describe('ui get page elements tool', () => {
 
     expect(snapshot.items).toEqual([
       writableItem('e1', 'textbox', '手机号', [365, 220, 685, 52], { h: '可用于登录和找回密码', t: 'text' }),
+    ]);
+  });
+
+  it('exposes Ant Cascader pickers as operable comboboxes instead of inner inputs', () => {
+    document.body.innerHTML = `
+      <span id="picker" class="ant-cascader-picker ant-cascader-picker-show-search" tabindex="0">
+        <span class="ant-cascader-picker-label"></span>
+        <input id="inner-input" tabindex="-1" placeholder="请选择" class="ant-input ant-cascader-input" autocomplete="off" type="text" value="" />
+        <span class="ant-cascader-picker-arrow"></span>
+      </span>
+    `;
+    setViewportSize(1728, 827);
+
+    const picker = document.getElementById('picker')!;
+    const input = document.getElementById('inner-input')!;
+    setRect(picker, makeRect(708, 49, 1340, 84));
+    setRect(input, makeRect(708, 49, 1340, 84));
+    spyElementFromPoint(document).mockReturnValue(input);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'combobox', '请选择', [708, 49, 1340, 84], { h: '请选择' }),
+    ]);
+  });
+
+  it('exposes generic composite choice pickers from aria and nested input structure', () => {
+    document.body.innerHTML = `
+      <span id="picker" class="custom-choice" tabindex="0" aria-haspopup="listbox" aria-expanded="false">
+        <span class="custom-choice-label"></span>
+        <input id="inner-input" tabindex="-1" placeholder="Choose region" type="text" value="" />
+        <span class="custom-choice-arrow"></span>
+      </span>
+    `;
+    setViewportSize(1024, 768);
+
+    const picker = document.getElementById('picker')!;
+    const input = document.getElementById('inner-input')!;
+    setRect(picker, makeRect(100, 40, 420, 44));
+    setRect(input, makeRect(100, 40, 420, 44));
+    spyElementFromPoint(document).mockReturnValue(input);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'combobox', 'Choose region', [100, 40, 420, 44], { h: 'Choose region' }),
+    ]);
+  });
+
+  it('exposes readonly picker surfaces instead of broad form item wrappers', () => {
+    document.body.innerHTML = `
+      <div class="ant-form-item">
+        <div class="ant-col ant-form-item-label"><label>04 * 出生日期</label></div>
+        <div class="ant-col ant-form-item-control-wrapper">
+          <div class="ant-form-item-control">
+            <span id="form-child" class="ant-form-item-children">
+              <span id="picker" class="calendar-picker calendar-picker-large">
+                <div>
+                  <input id="date-input" readonly placeholder="" class="calendar-picker-input ant-input ant-input-lg" value="" />
+                  <i aria-label="图标: calendar" class="calendar-picker-icon"></i>
+                </div>
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+    `;
+    setViewportSize(2048, 673);
+
+    const formChild = document.getElementById('form-child')!;
+    const picker = document.getElementById('picker')!;
+    const input = document.getElementById('date-input')!;
+    setRect(formChild, makeRect(795, 106, 846, 48));
+    setRect(picker, makeRect(795, 106, 394, 48));
+    setRect(input, makeRect(795, 106, 394, 48));
+    spyElementFromPoint(document).mockImplementation((x) => x < 1190 ? input : formChild);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'combobox', '04 * 出生日期', [795, 106, 394, 48]),
+    ]);
+  });
+
+  it('exposes Ant Cascader popup rows as selectable options', () => {
+    document.body.innerHTML = `
+      <div id="popup" class="ant-cascader-menus">
+        <ul id="province-menu" class="ant-cascader-menu">
+          <li id="beijing" class="ant-cascader-menu-item ant-cascader-menu-item-expand">北京市</li>
+          <li id="hebei" class="ant-cascader-menu-item ant-cascader-menu-item-active">河北省</li>
+        </ul>
+        <ul id="city-menu" class="ant-cascader-menu">
+          <li id="huhehaote" class="ant-cascader-menu-item">呼和浩特市</li>
+        </ul>
+      </div>
+    `;
+    setViewportSize(1728, 827);
+
+    const beijing = document.getElementById('beijing')!;
+    const hebei = document.getElementById('hebei')!;
+    const huhehaote = document.getElementById('huhehaote')!;
+    setRect(beijing, makeRect(730, 150, 233, 54));
+    setRect(hebei, makeRect(730, 258, 233, 54));
+    setRect(huhehaote, makeRect(986, 150, 168, 54));
+    spyElementFromPoint(document).mockImplementation((x, y) => {
+      if (x > 980) return huhehaote;
+      return y < 220 ? beijing : hebei;
+    });
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'option', '北京市', [730, 150, 233, 54]),
+      operableItem('e2', 'option', '呼和浩特市', [986, 150, 168, 54]),
+      operableItem('e3', 'option', '河北省', [730, 258, 233, 54]),
+    ]);
+  });
+
+  it('exposes generic listbox menu rows as selectable options', () => {
+    document.body.innerHTML = `
+      <div id="popup" role="listbox">
+        <div id="north" class="custom-menu-item">North</div>
+        <div id="south" class="custom-menu-item">South</div>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const north = document.getElementById('north')!;
+    const south = document.getElementById('south')!;
+    setRect(north, makeRect(100, 100, 180, 36));
+    setRect(south, makeRect(100, 136, 180, 36));
+    spyElementFromPoint(document).mockImplementation((_x, y) => y < 136 ? north : south);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'option', 'North', [100, 100, 180, 36]),
+      operableItem('e2', 'option', 'South', [100, 136, 180, 36]),
+    ]);
+  });
+
+  it('exposes scrollable picker popup columns as scroll areas', () => {
+    document.body.innerHTML = `
+      <style>
+        .custom-menu {
+          overflow-y: auto;
+        }
+      </style>
+      <div id="popup" class="custom-menus">
+        <ul id="province-menu" class="custom-menu">
+          <li id="beijing" class="custom-menu-item">北京市</li>
+          <li id="tianjin" class="custom-menu-item">天津市</li>
+          <li id="hebei" class="custom-menu-item">河北省</li>
+        </ul>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const menu = document.getElementById('province-menu')!;
+    const beijing = document.getElementById('beijing')!;
+    const tianjin = document.getElementById('tianjin')!;
+    const hebei = document.getElementById('hebei')!;
+    Object.defineProperty(menu, 'clientHeight', { configurable: true, value: 112 });
+    Object.defineProperty(menu, 'scrollHeight', { configurable: true, value: 360 });
+    setRect(menu, makeRect(230, 172, 300, 112));
+    setRect(beijing, makeRect(256, 194, 240, 32));
+    setRect(tianjin, makeRect(256, 258, 240, 32));
+    setRect(hebei, makeRect(256, 900, 240, 32));
+    spyElementFromPoint(document).mockImplementation((_x, y) => {
+      if (y < 240) return beijing;
+      if (y < 310) return tianjin;
+      return hebei;
+    });
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'scrollarea', 'scrollable area', [230, 172, 300, 112], { s: 'y' }),
+      operableItem('e2', 'option', '北京市', [256, 194, 240, 32]),
+      operableItem('e3', 'option', '天津市', [256, 258, 240, 32]),
+    ]);
+  });
+
+  it('does not expose picker option text clipped outside its scrollable popup column', () => {
+    document.body.innerHTML = `
+      <style>
+        .custom-menu {
+          overflow-y: auto;
+        }
+      </style>
+      <div id="popup" class="custom-menus">
+        <ul id="province-menu" class="custom-menu">
+          <li id="beijing" class="custom-menu-item">北京市</li>
+          <li id="tianjin" class="custom-menu-item">天津市</li>
+          <li id="shanghai" class="custom-menu-item">上海市</li>
+        </ul>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const menu = document.getElementById('province-menu')!;
+    const beijing = document.getElementById('beijing')!;
+    const tianjin = document.getElementById('tianjin')!;
+    const shanghai = document.getElementById('shanghai')!;
+    Object.defineProperty(menu, 'clientHeight', { configurable: true, value: 112 });
+    Object.defineProperty(menu, 'scrollHeight', { configurable: true, value: 360 });
+    setRect(menu, makeRect(230, 172, 300, 112));
+    setRect(beijing, makeRect(256, 194, 240, 32));
+    setRect(tianjin, makeRect(256, 258, 240, 32));
+    setRect(shanghai, makeRect(256, 280, 240, 32));
+    spyElementFromPoint(document).mockImplementation((_x, y) => {
+      if (y < 240) return beijing;
+      if (y < 284) return tianjin;
+      return document.body;
+    });
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'scrollarea', 'scrollable area', [230, 172, 300, 112], { s: 'y' }),
+      operableItem('e2', 'option', '北京市', [256, 194, 240, 32]),
+      operableItem('e3', 'option', '天津市', [256, 258, 240, 32]),
+    ]);
+  });
+
+  it('exposes date picker popup cells as selectable options', () => {
+    document.body.innerHTML = `
+      <div id="popup" class="calendar-picker-container">
+        <table>
+          <tbody>
+            <tr>
+              <td class="calendar-cell">
+                <div id="day-15" class="calendar-date">15</div>
+              </td>
+              <td class="calendar-cell calendar-disabled-cell">
+                <div id="day-16" class="calendar-date">16</div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const day15 = document.getElementById('day-15')!;
+    const day16 = document.getElementById('day-16')!;
+    setRect(day15, makeRect(400, 240, 32, 28));
+    setRect(day16, makeRect(440, 240, 32, 28));
+    spyElementFromPoint(document).mockImplementation((x) => x < 440 ? day15 : day16);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'option', '15', [400, 240, 32, 28]),
+    ]);
+  });
+
+  it('does not let broad date picker panels hide individual day options', () => {
+    document.body.innerHTML = `
+      <div id="popup" class="calendar-picker-container">
+        <div id="date-panel" class="calendar-date-panel" style="cursor: pointer">
+          <div id="header" class="calendar-header">previous 1999年Feb Su Mo Tu We Th Fr Sa</div>
+          <table id="date-grid" role="grid" class="calendar-table">
+            <tbody>
+              <tr>
+                <td class="calendar-cell">
+                  <div id="day-17" class="calendar-date">17</div>
+                </td>
+                <td class="calendar-cell">
+                  <div id="day-18" class="calendar-date">18</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const datePanel = document.getElementById('date-panel')!;
+    const header = document.getElementById('header')!;
+    const dateGrid = document.getElementById('date-grid')!;
+    const day17 = document.getElementById('day-17')!;
+    const day18 = document.getElementById('day-18')!;
+    setRect(datePanel, makeRect(530, 389, 278, 305));
+    setRect(header, makeRect(530, 389, 278, 42));
+    setRect(dateGrid, makeRect(530, 431, 278, 263));
+    setRect(day17, makeRect(650, 520, 36, 30));
+    setRect(day18, makeRect(686, 520, 36, 30));
+    spyElementFromPoint(document).mockImplementation((x, y) => {
+      if (y < 431) {
+        return header;
+      }
+
+      return x < 686 ? day17 : day18;
+    });
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      pageElementItem('e1', 'text', 'previous 1999年Feb Su Mo Tu We Th Fr Sa', [530, 389, 278, 42]),
+      operableItem('e2', 'option', '17', [650, 520, 36, 30]),
+      operableItem('e3', 'option', '18', [686, 520, 36, 30]),
+    ]);
+  });
+
+  it('exposes time picker popup rows as selectable options', () => {
+    document.body.innerHTML = `
+      <div id="popup" class="time-picker-panel">
+        <ul class="time-picker-panel-select">
+          <li id="hour-09" class="time-picker-panel-select-option-selected">09</li>
+          <li id="hour-10" class="time-picker-panel-select-option">10</li>
+        </ul>
+      </div>
+    `;
+    setViewportSize(1024, 768);
+
+    const hour09 = document.getElementById('hour-09')!;
+    const hour10 = document.getElementById('hour-10')!;
+    setRect(hour09, makeRect(520, 200, 80, 32));
+    setRect(hour10, makeRect(520, 232, 80, 32));
+    spyElementFromPoint(document).mockImplementation((_x, y) => y < 232 ? hour09 : hour10);
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      operableItem('e1', 'option', '09', [520, 200, 80, 32]),
+      operableItem('e2', 'option', '10', [520, 232, 80, 32]),
     ]);
   });
 

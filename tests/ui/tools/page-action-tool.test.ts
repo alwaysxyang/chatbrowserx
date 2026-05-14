@@ -76,6 +76,161 @@ describe('page action content tool', () => {
     expect(clickListener).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects clicks on read-only text snapshot items', async () => {
+    document.body.innerHTML = '<p id="copy">上海市</p>';
+    const copy = document.getElementById('copy')!;
+    const clickListener = vi.fn();
+    copy.addEventListener('click', clickListener);
+    setRect(copy, makeRect(10, 20, 100, 32));
+    spyElementFromPoint(document, copy);
+    const snapshot = readCurrentPageElements(document, window);
+
+    await expect(executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window)).resolves.toEqual({
+      ok: false,
+      action: 'click',
+      ref: 'e1',
+      error: 'PAGE_ACTION_TARGET_NOT_OPERABLE',
+    });
+    expect(clickListener).not.toHaveBeenCalled();
+  });
+
+  it('reports popup option clicks as changed when the target closes', async () => {
+    document.body.innerHTML = `
+      <div id="popup" role="listbox">
+        <div id="age" class="custom-menu-item">26~30</div>
+      </div>
+    `;
+    const popup = document.getElementById('popup')!;
+    const age = document.getElementById('age')!;
+    age.addEventListener('click', () => {
+      popup.remove();
+    });
+    setRect(age, makeRect(530, 609, 846, 33));
+    spyElementFromPoint(document, age);
+    const snapshot = readCurrentPageElements(document, window);
+
+    await expect(executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window)).resolves.toEqual({
+      ok: true,
+      action: 'click',
+      ref: 'e1',
+      changed: true,
+    });
+  });
+
+  it('focuses and sends pointer events when clicking composite picker surfaces', async () => {
+    document.body.innerHTML = `
+      <span id="picker" class="ant-cascader-picker" tabindex="0">
+        <input id="inner-input" tabindex="-1" class="ant-cascader-input" placeholder="请选择" />
+      </span>
+    `;
+    const picker = document.getElementById('picker')!;
+    const input = document.getElementById('inner-input')!;
+    const events: string[] = [];
+    picker.addEventListener('focus', () => events.push('focus'));
+    picker.addEventListener('pointerover', () => events.push('pointerover'));
+    picker.addEventListener('mouseover', () => events.push('mouseover'));
+    picker.addEventListener('mouseenter', () => events.push('mouseenter'));
+    picker.addEventListener('pointermove', () => events.push('pointermove'));
+    picker.addEventListener('mousemove', () => events.push('mousemove'));
+    picker.addEventListener('pointerdown', () => events.push('pointerdown'));
+    picker.addEventListener('mousedown', () => events.push('mousedown'));
+    picker.addEventListener('pointerup', () => events.push('pointerup'));
+    picker.addEventListener('mouseup', () => events.push('mouseup'));
+    picker.addEventListener('click', () => events.push('click'));
+    setRect(picker, makeRect(708, 49, 1340, 84));
+    setRect(input, makeRect(708, 49, 1340, 84));
+    spyElementFromPoint(document, input);
+    const snapshot = readCurrentPageElements(document, window);
+
+    await executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window);
+
+    expect(document.activeElement).toBe(picker);
+    expect(events).toEqual(['pointerover', 'mouseover', 'mouseenter', 'pointermove', 'mousemove', 'focus', 'pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']);
+  });
+
+  it('dispatches composite picker clicks to the hit-tested inner control', async () => {
+    document.body.innerHTML = `
+      <span id="picker" class="calendar-picker calendar-picker-large">
+        <div>
+          <input id="date-input" readonly class="calendar-picker-input ant-input ant-input-lg" value="" />
+          <i id="calendar-icon" aria-label="图标: calendar" class="calendar-picker-icon"></i>
+        </div>
+      </span>
+    `;
+    const picker = document.getElementById('picker')!;
+    const input = document.getElementById('date-input')!;
+    const pickerClickListener = vi.fn();
+    const inputClickListener = vi.fn();
+    picker.addEventListener('click', pickerClickListener);
+    input.addEventListener('click', inputClickListener);
+    setRect(picker, makeRect(795, 106, 394, 48));
+    setRect(input, makeRect(795, 106, 394, 48));
+    spyElementFromPoint(document, input);
+    const snapshot = readCurrentPageElements(document, window);
+
+    await executePageAction({ action: 'click', sid: snapshot.sid, ref: 'e1' }, document, window);
+
+    expect(document.activeElement).toBe(input);
+    expect(inputClickListener).toHaveBeenCalledTimes(1);
+    expect(pickerClickListener).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches hover events when moving onto expandable popup options', async () => {
+    document.body.innerHTML = `
+      <div id="popup" role="listbox">
+        <div id="province" class="custom-menu-item">河北省</div>
+      </div>
+    `;
+    const province = document.getElementById('province')!;
+    const events: string[] = [];
+    province.addEventListener('pointerover', () => events.push('pointerover'));
+    province.addEventListener('mouseover', () => events.push('mouseover'));
+    province.addEventListener('mouseenter', () => events.push('mouseenter'));
+    province.addEventListener('pointermove', () => events.push('pointermove'));
+    province.addEventListener('mousemove', () => events.push('mousemove'));
+    setRect(province, makeRect(730, 258, 233, 54));
+    spyElementFromPoint(document, province);
+    const snapshot = readCurrentPageElements(document, window);
+
+    await executePageAction({ action: 'mouse_move', sid: snapshot.sid, ref: 'e1' }, document, window);
+
+    expect(events).toEqual(['pointerover', 'mouseover', 'mouseenter', 'pointermove', 'mousemove']);
+  });
+
+  it('clicks the visible portion of a partially clipped popup option', async () => {
+    document.body.innerHTML = `
+      <div id="popup" class="custom-menu" style="overflow-y: auto">
+        <div id="option" class="custom-menu-item">辽宁省</div>
+      </div>
+      <input id="date-input" />
+    `;
+    const popup = document.getElementById('popup') as HTMLElement;
+    const option = document.getElementById('option')!;
+    const dateInput = document.getElementById('date-input')!;
+    const clickListener = vi.fn((event: MouseEvent) => event.clientY);
+    option.addEventListener('click', clickListener);
+    Object.defineProperty(popup, 'clientHeight', { configurable: true, value: 180 });
+    Object.defineProperty(popup, 'scrollHeight', { configurable: true, value: 720 });
+    setRect(popup, makeRect(230, 220, 300, 180));
+    setRect(option, makeRect(256, 380, 240, 54));
+    setRect(dateInput, makeRect(230, 400, 400, 48));
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: vi.fn(() => option),
+    });
+    const snapshot = readCurrentPageElements(document, window);
+    const optionRef = snapshot.items.find((item) => item[2] === '辽宁省')?.[0] ?? '';
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: vi.fn((_x, y) => y >= 380 && y < 400 ? option : dateInput),
+    });
+
+    await executePageAction({ action: 'click', sid: snapshot.sid, ref: optionRef }, document, window);
+
+    expect(clickListener).toHaveBeenCalledTimes(1);
+    expect(clickListener.mock.results[0]?.value).toBeLessThan(400);
+  });
+
   it('dispatches click while the virtual cursor is still at the target point', async () => {
     document.body.innerHTML = '<button id="submit">Submit</button>';
     const button = document.getElementById('submit')!;
@@ -610,6 +765,92 @@ describe('page action content tool', () => {
     });
     expect(sideScroller.scrollTop).toBe(0);
     expect(windowScrollByMock).toHaveBeenCalledWith({ left: 0, top: 300, behavior: 'auto' });
+  });
+
+  it('scrolls an open floating picker list before the viewport-center page target when no ref is provided', async () => {
+    document.body.innerHTML = [
+      '<main id="main-content"></main>',
+      '<div id="popup" class="custom-dropdown" style="position:absolute">',
+      '  <ul id="province-menu" class="custom-menu" style="overflow-y:auto">',
+      '    <li id="beijing" class="custom-menu-item">北京市</li>',
+      '    <li id="tianjin" class="custom-menu-item">天津市</li>',
+      '  </ul>',
+      '</div>',
+    ].join('');
+    const mainContent = document.getElementById('main-content')!;
+    const menu = document.getElementById('province-menu') as HTMLElement;
+    const beijing = document.getElementById('beijing')!;
+    const windowScrollByMock = mockWindowScrollBy();
+    setViewportSize(1200, 800);
+    setScrollableMetrics(menu);
+    setRect(mainContent, makeRect(420, 120, 620, 500));
+    setRect(menu, makeRect(230, 220, 300, 180));
+    setRect(beijing, makeRect(256, 240, 240, 32));
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: vi.fn((x, y) => (x >= 230 && x <= 530 && y >= 220 && y <= 400 ? beijing : mainContent)),
+    });
+
+    await expect(executePageAction({ action: 'scroll', direction: 'down', amount: 300 }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'scroll',
+      scroll: {
+        target: 'element',
+        scrolled: true,
+        canScrollMore: true,
+      },
+    });
+    expect(menu.scrollTop).toBe(300);
+    expect(windowScrollByMock).not.toHaveBeenCalled();
+  });
+
+  it('prefers the terminal floating picker column when multiple cascader columns can scroll', async () => {
+    document.body.innerHTML = [
+      '<main id="main-content"></main>',
+      '<div id="popup" class="custom-dropdown" style="position:absolute">',
+      '  <ul id="province-menu" class="custom-menu" style="overflow-y:auto">',
+      '    <li id="province-option" class="custom-menu-item">北京市</li>',
+      '  </ul>',
+      '  <ul id="city-menu" class="custom-menu" style="overflow-y:auto">',
+      '    <li id="city-option" class="custom-menu-item">市辖区</li>',
+      '  </ul>',
+      '</div>',
+    ].join('');
+    const mainContent = document.getElementById('main-content')!;
+    const provinceMenu = document.getElementById('province-menu') as HTMLElement;
+    const cityMenu = document.getElementById('city-menu') as HTMLElement;
+    const provinceOption = document.getElementById('province-option')!;
+    const cityOption = document.getElementById('city-option')!;
+    const windowScrollByMock = mockWindowScrollBy();
+    setViewportSize(1200, 800);
+    setScrollableMetrics(provinceMenu);
+    setScrollableMetrics(cityMenu);
+    setRect(mainContent, makeRect(420, 120, 620, 500));
+    setRect(provinceMenu, makeRect(230, 220, 300, 180));
+    setRect(cityMenu, makeRect(560, 220, 300, 180));
+    setRect(provinceOption, makeRect(256, 240, 240, 32));
+    setRect(cityOption, makeRect(586, 240, 240, 32));
+    Object.defineProperty(document, 'elementFromPoint', {
+      configurable: true,
+      value: vi.fn((x, y) => {
+        if (x >= 560 && x <= 860 && y >= 220 && y <= 400) return cityOption;
+        if (x >= 230 && x <= 530 && y >= 220 && y <= 400) return provinceOption;
+        return mainContent;
+      }),
+    });
+
+    await expect(executePageAction({ action: 'scroll', direction: 'down', amount: 300 }, document, window)).resolves.toMatchObject({
+      ok: true,
+      action: 'scroll',
+      scroll: {
+        target: 'element',
+        scrolled: true,
+        canScrollMore: true,
+      },
+    });
+    expect(provinceMenu.scrollTop).toBe(0);
+    expect(cityMenu.scrollTop).toBe(300);
+    expect(windowScrollByMock).not.toHaveBeenCalled();
   });
 
   it('reports when a scroll target cannot continue in the requested direction', async () => {

@@ -137,7 +137,7 @@ export function hasDirectSemanticControlToken(element: Element): boolean {
  */
 function isCompactNearbyContext(value: string): boolean {
   if (!value || value.length > 32) return false;
-  return /^[\p{L}\p{N}\s.,:+#%()/&-]+$/u.test(value);
+  return /^[\p{L}\p{N}\s.,:+#%*()/&-]+$/u.test(value);
 }
 
 /**
@@ -161,6 +161,32 @@ function readNearbyCompactContext(element: Element): string | undefined {
 }
 
 /**
+ * Reads a compact label from the nearest enclosing form row.
+ *
+ * @param element - The control element whose surrounding field label should be inspected.
+ * @returns A bounded label when a nearby form label describes the control.
+ */
+function readEnclosingFieldLabel(element: Element): string | undefined {
+  let ancestor = element.parentElement;
+  let depth = 0;
+
+  while (ancestor && depth < 6) {
+    const labels = Array.from(ancestor.querySelectorAll('label'));
+    for (const label of labels) {
+      if (element.contains(label)) continue;
+
+      const text = truncateText(label.textContent ?? '', maxNameChars);
+      if (isCompactNearbyContext(text)) return text;
+    }
+
+    ancestor = ancestor.parentElement;
+    depth += 1;
+  }
+
+  return undefined;
+}
+
+/**
  * Builds a conservative fallback label for interactables with no page-provided name.
  *
  * @param role - The inferred interactable role.
@@ -171,6 +197,20 @@ function buildUnlabeledControlName(role: string, element: Element): string {
   const context = readNearbyCompactContext(element);
   const genericName = `unlabeled ${role}`;
   return context ? `${genericName} near ${context}` : genericName;
+}
+
+/**
+ * Reads placeholder text from native text controls.
+ *
+ * @param element - The candidate element.
+ * @returns Placeholder text when the element is a text-entry control.
+ */
+function readNativeTextControlPlaceholder(element: Element): string | undefined {
+  if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
+    return truncateText(element.placeholder, maxNameChars) || undefined;
+  }
+
+  return undefined;
 }
 
 /**
@@ -236,7 +276,7 @@ function readNestedWritableControlName(element: Element, windowObject: Window): 
  * @returns A bounded control name.
  */
 export function readControlName(element: Element, role: string, windowObject: Window): string {
-  const nestedWritableName = readNestedWritableControlName(element, windowObject);
+  const nestedWritableName = role === 'scrollarea' ? undefined : readNestedWritableControlName(element, windowObject);
   if (nestedWritableName) return nestedWritableName;
 
   const accessibleName = truncateText(computeAccessibleName(element), maxNameChars);
@@ -244,6 +284,9 @@ export function readControlName(element: Element, role: string, windowObject: Wi
   const title = truncateText(element.getAttribute('title') ?? '', maxNameChars);
   const visibleText = truncateText(element.textContent ?? '', maxNameChars);
   const semanticName = readSemanticLabelFromElement(element, { includeDescendants: true });
+  const fieldLabel = role === 'textbox' || role === 'searchbox' || role === 'combobox'
+    ? readEnclosingFieldLabel(element)
+    : undefined;
 
   if (accessibleName && accessibleName !== title) {
     if (visibleText && semanticName && accessibleName === visibleText) {
@@ -253,6 +296,12 @@ export function readControlName(element: Element, role: string, windowObject: Wi
   }
   if (ariaLabel) return ariaLabel;
   if (role === 'scrollarea') return title || 'scrollable area';
+  if (role === 'option' && visibleText) return visibleText;
+  if ((role === 'textbox' || role === 'searchbox') && !visibleText) {
+    const placeholder = readNativeTextControlPlaceholder(element);
+    if (placeholder) return placeholder;
+  }
+  if (fieldLabel) return fieldLabel;
   if (visibleText && semanticName) return truncateText(`${semanticName} ${visibleText}`, maxNameChars);
   if (visibleText) return visibleText;
   if (semanticName) return semanticName;

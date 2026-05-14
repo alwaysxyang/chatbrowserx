@@ -7,6 +7,7 @@ import {
 } from './dom-targets';
 
 const maxTextChars = 240;
+const minUsefulVisibleTextEdge = 8;
 const textBlockSelector = [
   'h1',
   'h2',
@@ -43,6 +44,8 @@ const ignoredTextAncestorSelector = [
   'a',
   'summary',
   'label',
+  '[aria-disabled="true"]',
+  '[class*="disabled" i]',
   '[contenteditable=""]',
   '[contenteditable="true"]',
   '[contenteditable=true]',
@@ -145,6 +148,57 @@ function inferTextRole(element: Element): 'heading' | 'text' {
 }
 
 /**
+ * Checks whether overflow style clips descendants along an axis.
+ *
+ * @param overflow - The computed overflow value.
+ * @returns True when descendants outside the ancestor rect are not visible.
+ */
+function clipsOverflow(overflow: string): boolean {
+  return overflow === 'auto' ||
+    overflow === 'scroll' ||
+    overflow === 'overlay' ||
+    overflow === 'hidden' ||
+    overflow === 'clip';
+}
+
+/**
+ * Checks whether a text block has visible area after viewport and ancestor clipping.
+ *
+ * @param element - The text block element.
+ * @param rect - The block's own viewport rectangle.
+ * @param windowObject - The window that owns the document.
+ * @returns True when some text block area remains visible.
+ */
+function hasVisibleTextBounds(element: Element, rect: DOMRect, windowObject: Window): boolean {
+  const bounds = {
+    left: Math.max(rect.left, 0),
+    top: Math.max(rect.top, 0),
+    right: Math.min(rect.right, windowObject.innerWidth),
+    bottom: Math.min(rect.bottom, windowObject.innerHeight),
+  };
+
+  for (let ancestor = element.parentElement; ancestor; ancestor = ancestor.parentElement) {
+    const style = windowObject.getComputedStyle(ancestor);
+    const ancestorRect = ancestor.getBoundingClientRect();
+    if (clipsOverflow(style.overflowX)) {
+      bounds.left = Math.max(bounds.left, ancestorRect.left);
+      bounds.right = Math.min(bounds.right, ancestorRect.right);
+    }
+    if (clipsOverflow(style.overflowY)) {
+      bounds.top = Math.max(bounds.top, ancestorRect.top);
+      bounds.bottom = Math.min(bounds.bottom, ancestorRect.bottom);
+    }
+  }
+
+  const visibleWidth = bounds.right - bounds.left;
+  const visibleHeight = bounds.bottom - bounds.top;
+  const minVisibleWidth = Math.min(rect.width, minUsefulVisibleTextEdge);
+  const minVisibleHeight = Math.min(rect.height, minUsefulVisibleTextEdge);
+
+  return visibleWidth >= minVisibleWidth && visibleHeight >= minVisibleHeight;
+}
+
+/**
  * Checks whether a text block is visible enough to expose in the current viewport.
  *
  * @param element - The text block element.
@@ -155,7 +209,10 @@ function isVisibleTextBlock(element: Element, windowObject: Window): boolean {
   if (isOwnedByChatBrowserX(element) || isHiddenBySelfOrAncestor(element, windowObject)) return false;
 
   const rect = element.getBoundingClientRect();
-  return rect.width >= 2 && rect.height >= 2 && rectIntersectsViewport(rect, windowObject);
+  return rect.width >= 2 &&
+    rect.height >= 2 &&
+    rectIntersectsViewport(rect, windowObject) &&
+    hasVisibleTextBounds(element, rect, windowObject);
 }
 
 /**

@@ -3,6 +3,24 @@ import type {
   PageActionScrollState,
 } from '../../../shared/types/tools';
 
+const transientScrollCandidateSelector = [
+  '[role="listbox"]',
+  '[role="menu"]',
+  '[role="tree"]',
+  '[role="grid"]',
+  '[class*="picker" i]',
+  '[class*="selector" i]',
+  '[class*="dropdown" i]',
+  '[class*="listbox" i]',
+  '[class*="menu" i]',
+].join(',');
+
+interface TransientScrollableOverlayCandidate {
+  element: HTMLElement;
+  order: number;
+  rect: DOMRect;
+}
+
 /**
  * Clamps a fallback scroll position to the target's scrollable range.
  *
@@ -121,6 +139,134 @@ export function findScrollableAncestor(
 }
 
 /**
+ * Reads a lowercase class string from an element.
+ *
+ * @param element - The element to inspect.
+ * @returns Lowercase class text.
+ */
+function readClassName(element: Element): string {
+  return typeof element.className === 'string' ? element.className.toLowerCase() : '';
+}
+
+/**
+ * Checks whether an element looks like a transient choice popup.
+ *
+ * @param element - The element to inspect.
+ * @returns True when role or class semantics match popup choice UI.
+ */
+function hasTransientChoiceSignal(element: Element): boolean {
+  const role = element.getAttribute('role')?.trim().split(/\s+/)[0]?.toLowerCase();
+  if (role === 'listbox' || role === 'menu' || role === 'tree' || role === 'grid') return true;
+
+  return /(^|[-_\s])(picker|selector|select|dropdown|listbox|menu)([-_\s]|$)/.test(readClassName(element));
+}
+
+/**
+ * Checks whether the element or a near ancestor is positioned like a floating popup.
+ *
+ * @param element - The element to inspect.
+ * @param windowObject - The window that owns the element.
+ * @returns True when the element belongs to a positioned overlay context.
+ */
+function hasFloatingOverlayContext(element: Element, windowObject: Window): boolean {
+  let current: Element | null = element;
+  let depth = 0;
+
+  while (current && depth < 5) {
+    const style = windowObject.getComputedStyle(current as HTMLElement);
+    if (style.position === 'absolute' || style.position === 'fixed') return true;
+    current = current.parentElement;
+    depth += 1;
+  }
+
+  return false;
+}
+
+/**
+ * Checks whether a rectangle is visible and sized like a popup rather than page chrome.
+ *
+ * @param rect - The candidate rectangle.
+ * @param windowObject - The window that owns the viewport.
+ * @returns True when the rectangle is within the viewport and not page-sized.
+ */
+function isFloatingPopupRect(rect: DOMRect, windowObject: Window): boolean {
+  const intersectsViewport = rect.width > 0 &&
+    rect.height > 0 &&
+    rect.right > 0 &&
+    rect.bottom > 0 &&
+    rect.left < windowObject.innerWidth &&
+    rect.top < windowObject.innerHeight;
+  if (!intersectsViewport) return false;
+
+  return rect.width < windowObject.innerWidth * 0.95 && rect.height < windowObject.innerHeight * 0.95;
+}
+
+/**
+ * Checks whether the candidate or one of its children is hit-test visible.
+ *
+ * @param element - The candidate element.
+ * @param rect - The candidate rectangle.
+ * @param documentObject - The document used for hit testing.
+ * @returns True when the popup is not fully covered at its center.
+ */
+function isCenterHitVisible(element: Element, rect: DOMRect, documentObject: Document): boolean {
+  const x = Math.round(rect.left + rect.width / 2);
+  const y = Math.round(rect.top + rect.height / 2);
+  const hit = documentObject.elementFromPoint(x, y);
+  return Boolean(hit && (hit === element || element.contains(hit)));
+}
+
+/**
+ * Compares transient popup scroll candidates by the column users are most likely operating.
+ *
+ * @param first - The first candidate to compare.
+ * @param second - The second candidate to compare.
+ * @returns A sort order that prefers terminal cascader columns.
+ */
+function compareTransientScrollableOverlays(
+  first: TransientScrollableOverlayCandidate,
+  second: TransientScrollableOverlayCandidate,
+): number {
+  const leftDelta = second.rect.left - first.rect.left;
+  if (Math.abs(leftDelta) > 1) return leftDelta;
+
+  const topDelta = first.rect.top - second.rect.top;
+  if (Math.abs(topDelta) > 1) return topDelta;
+
+  return second.order - first.order;
+}
+
+/**
+ * Finds a visible floating picker/list popup that should receive wheel-like scrolling.
+ *
+ * @param documentObject - The document to inspect.
+ * @param windowObject - The window that owns the document.
+ * @param direction - The requested scroll direction.
+ * @returns A scrollable popup list element when one is active in the viewport.
+ */
+function findTransientScrollableOverlay(
+  documentObject: Document,
+  windowObject: Window,
+  direction: PageActionDirection,
+): HTMLElement | undefined {
+  const candidates = Array.from(documentObject.querySelectorAll<HTMLElement>(transientScrollCandidateSelector));
+  const overlays = candidates.reduce<TransientScrollableOverlayCandidate[]>((matches, candidate, order) => {
+    if (!hasTransientChoiceSignal(candidate)) return matches;
+    if (!canScrollElement(candidate, direction, windowObject)) return matches;
+    if (!hasFloatingOverlayContext(candidate, windowObject)) return matches;
+
+    const rect = candidate.getBoundingClientRect();
+    if (isFloatingPopupRect(rect, windowObject) && isCenterHitVisible(candidate, rect, documentObject)) {
+      matches.push({ element: candidate, order, rect });
+    }
+    return matches;
+  }, []);
+
+  overlays.sort(compareTransientScrollableOverlays);
+  return overlays[0]?.element;
+}
+
+/**
  * Finds the best scroll target for pages that use nested scroll containers.
  *
  * @param documentObject - The document to inspect.
@@ -133,6 +279,9 @@ export function findScrollableElement(
   windowObject: Window,
   direction: PageActionDirection,
 ): HTMLElement | undefined {
+  const transientOverlay = findTransientScrollableOverlay(documentObject, windowObject, direction);
+  if (transientOverlay) return transientOverlay;
+
   const centerX = Math.max(0, Math.floor(windowObject.innerWidth / 2));
   const centerY = Math.max(0, Math.floor(windowObject.innerHeight / 2));
   const current = documentObject.elementFromPoint(centerX, centerY);

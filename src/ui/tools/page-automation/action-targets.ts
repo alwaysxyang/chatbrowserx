@@ -1,5 +1,13 @@
 import type { PageActionToolResult } from '../../../shared/types/tools';
-import { isLatestInteractablesSnapshot, resolveLatestInteractableRef } from './snapshot-store';
+import { isLatestInteractablesSnapshot, resolveLatestInteractableTarget } from './snapshot-store';
+
+export interface ResolvedActionTarget {
+  element: Element;
+  rect: DOMRect;
+  role?: string;
+  canOperate?: boolean;
+  canWrite?: boolean;
+}
 
 /**
  * Resolves a required ref to a currently usable element.
@@ -11,7 +19,7 @@ import { isLatestInteractablesSnapshot, resolveLatestInteractableRef } from './s
 export function resolveActionTarget(
   ref: string | undefined,
   sid: string | undefined,
-): { element: Element; rect: DOMRect } | PageActionToolResult {
+): ResolvedActionTarget | PageActionToolResult {
   if (!ref) {
     return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_REF_REQUIRED' };
   }
@@ -24,17 +32,17 @@ export function resolveActionTarget(
     return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_SNAPSHOT_EXPIRED' };
   }
 
-  const element = resolveLatestInteractableRef(ref);
-  if (!element) {
+  const target = resolveLatestInteractableTarget(ref);
+  if (!target) {
     return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_REF_NOT_FOUND' };
   }
 
-  const rect = element.getBoundingClientRect();
+  const rect = target.element.getBoundingClientRect();
   if (rect.width < 2 || rect.height < 2) {
     return { ok: false, action: 'click', ref, error: 'PAGE_ACTION_TARGET_UNAVAILABLE' };
   }
 
-  return { element, rect };
+  return { ...target, rect };
 }
 
 /**

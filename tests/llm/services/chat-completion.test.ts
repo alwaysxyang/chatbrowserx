@@ -121,6 +121,11 @@ describe('ChatCompletionService', () => {
     expect(firstCallInput.messages[0]?.content).toContain('do not click navigation, outline, menu, toolbar, or AI summary controls');
     expect(firstCallInput.messages[0]?.content).toContain('If a page action reports PAGE_ACTION_SNAPSHOT_EXPIRED');
     expect(firstCallInput.messages[0]?.content).toContain('refresh page elements before retrying');
+    expect(firstCallInput.messages[0]?.content).toContain('For dropdown, listbox, menu, cascader, or picker selection');
+    expect(firstCallInput.messages[0]?.content).toContain('scroll the popup or list scrollarea');
+    expect(firstCallInput.messages[0]?.content).toContain('If a selectable popup has a w=true search input');
+    expect(firstCallInput.messages[0]?.content).toContain('stop and report that it is unavailable');
+    expect(firstCallInput.messages[0]?.content).toContain('instead of clicking nearby options or read-only text');
     expect(firstCallInput.messages[0]?.content).toContain(defaultSettings.model.systemPrompt);
 
     mockRunToolCallOrchestrator.mockRestore();
