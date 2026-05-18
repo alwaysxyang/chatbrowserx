@@ -11,9 +11,9 @@ import {
   readOptionalRawString,
   readRequiredRawString,
 } from './shared/tool-arguments';
-import { sendActiveTabToolMessage } from './shared/tab-message-tool';
+import { sendToolMessage } from './shared/tab-message-tool';
 import { createObjectToolDefinition } from './shared/tool-definition';
-import { registerTool, type LlmToolModule } from './tool-registry';
+import { registerTool, type InvokeContext, type LlmToolModule } from './tool-registry';
 
 type ToolArgumentReader = (args: Record<string, unknown>) => PageActionToolRequestPayload;
 
@@ -26,15 +26,17 @@ interface PageActionToolConfig {
 }
 
 /**
- * Sends a page action request to the active tab content script.
+ * Sends a page action request to the context tab or active tab fallback.
  *
+ * @param context - Optional tool invocation context.
  * @param payload - The page action payload.
  * @returns The action result.
  */
 async function invokePageAction(
+  context: InvokeContext | undefined,
   payload: PageActionToolRequestPayload,
 ): Promise<PageActionToolResult> {
-  return await sendActiveTabToolMessage<PageActionToolResult>({
+  return await sendToolMessage<PageActionToolResult>(context, {
     type: pageActionToolRequestType,
     ...payload,
   });
@@ -50,7 +52,7 @@ function createPageActionTool(config: PageActionToolConfig): LlmToolModule {
   return {
     name: () => config.name,
     definition: () => createObjectToolDefinition(config.name, config.description, config.properties, config.required),
-    invoke: async (args) => invokePageAction(config.readPayload(args)),
+    invoke: async (context, args = {}) => invokePageAction(context, config.readPayload(args)),
   };
 }
 

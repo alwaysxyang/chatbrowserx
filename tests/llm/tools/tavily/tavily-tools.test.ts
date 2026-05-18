@@ -74,7 +74,7 @@ describe('Tavily tools', () => {
     await saveTavilyKey('tvly-new');
 
     await expect(
-      tool.invoke({
+      tool.invoke(undefined, {
         query: 'latest ai browser news',
         topic: 'news',
         maxResults: 3,
@@ -106,7 +106,7 @@ describe('Tavily tools', () => {
   it('throws when Tavily search invoke runs without a configured key', async () => {
     const tool = createTavilySearchTool();
 
-    await expect(tool.invoke({ query: 'missing key' })).rejects.toThrow('TAVILY_API_KEY_MISSING');
+    await expect(tool.invoke(undefined, { query: 'missing key' })).rejects.toThrow('TAVILY_API_KEY_MISSING');
   });
 
   it('posts extract requests to the Tavily extract endpoint', async () => {
@@ -123,7 +123,7 @@ describe('Tavily tools', () => {
 
     const tool = createTavilyExtractTool();
 
-    await expect(tool.invoke({
+    await expect(tool.invoke(undefined, {
       urls: ['https://example.com'],
       extractDepth: 'advanced',
       format: 'text',
@@ -156,7 +156,7 @@ describe('Tavily tools', () => {
 
     const tool = createTavilyCrawlTool();
 
-    await expect(tool.invoke({
+    await expect(tool.invoke(undefined, {
       url: 'https://docs.example.com',
       instructions: 'Only follow API reference pages.',
       maxDepth: 2,

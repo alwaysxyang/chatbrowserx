@@ -69,7 +69,7 @@ export function createTavilyCrawlTool(): LlmToolModule {
   return {
     name: () => tavilyCrawlDefinition.function.name,
     definition: () => resolveTavilyToolDefinition(tavilyCrawlDefinition),
-    invoke: async (argumentsObject) => {
+    invoke: async (_context, argumentsObject = {}) => {
       const url = readRequiredString(argumentsObject, 'url');
       const instructions = readOptionalString(argumentsObject, 'instructions');
       const maxDepth = readOptionalInteger(argumentsObject, 'maxDepth', 1, 5) ?? 1;

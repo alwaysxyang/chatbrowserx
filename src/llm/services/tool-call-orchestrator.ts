@@ -1,6 +1,7 @@
 import type { ChatCompletionInput, ChatCompletionProvider, LlmToolCall } from '../model/chat';
 import {
   createToolRegistry,
+  type InvokeContext,
   type ToolRegistry,
   type ToolInvokeResult,
 } from '../tools/tool-registry';
@@ -54,8 +55,16 @@ function serializeToolResult(result: ToolInvokeResult): string {
 
 /**
  * Run the tool loop until the model returns a final assistant message or the loop limit is exceeded.
+ *
+ * @param context - Request-scoped context passed to every tool invocation.
+ * @param input - Chat completion request to run through the tool loop.
+ * @param options - Provider, registry and loop options.
+ * @param onChunk - Optional streaming chunk callback.
+ * @param signal - Optional abort signal.
+ * @returns The final assistant text.
  */
 export async function runToolCallOrchestrator(
+  context: InvokeContext | undefined,
   input: ChatCompletionInput,
   options: ToolCallOrchestratorOptions,
   onChunk?: (chunk: string) => void,
@@ -92,7 +101,9 @@ export async function runToolCallOrchestrator(
         }
 
         try {
-          const content = serializeToolResult(await tool.invoke(parseToolArguments(toolCall)));
+          const toolArguments = parseToolArguments(toolCall);
+          const result = await tool.invoke(context, toolArguments);
+          const content = serializeToolResult(result);
 
           return {
             role: 'tool' as const,

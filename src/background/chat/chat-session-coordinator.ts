@@ -9,6 +9,7 @@ import {
   type ChatResponsePayload,
   type ChatSessionState,
 } from '../../shared/types/chat';
+import type { InvokeContext } from '../../llm/tools/tool-registry';
 import { createSessionChatMessage } from './chat-session-message';
 import { broadcastToContentTabs } from './chat-session-broadcaster';
 
@@ -45,10 +46,14 @@ export class ChatSessionCoordinator {
   /**
    * Starts a new global chat request when no request is running.
    *
+   * @param context - Request-scoped browser agent context.
    * @param payload - The request input. History is owned by this coordinator.
    * @returns The final assistant reply.
    */
-  async request(payload: ChatRequestPayload): Promise<ChatResponsePayload> {
+  async request(
+    context: InvokeContext | undefined,
+    payload: ChatRequestPayload,
+  ): Promise<ChatResponsePayload> {
     await this.hydrate();
     if (this.requestId !== null) {
       throw new Error('CHAT_SESSION_BUSY');
@@ -68,12 +73,14 @@ export class ChatSessionCoordinator {
     await this.persistAndBroadcastState();
 
     try {
+      const onChunk = (chunk: string) => {
+        this.enqueueChunk(currentRequestId, assistantMessage.id, chunk);
+      };
       const response = await this.llmOrchestrator.complete(
+        context,
         globalChatScope,
         { input: payload.input, history: requestHistory },
-        (chunk) => {
-          this.enqueueChunk(currentRequestId, assistantMessage.id, chunk);
-        },
+        onChunk,
       );
 
       await this.drainChunkQueue();

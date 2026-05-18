@@ -30,6 +30,7 @@ export function initSelectionModule(): void {
     sendAsyncRuntimeResponse<SelectionResponsePayload>(
       llmOrchestrator
         .complete(
+          undefined,
           tabId,
           { history: [], input: prompt },
           (chunk) => {

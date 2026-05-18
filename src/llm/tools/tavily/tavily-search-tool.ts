@@ -63,7 +63,7 @@ export function createTavilySearchTool(): LlmToolModule {
   return {
     name: () => tavilySearchDefinition.function.name,
     definition: () => resolveTavilyToolDefinition(tavilySearchDefinition),
-    invoke: async (argumentsObject) => {
+    invoke: async (_context, argumentsObject = {}) => {
       const query = readRequiredString(argumentsObject, 'query');
       const topic = readOptionalEnum(argumentsObject, 'topic', ['general', 'news', 'finance'] as const) ?? 'general';
       const searchDepth = readOptionalEnum(argumentsObject, 'searchDepth', ['basic', 'advanced'] as const) ?? 'basic';

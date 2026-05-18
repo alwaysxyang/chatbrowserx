@@ -17,12 +17,15 @@ const chatSessionCoordinator = new ChatSessionCoordinator();
 export function initChatModule(): void {
   registerScreenshotCaptureHandler();
 
-  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (!isChatRequestMessage(message)) {
       return undefined;
     }
 
-    sendAsyncRuntimeResponse(chatSessionCoordinator.request(message.payload), sendResponse);
+    sendAsyncRuntimeResponse(
+      chatSessionCoordinator.request({ pageToolTabId: sender.tab?.id }, message.payload),
+      sendResponse,
+    );
 
     return true;
   });

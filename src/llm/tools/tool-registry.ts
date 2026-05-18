@@ -1,5 +1,10 @@
 export type ToolInvokeResult = unknown;
 
+export interface InvokeContext {
+  /** Fixed tab id used by browser page tools during this tool invocation. */
+  pageToolTabId?: number;
+}
+
 export interface ToolDefinition {
   type: 'function';
   function: {
@@ -12,7 +17,10 @@ export interface ToolDefinition {
 export interface LlmToolModule {
   name: () => string;
   definition: () => Promise<ToolDefinition | null> | ToolDefinition | null;
-  invoke: (argumentsObject: Record<string, unknown>) => Promise<ToolInvokeResult> | ToolInvokeResult;
+  invoke: (
+    context: InvokeContext | undefined,
+    argumentsObject: Record<string, unknown>,
+  ) => Promise<ToolInvokeResult> | ToolInvokeResult;
 }
 
 export interface ToolRegistry {
@@ -41,6 +49,11 @@ export function createToolRegistry(): ToolRegistry {
   };
 }
 
+/**
+ * Returns the existing default registry or creates it for this process.
+ *
+ * @returns The process-wide default registry instance.
+ */
 function getOrCreateDefaultToolRegistry(): ToolRegistry {
   const scopedGlobal = globalThis as typeof globalThis & {
     __chatbrowserxDefaultToolRegistry?: ToolRegistry;

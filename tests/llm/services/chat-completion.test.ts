@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { defaultSettings } from '../../../src/shared/storage/settings-repository';
 import { ChatCompletionService } from '../../../src/llm/services/chat-completion';
-import { createToolRegistry, type LlmToolModule } from '../../../src/llm/tools/tool-registry';
+import { createToolRegistry, getDefaultToolRegistry, type LlmToolModule } from '../../../src/llm/tools/tool-registry';
 import type {
   ChatCompletionProvider,
   ChatCompletionResult,
@@ -78,11 +78,13 @@ async function installToolLoopFixtures(provider: ChatCompletionProvider, tools: 
   const toolRegistry = createToolRegistry();
   tools.forEach((tool) => toolRegistry.addTool(tool));
 
-  mockRunToolCallOrchestrator.mockImplementation(async (request, _options, onChunk, signal) => {
+  mockRunToolCallOrchestrator.mockReset();
+  mockRunToolCallOrchestrator.mockImplementation(async (context, request, _options, onChunk, signal) => {
     const actualOrchestrator = await vi.importActual<typeof import('../../../src/llm/services/tool-call-orchestrator')>(
       '../../../src/llm/services/tool-call-orchestrator',
     );
     return actualOrchestrator.runToolCallOrchestrator(
+      context,
       request,
       { provider, toolRegistry },
       onChunk,
@@ -107,7 +109,7 @@ describe('ChatCompletionService', () => {
     const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider);
     const service = createService();
 
-    await service.complete([], 'Analyze this page');
+    await service.complete(undefined, [], 'Analyze this page');
 
     const firstCallInput = provider.completeChat.mock.calls[0]?.[0] as ChatCompletionInput;
     expect(firstCallInput.messages[0]).toMatchObject({ role: 'system' });
@@ -159,17 +161,21 @@ describe('ChatCompletionService', () => {
         } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const tool = createPageSummaryTool(vi.fn(async ({ url }) => JSON.stringify({ url, summary: 'Testing page summary' })));
+    const tool = createPageSummaryTool(vi.fn<LlmToolModule['invoke']>(async (_context, args = {}) => {
+      const { url } = args;
+      return JSON.stringify({ url, summary: 'Testing page summary' });
+    }));
     const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider, [tool]);
     const service = createService();
 
     const reply = await service.complete(
+      undefined,
       [{ id: '1', role: 'assistant', content: 'Old answer' }],
       'Summarize the page',
     );
 
     expect(reply).toBe('The page is about testing.');
-    expect(tool.invoke).toHaveBeenCalledWith({ url: 'https://example.com' });
+    expect(tool.invoke).toHaveBeenCalledWith(undefined, { url: 'https://example.com' });
     expect(provider.completeChat).toHaveBeenCalledTimes(2);
 
     const secondCallInput = provider.completeChat.mock.calls[1]?.[0];
@@ -192,6 +198,41 @@ describe('ChatCompletionService', () => {
       toolCallId: 'tool-call-1',
       name: 'get_page_summary',
       content: JSON.stringify({ url: 'https://example.com', summary: 'Testing page summary' }),
+    });
+
+    mockRunToolCallOrchestrator.mockRestore();
+  });
+
+  it('passes the request tab id as tool invocation context without creating a request-specific registry', async () => {
+    const provider = {
+      completeChat: vi.fn<ChatCompletionProvider['completeChat']>().mockResolvedValue({
+        message: {
+          role: 'assistant',
+          content: 'ok',
+        } satisfies LlmAssistantMessage,
+      } satisfies ChatCompletionResult),
+    } satisfies ChatCompletionProvider;
+
+    const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider);
+    const requestContext = { pageToolTabId: 43 };
+    const service = new ChatCompletionService({
+      settings: {
+        ...defaultSettings.model,
+        provider: 'openai',
+        model: 'gpt-test',
+        openai: {
+          ...defaultSettings.model.openai,
+          apiKey: 'key',
+          model: 'gpt-test',
+        },
+      },
+    });
+
+    await service.complete(requestContext, [], 'Analyze the page');
+
+    expect(mockRunToolCallOrchestrator.mock.calls[0]?.[0]).toBe(requestContext);
+    expect(mockRunToolCallOrchestrator.mock.calls[0]?.[2]).toMatchObject({
+      toolRegistry: getDefaultToolRegistry(),
     });
 
     mockRunToolCallOrchestrator.mockRestore();
@@ -220,7 +261,7 @@ describe('ChatCompletionService', () => {
     const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider);
     const service = createService();
 
-    await expect(service.complete([], 'Try a missing tool')).rejects.toThrow('TOOL_NOT_REGISTERED: missing_tool');
+    await expect(service.complete(undefined, [], 'Try a missing tool')).rejects.toThrow('TOOL_NOT_REGISTERED: missing_tool');
 
     mockRunToolCallOrchestrator.mockRestore();
   });
@@ -239,6 +280,7 @@ describe('ChatCompletionService', () => {
     const service = createService();
 
     await service.complete(
+      undefined,
       [
         {
           id: 'history-user-1',
@@ -296,14 +338,17 @@ describe('ChatCompletionService', () => {
         } satisfies ChatCompletionResult),
     } satisfies ChatCompletionProvider;
 
-    const tool = createPageSummaryTool(vi.fn(async ({ url }) => ({ url, summary: 'Testing page summary' })));
+    const tool = createPageSummaryTool(vi.fn<LlmToolModule['invoke']>(async (_context, args = {}) => {
+      const { url } = args;
+      return { url, summary: 'Testing page summary' };
+    }));
     const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider, [tool]);
     const service = createService();
 
-    const reply = await service.complete([], 'Summarize the page');
+    const reply = await service.complete(undefined, [], 'Summarize the page');
 
     expect(reply).toBe('The page is about testing.');
-    expect(tool.invoke).toHaveBeenCalledWith({ url: 'https://example.com' });
+    expect(tool.invoke).toHaveBeenCalledWith(undefined, { url: 'https://example.com' });
 
     const secondCallInput = provider.completeChat.mock.calls[1]?.[0];
     expect(secondCallInput?.messages).toContainEqual({
@@ -350,10 +395,10 @@ describe('ChatCompletionService', () => {
     const mockRunToolCallOrchestrator = await installToolLoopFixtures(provider, [tool]);
     const service = createService();
 
-    const reply = await service.complete([], 'Summarize the page');
+    const reply = await service.complete(undefined, [], 'Summarize the page');
 
     expect(reply).toBe('The tool failed, so I need to explain the limitation.');
-    expect(tool.invoke).toHaveBeenCalledWith({ url: 'https://example.com' });
+    expect(tool.invoke).toHaveBeenCalledWith(undefined, { url: 'https://example.com' });
     expect(provider.completeChat).toHaveBeenCalledTimes(2);
 
     const secondCallInput = provider.completeChat.mock.calls[1]?.[0];

@@ -28,7 +28,7 @@ describe('background selection module', () => {
     }
     await Promise.resolve();
 
-    expect(completeMock).toHaveBeenCalledWith(99, { history: [], input: 'hi' }, expect.any(Function));
+    expect(completeMock).toHaveBeenCalledWith(undefined, 99, { history: [], input: 'hi' }, expect.any(Function));
 
     // Cancel
     for (const listener of listeners) {

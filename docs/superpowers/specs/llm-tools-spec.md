@@ -32,11 +32,11 @@
 
 ### 3.1 `src/llm/tools`
 
-- 负责工具定义、工具注册、工具参数 schema、active tab 解析与向 content script 发送 runtime message。
+- 负责工具定义、工具注册、工具参数 schema、tool invocation context / active tab 解析与向 content script 发送 runtime message。
 - `tool-registry.ts` 负责工具注册与 definition 聚合。
 - `get-page-elements-tool.ts` 定义 `get_current_page_elements`。
 - `page-action-tools.ts` 定义页面动作工具。
-- `shared/active-tab.ts`、`shared/tab-message-tool.ts`、`shared/tool-arguments.ts`、`shared/tool-definition.ts` 放置多个工具共用的 tab、参数与 tool definition 辅助。
+- `shared/active-tab.ts`、`shared/tab-message-tool.ts`、`shared/tool-arguments.ts`、`shared/tool-definition.ts` 放置多个工具共用的 tab、参数与 tool definition 辅助；`tab-message-tool.ts` 通过 `InvokeContext.pageToolTabId` 选择请求级 tab，未配置时才使用 active tab fallback。
 - `tavily/` 放置 Tavily 工具 definition、参数读取与 HTTP 请求。
 
 `src/llm/tools` 可以使用 Chrome tab / message 能力，但不能访问 DOM。
@@ -81,8 +81,8 @@
 
 1. `ChatCompletionService` 合成内部浏览器 Agent 工具使用约束与用户设置的 `systemPrompt`，再调用 tool call 编排。
 2. `ToolRegistry.getDefinitions()` 汇总当前可见工具 definition。
-3. 模型返回 tool call 后，tool module 的 `invoke()` 执行工具。
-4. 页面工具通过 `tab-message-tool.ts` 向当前 active tab 发送消息。
+3. `ChatCompletionService.complete(context, history, input, onChunk, signal)` 与 `runToolCallOrchestrator(context, input, options)` 接收独立的请求级 `context` 首参；`context` 不放入生命周期更长的 service config，也不放入 options。模型返回 tool call 后，tool module 的 `invoke(context, argumentsObject)` 执行工具；chat 请求中的 `context` 由 `background/chat` 的 `chrome.runtime.onMessage` 入口创建，并以同一个对象实例传过 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装、派生或通过重新创建 tool registry 绑定 context；所有携带 `context` 的函数均固定放在第一个参数。
+4. 页面工具通过 `tab-message-tool.ts` 优先向 `InvokeContext.pageToolTabId` 发送消息；没有请求级 tab 上下文时才向当前 active tab 发送消息。工具链内携带 `InvokeContext` 的函数均保持 context-first 参数顺序。
 5. content script 中的 `src/ui/tools` listener 执行当前视口元素快照或动作。
 6. tool result 返回给 tool loop，由 tool loop 统一序列化后写回模型。
 
@@ -258,7 +258,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 
 ## 10. 错误边界
 
-- active tab 不可用时返回 `TOOL_TAB_UNAVAILABLE`。
+- 未配置请求级 tab 且 active tab 不可用时返回 `TOOL_TAB_UNAVAILABLE`。
 - 页面动作缺少快照或目标时返回对应 `PAGE_ACTION_*` 错误。
 - 快照过期时返回 `PAGE_ACTION_SNAPSHOT_EXPIRED`。
 - 目标不可用或不是可输入控件时返回对应目标错误。

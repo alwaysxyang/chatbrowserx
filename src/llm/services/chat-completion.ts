@@ -3,21 +3,25 @@ import { getActiveProviderModel, type ModelSettings } from '../../shared/types/s
 import type { ChatCompletionInput, ChatCompletionProvider, LlmChatMessage } from '../model/chat';
 import { OpenAiCompatibleProvider } from '../providers/openai/provider';
 import { CodexProvider } from '../providers/codex/provider';
-import { getDefaultToolRegistry } from '../tools/tool-registry';
+import { getDefaultToolRegistry, type InvokeContext, type ToolRegistry } from '../tools/tool-registry';
 import { buildBrowserAgentSystemPrompt } from './browser-agent-system-prompt';
 import { runToolCallOrchestrator } from './tool-call-orchestrator';
 
 export interface ChatCompletionServiceConfig {
   settings: ModelSettings;
+  /** Tool registry used by the model tool loop. Defaults to the stable global registry. */
+  toolRegistry?: ToolRegistry;
 }
 
 export class ChatCompletionService {
   private config: ChatCompletionServiceConfig;
   private readonly provider: ChatCompletionProvider;
+  private readonly toolRegistry: ToolRegistry;
 
   constructor(config: ChatCompletionServiceConfig) {
     this.config = config;
     this.provider = this.createProvider(config.settings);
+    this.toolRegistry = config.toolRegistry ?? getDefaultToolRegistry();
   }
 
   private createProvider(settings: ModelSettings): ChatCompletionProvider {
@@ -54,7 +58,18 @@ export class ChatCompletionService {
     return messages;
   }
 
+  /**
+   * Runs one chat completion request and passes request-scoped context to the tool loop.
+   *
+   * @param context - Request-scoped context for browser tools.
+   * @param history - Prior chat messages included in the completion.
+   * @param input - Current user input.
+   * @param onChunk - Optional streaming callback.
+   * @param signal - Optional abort signal.
+   * @returns The final assistant reply.
+   */
   async complete(
+    context: InvokeContext | undefined,
     history: ChatMessage[],
     input: ChatMessageContent,
     onChunk?: (chunk: string) => void,
@@ -66,10 +81,11 @@ export class ChatCompletionService {
     };
 
     return runToolCallOrchestrator(
+      context,
       request,
       {
         provider: this.provider,
-        toolRegistry: getDefaultToolRegistry(),
+        toolRegistry: this.toolRegistry,
       },
       onChunk,
       signal,

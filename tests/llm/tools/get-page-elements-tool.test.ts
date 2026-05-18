@@ -53,7 +53,7 @@ describe('get page elements tool', () => {
 
     const tool = createGetPageElementsTool();
 
-    await expect(tool.invoke({})).resolves.toEqual({
+    await expect(tool.invoke(undefined, {})).resolves.toEqual({
       v: [1000, 800],
       sid: 's_test',
       items: [['e1', 'button', 'OK', [10, 20, 100, 40], { op: true }]],

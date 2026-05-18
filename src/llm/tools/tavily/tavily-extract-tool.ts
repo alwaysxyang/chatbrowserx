@@ -47,7 +47,7 @@ export function createTavilyExtractTool(): LlmToolModule {
   return {
     name: () => tavilyExtractDefinition.function.name,
     definition: () => resolveTavilyToolDefinition(tavilyExtractDefinition),
-    invoke: async (argumentsObject) => {
+    invoke: async (_context, argumentsObject = {}) => {
       const urls = readOptionalStringArray(argumentsObject, 'urls');
 
       if (!urls?.length) {

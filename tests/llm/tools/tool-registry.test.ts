@@ -24,7 +24,7 @@ describe('tool registry', () => {
           },
         },
       }),
-      invoke: async ({ text }) => JSON.stringify({ echoed: text }),
+      invoke: async (_context, args = {}) => JSON.stringify({ echoed: args.text }),
     };
 
     const registry = createToolRegistry();
@@ -94,6 +94,32 @@ describe('tool registry', () => {
     const registry = createDefaultToolRegistry();
 
     expect(registry.getTool('echo_registered')).toBeDefined();
-    await expect(registry.getTool('echo_registered')?.invoke({})).resolves.toBe('ok');
+    await expect(registry.getTool('echo_registered')?.invoke(undefined, {})).resolves.toBe('ok');
+  });
+
+  it('routes browser page tools to a request-bound tab without querying the active tab', async () => {
+    const tabsQueryMock = globalThis.__chromeTestUtils.getTabsQueryMock();
+    const tabsSendMessageMock = globalThis.__chromeTestUtils.getTabsSendMessageMock();
+    tabsQueryMock.mockResolvedValue([{ id: 9 }]);
+    tabsSendMessageMock.mockResolvedValue({
+      v: [1200, 800],
+      sid: 's_bound',
+      items: [],
+    });
+
+    const registry = createDefaultToolRegistry();
+    const tool = registry.getTool('get_current_page_elements');
+
+    await expect((
+      tool?.invoke as (context: { pageToolTabId: number }, args: Record<string, unknown>) => Promise<unknown>
+    )?.({ pageToolTabId: 43 }, {})).resolves.toEqual({
+      v: [1200, 800],
+      sid: 's_bound',
+      items: [],
+    });
+    expect(tabsQueryMock).not.toHaveBeenCalled();
+    expect(tabsSendMessageMock).toHaveBeenCalledWith(43, {
+      type: 'chatbrowserx.tool.get-page-elements.request',
+    });
   });
 });

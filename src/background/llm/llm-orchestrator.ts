@@ -1,4 +1,5 @@
 import { ChatCompletionService } from '../../llm/services/chat-completion';
+import type { InvokeContext } from '../../llm/tools/tool-registry';
 import { loadSettings } from '../../shared/storage/settings-repository';
 import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types/chat';
 
@@ -24,23 +25,32 @@ export class LlmOrchestrator {
   /**
    * Runs a chat completion request for a scope and optionally streams chunks.
    *
+   * @param context - Optional browser-agent context for request-scoped tools.
    * @param scope - The session scope making the request.
    * @param payload - Chat payload including history and input.
    * @param onChunk - Optional streaming callback for incremental output.
    * @returns The final reply text.
    */
-  async complete(scope: LlmSessionScope, payload: ChatRequestPayload, onChunk?: (chunk: string) => void): Promise<ChatResponsePayload> {
+  async complete(
+    context: InvokeContext | undefined,
+    scope: LlmSessionScope,
+    payload: ChatRequestPayload,
+    onChunk?: (chunk: string) => void,
+  ): Promise<ChatResponsePayload> {
     this.cancel(scope);
 
     const requestId = this.nextRequestId++;
     const settings = await loadSettings();
     const controller = new AbortController();
-    const service = new ChatCompletionService({ settings: settings.model });
+    const service = new ChatCompletionService({
+      settings: settings.model,
+    });
 
     this.sessions.set(scope, { requestId, controller, onChunk });
 
     try {
       const reply = await service.complete(
+        context,
         payload.history,
         payload.input,
         (chunk) => {

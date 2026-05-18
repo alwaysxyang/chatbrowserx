@@ -54,7 +54,7 @@ describe('page action tools', () => {
     const { tabsSendMessageMock } = mockActiveTab();
     tabsSendMessageMock.mockResolvedValue({ ok: true, action: 'click', ref: 'e13' });
 
-    await expect(createPageClickTool().invoke({ sid: 's_latest', ref: 'e13' })).resolves.toEqual({
+    await expect(createPageClickTool().invoke(undefined, { sid: 's_latest', ref: 'e13' })).resolves.toEqual({
       ok: true,
       action: 'click',
       ref: 'e13',
@@ -74,7 +74,7 @@ describe('page action tools', () => {
       .mockResolvedValueOnce([{ id: 87 }]);
     tabsSendMessageMock.mockResolvedValue({ ok: true, action: 'click', ref: 'e22' });
 
-    await expect(createPageClickTool().invoke({ sid: 's_1', ref: 'e22' })).resolves.toEqual({
+    await expect(createPageClickTool().invoke(undefined, { sid: 's_1', ref: 'e22' })).resolves.toEqual({
       ok: true,
       action: 'click',
       ref: 'e22',
@@ -93,7 +93,7 @@ describe('page action tools', () => {
     const { tabsSendMessageMock } = mockActiveTab();
     tabsSendMessageMock.mockResolvedValue({ ok: true, action: 'scroll', ref: 'e3' });
 
-    await expect(createPageScrollTool().invoke({ direction: 'down', sid: 's_1', ref: 'e3', amount: 320 })).resolves.toEqual({
+    await expect(createPageScrollTool().invoke(undefined, { direction: 'down', sid: 's_1', ref: 'e3', amount: 320 })).resolves.toEqual({
       ok: true,
       action: 'scroll',
       ref: 'e3',
@@ -175,9 +175,9 @@ describe('page action tools', () => {
   });
 
   it('validates required page action arguments before sending messages', async () => {
-    await expect(createPageClickTool().invoke({ ref: 'e1' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:sid');
-    await expect(createPageTypeTool().invoke({ sid: 's_latest', ref: 'e1' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:text');
-    await expect(createPageDragTool().invoke({ sid: 's_latest', fromRef: 'e1' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:toRef');
-    await expect(createPageScrollTool().invoke({ direction: 'sideways' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:direction');
+    await expect(createPageClickTool().invoke(undefined, { ref: 'e1' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:sid');
+    await expect(createPageTypeTool().invoke(undefined, { sid: 's_latest', ref: 'e1' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:text');
+    await expect(createPageDragTool().invoke(undefined, { sid: 's_latest', fromRef: 'e1' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:toRef');
+    await expect(createPageScrollTool().invoke(undefined, { direction: 'sideways' })).rejects.toThrow('TOOL_ARGUMENT_INVALID:direction');
   });
 });

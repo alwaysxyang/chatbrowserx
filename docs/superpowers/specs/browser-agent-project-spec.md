@@ -179,6 +179,7 @@ src/
 - `src/llm/services` 放置聊天完成服务与 tool call 编排。
   - `ChatCompletionService` 发送请求时必须加入内部浏览器 Agent 工具使用约束，并保留用户设置里的 `systemPrompt` 作为附加系统提示。
 - `src/llm/tools` 放置工具定义、工具注册、active tab 路由与工具级接口。
+  - chat agent loop 内的页面工具优先使用请求发起时绑定的 tab id，不因用户手动切换 active tab 而漂移；未提供请求级 tab 上下文的工具调用才回退到 active tab 路由。
   - `src/llm/tools` 可使用 Chrome API 获取 tab 能力。
   - `src/llm/tools` 不依赖 DOM；DOM 读取、滚动、点击、输入必须留在 `src/ui/tools`。
   - 细化约束见 `docs/superpowers/specs/llm-tools-spec.md`。
@@ -207,9 +208,9 @@ src/
 ## 7. 关键运行链路
 
 - Content script 挂载：manifest 注入 `src/ui/tools/page-automation/rich-editor-bridge-main.ts` 到 `MAIN` world，再注入 `src/ui/content/index.tsx` 到 isolated world；后者挂载 Shadow Root、建立供页面级功能使用的 `chatSessionPortName` 生命周期端口，并注册 content 侧工具 listener。
-- 聊天：`ui/content/chat` 启动时通过 `chatbrowserx.chat.state.query` 同步 background 全局会话；用户请求经 `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*`；流式 chunk 与完整状态由 `background/chat` 广播回所有 content UI。页面刷新、同 tab 导航或 content script 重挂载不取消 chat agent loop，只有用户显式停止或后台生命周期结束才结束。
+- 聊天：`ui/content/chat` 启动时通过 `chatbrowserx.chat.state.query` 同步 background 全局会话；用户请求经 `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*`；`background/chat` 在 `chrome.runtime.onMessage` 入口使用请求来源 `sender.tab.id` 创建本轮 chat agent loop 的页面工具 tab 上下文，并将同一个 context 对象继续传入 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装或派生等价 context；用户在响应过程中手动切换 active tab 不改变该上下文；流式 chunk 与完整状态由 `background/chat` 广播回所有 content UI。页面刷新、同 tab 导航或 content script 重挂载不取消 chat agent loop，只有用户显式停止或后台生命周期结束才结束。
 - 图片输入：截图或剪贴板图片在 `ui/content/chat` 内构造为 Data URL，并作为聊天输入发送。
-- 页面工具：`llm/tools` 定义工具并向 active tab 发消息；`ui/tools` 在 content script 中执行当前视口元素快照或动作。LLM 页面工具不做自动滚动阅读，模型需要更多内容时应显式调用 `page_scroll` 后重新获取元素；只读页面分析不得为了发现内容而点击导航、目录、工具栏或 AI 摘要控件。
+- 页面工具：`llm/tools` 定义稳定的工具集合；`llm/services` 在每次 tool invocation 时传入请求级 `InvokeContext`，页面工具优先使用其中的 `pageToolTabId`，没有上下文时才 fallback 到 active tab。background 到 LLM/tool 链路中携带请求上下文的函数统一使用 context-first 参数顺序，例如 `ChatSessionCoordinator.request(context, payload)`、`LlmOrchestrator.complete(context, scope, payload, onChunk)`、`ChatCompletionService.complete(context, history, input, onChunk, signal)`、`runToolCallOrchestrator(context, input, options)` 与 `tool.invoke(context, argumentsObject)`；`context` 不放入生命周期更长的 service config 或 options。chat agent loop 使用请求发起 tab 作为页面工具目标，避免用户手动切 tab 影响后台进行中的页面分析。`ui/tools` 在 content script 中执行当前视口元素快照或动作。LLM 页面工具不做自动滚动阅读，模型需要更多内容时应显式调用 `page_scroll` 后重新获取元素；只读页面分析不得为了发现内容而点击导航、目录、工具栏或 AI 摘要控件。
 - Selection 气泡：`ui/page/selection` 构造 prompt -> `background/selection` -> `background/llm` -> 流式回推结果面板。
 - Speech：`ui/content/speech` 发起启停 -> `background/speech` -> `AudioCapture` + `SpeechRecognitionService` -> `speech/providers/volcengine` -> 结果回推 UI。
 - 打印/保存为 PDF：`ui/content/pdf` 使用 `scanPage` 滚动扫描，通过 `content-screenshot-bridge` 请求截图，在新窗口预览并由用户调用浏览器打印。
