@@ -128,6 +128,10 @@ describe('ChatCompletionService', () => {
     expect(firstCallInput.messages[0]?.content).toContain('If a selectable popup has a w=true search input');
     expect(firstCallInput.messages[0]?.content).toContain('stop and report that it is unavailable');
     expect(firstCallInput.messages[0]?.content).toContain('instead of clicking nearby options or read-only text');
+    expect(firstCallInput.messages[0]?.content).toContain('For whole-page or document-level analysis requests');
+    expect(firstCallInput.messages[0]?.content).toContain('do not produce the final answer while the latest page_scroll result still has canScrollMore=true');
+    expect(firstCallInput.messages[0]?.content).toContain('bottom proof from page_scroll');
+    expect(firstCallInput.messages[0]?.content).toContain('canScrollMore=false or scrolled=false');
     expect(firstCallInput.messages[0]?.content).toContain(defaultSettings.model.systemPrompt);
 
     mockRunToolCallOrchestrator.mockRestore();

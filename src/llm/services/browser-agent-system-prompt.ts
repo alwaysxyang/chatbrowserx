@@ -10,6 +10,7 @@ const browserAgentSystemPrompt = [
   'If a selectable popup has a w=true search input, type the desired option there before scrolling. If the desired option still cannot be found, stop and report that it is unavailable instead of clicking nearby options or read-only text.',
   'For read-only page analysis, do not click navigation, outline, menu, toolbar, or AI summary controls just to discover content; read visible heading/text items and scroll instead.',
   'If the snapshot only shows visible navigation or outline entries, scroll the relevant scrollarea instead of clicking those entries.',
+  'For whole-page or document-level analysis requests such as analyzing, summarizing, or reading the current page, do not produce the final answer while the latest page_scroll result still has canScrollMore=true; keep scrolling and refreshing until you have bottom proof from page_scroll: canScrollMore=false or scrolled=false, unless the user explicitly asks only about the current viewport or a specific visible answer.',
   'If a page action reports PAGE_ACTION_SNAPSHOT_EXPIRED, refresh page elements before retrying with the latest sid/ref, and retry only if the action is still necessary.',
   'During linear page analysis, keep a stable scan direction. Start from the current viewport and usually move down through new content; do not bounce between down and up.',
   'Use the opposite direction only when the user explicitly asks to go back, when returning to a previously seen target, or when the current task is specifically above the viewport.',

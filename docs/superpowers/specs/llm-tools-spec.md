@@ -116,7 +116,8 @@ LLM 侧工具通过 `chatbrowserx.tool.get-page-elements.request` 请求 content
 - 不自动滚动页面；页面分析必须像人类阅读页面一样先基于当前可见区域判断。
 - 对整页、文档级或“分析当前页面”类任务，如果页面或 `scrollarea` 仍可能有后续内容，模型不得只根据单个局部视口直接下结论。
 - 对只读页面分析，模型不得为了发现内容而点击导航、目录、菜单、工具栏或 AI 摘要控件；如果当前快照只看到导航或目录项且正文不足，应滚动相关 `scrollarea` 后重新获取元素。
-- 如果当前可见元素不足以回答问题，且页面或 `scrollarea` 仍可能有后续内容，模型必须显式调用 `page_scroll`，再重新调用 `get_current_page_elements` 后继续分析，直到滚动不再带来新的相关内容或已找到答案。
+- 如果当前可见元素不足以回答问题，且页面或 `scrollarea` 仍可能有后续内容，模型必须显式调用 `page_scroll`，再重新调用 `get_current_page_elements` 后继续分析。对特定问题，可以在滚动不再带来新的相关内容或请求的答案已经找到时停止；对整页、文档级或“分析当前页面 / 总结当前页面”类泛化请求，必须按下一条底部证明规则执行。
+- 对整页、文档级或“分析当前页面 / 总结当前页面”类泛化请求，模型不得在最新 `page_scroll` 结果仍为 `canScrollMore=true` 时输出最终答案；必须继续 `page_scroll` + `get_current_page_elements`，直到 `page_scroll` 返回 `canScrollMore=false` 或 `scrolled=false` 作为底部证明。只有当用户明确要求分析当前可见区域，或明确询问某个已经可见的特定答案时，才允许不等待底部证明。
 - 模型应避免在同一未变化视口中不必要地反复调用 `get_current_page_elements`；应在执行 `page_scroll` / `page_click` / `page_type` / `page_drag` 等页面动作后、距离上次快照已有足够时间可能发生异步更新时，或模型判断必须重新获取才能保证正确性时刷新元素快照。
 - 对线性页面阅读或分析，模型必须保持稳定扫描方向，通常从当前视口向下阅读；不得在没有用户要求回看、返回已知目标或任务位于上方的情况下上下反复滚动。
 - 对下拉框、列表框、菜单、级联选择器或日期/时间选择器选项查找，模型只能点击已经可见且携带 `op: true` 的目标选项；目标项不可见时，应优先对弹层或列表列的 `scrollarea` 调用 `page_scroll` 并重新获取快照，直到目标出现、`scrolled=false` 或 `canScrollMore=false`。如果弹层提供携带 `w: true` 的搜索输入框，可以先输入目标选项；滚到底仍找不到目标时必须停止并说明目标不可用，不得点击相近选项或只读 `text`。
@@ -211,7 +212,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
   - 如果返回 `scrolled=true`，模型不得基于滚动前快照回答，必须重新调用 `get_current_page_elements`。
   - 如果返回 `scrolled=false`，通常不需要立即调用 `get_current_page_elements` 重复读取同一视口；但如果页面可能异步更新、距离上次快照已有足够时间、另一个动作导致页面可见内容变化，或模型判断必须重新获取才能保证正确性，可以再次刷新元素快照。
   - 对下拉框、列表框、菜单、级联选择器或日期/时间选择器选项查找，如果目标选项不在当前快照中，模型应滚动弹层或列表列的 `scrollarea` 并刷新快照；若已到底仍不存在，模型应停止并说明目标不可用，而不是点击相近选项或只读文本。
-  - 对整页或文档级分析，模型必须在 `canScrollMore=true` 且新视口仍有相关内容时继续 `page_scroll` + `get_current_page_elements`，直到 `canScrollMore=false` 或已找到答案。
+  - 对整页或文档级分析，模型必须在 `canScrollMore=true` 时继续 `page_scroll` + `get_current_page_elements`，不得因为已经看到部分章节、目录、正文增量变少或表面上“足够回答”就输出最终答案；必须等到 `canScrollMore=false` 或 `scrolled=false` 的底部证明。只有用户明确要求分析当前可见区域，或明确询问某个已经可见的特定答案时，才允许不等待底部证明。
   - 对线性页面阅读或分析，模型必须保持稳定扫描方向；除非用户明确要求回看、需要返回先前已见目标或任务明确位于上方，否则不得在 `down` 与 `up` 之间来回切换。
 - `page_drag`
   - 参数：`{ sid: string, fromRef: string, toRef: string }`

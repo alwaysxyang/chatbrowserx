@@ -118,6 +118,11 @@ describe('page action tools', () => {
     expect(definition?.function.description).toContain('If scrolled=true');
     expect(definition?.function.description).toContain('do not answer from the pre-scroll snapshot');
     expect(definition?.function.description).toContain('continue the observe-scroll-observe loop while canScrollMore=true');
+    expect(definition?.function.description).not.toContain('visible content remains relevant');
+    expect(definition?.function.description).toContain('For whole-page or document-level analysis requests');
+    expect(definition?.function.description).toContain('final answer while canScrollMore=true');
+    expect(definition?.function.description).toContain('bottom proof');
+    expect(definition?.function.description).toContain('canScrollMore=false or scrolled=false');
     expect(definition?.function.description).toContain('After scrolled=false, refreshing is usually unnecessary');
     expect(definition?.function.description).toContain('unless async content may have changed');
     expect(definition?.function.description).toContain('viewport center');

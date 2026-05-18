@@ -28,7 +28,13 @@ describe('get page elements tool', () => {
     expect(description).toContain('not enough to answer');
     expect(description).toContain('whole-page');
     expect(description).toContain('do not conclude from one partial viewport');
+    expect(description).toContain('specific targeted questions');
     expect(description).toContain('until scrolling no longer reveals new relevant content');
+    expect(description).not.toContain('or the answer is found');
+    expect(description).toContain('whole-page or document-level analysis requests');
+    expect(description).toContain('latest page_scroll result still has canScrollMore=true');
+    expect(description).toContain('bottom proof');
+    expect(description).toContain('canScrollMore=false or scrolled=false');
     expect(description).toContain('stable scan direction');
     expect(description).toContain('do not bounce between down and up');
     expect(description).toContain('Avoid unnecessary repeated snapshots for the same unchanged viewport');
