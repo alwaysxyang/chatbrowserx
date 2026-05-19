@@ -20,11 +20,6 @@
   pointer-events: auto;
 }
 
-/* In long screenshot mode, let wheel events pass through the selection. */
-.screenshot-overlay.screenshot-overlay-long-mode .screenshot-selection {
-  pointer-events: none;
-}
-
 .screenshot-overlay-capturing .screenshot-selection,
 .screenshot-overlay-capturing .screenshot-controls {
   visibility: hidden;
@@ -38,16 +33,6 @@
   background: transparent;
   box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.38);
   box-sizing: border-box;
-}
-
-/* In long screenshot mode, the overlay does not intercept page scrolling. */
-.screenshot-overlay.screenshot-overlay-long-mode {
-  pointer-events: none;
-}
-
-/* Controls must remain clickable in long screenshot mode. */
-.screenshot-overlay.screenshot-overlay-long-mode .screenshot-control-button {
-  pointer-events: auto;
 }
 
 .screenshot-controls {

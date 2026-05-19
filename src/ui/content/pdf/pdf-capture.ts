@@ -4,7 +4,7 @@ import { scanPage } from './pdf-page-scanner';
 const MAX_SCREENSHOTS = 50;
 
 /**
- * Capture the entire page as a long screenshot and open preview in new tab.
+ * Capture the page through scrolling snapshots and open preview in a new tab.
  */
 export async function capturePage(): Promise<void> {
   const screenshots: string[] = [];

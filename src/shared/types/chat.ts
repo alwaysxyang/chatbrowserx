@@ -96,14 +96,12 @@ export interface ChatMessage {
 }
 
 /**
- * Payload for initiating a chat request to the LLM provider.
- * Contains the user's input and conversation history for context.
+ * Runtime payload for initiating a background-owned chat request.
+ * The global coordinator owns conversation history and appends it internally.
  */
 export interface ChatRequestPayload {
   /** The user's current input message */
   input: ChatMessageContent;
-  /** Previous messages in the conversation for context */
-  history: ChatMessage[];
 }
 
 /**
@@ -167,7 +165,7 @@ export const chatSessionPortName = 'chatbrowserx.chat.session';
 export const screenshotCaptureRequestType = 'chatbrowserx.chat.screenshot.capture';
 
 /**
- * Message sent to initiate a chat request with the LLM provider.
+ * Message sent to initiate a background chat request.
  */
 export interface ChatRequestMessage extends RuntimeMessage<typeof chatRequestType> {
   payload: ChatRequestPayload;

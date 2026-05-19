@@ -60,7 +60,6 @@ export function waitForScreenshotFrame(): Promise<void> {
 
 /**
  * Wait for images in the viewport to load and page to stabilize before taking a screenshot.
- * This prevents images from being cut off when scrolling quickly during long screenshots.
  */
 export async function waitForScreenshotStable(): Promise<void> {
   await waitForScreenshotFrame();

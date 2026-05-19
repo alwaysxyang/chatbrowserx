@@ -27,7 +27,7 @@ describe('ChatSessionCoordinator', () => {
     const orchestrator = createOrchestrator();
     const coordinator = new ChatSessionCoordinator(orchestrator);
 
-    await expect(coordinator.request(undefined, { input: 'hello', history: [] })).resolves.toEqual({ reply: 'final reply' });
+    await expect(coordinator.request(undefined, { input: 'hello' })).resolves.toEqual({ reply: 'final reply' });
 
     expect(orchestrator.complete).toHaveBeenCalledWith(undefined, 'global-chat', expect.objectContaining({ input: 'hello' }), expect.any(Function));
     expect(tabsSendMessageMock).toHaveBeenCalledWith(1, expect.objectContaining({ type: 'chatbrowserx.chat.stream.chunk' }));
@@ -45,11 +45,11 @@ describe('ChatSessionCoordinator', () => {
     const coordinatorWithContext = coordinator as unknown as {
       request: (
         context: { pageToolTabId: number },
-        payload: { input: string; history: ChatMessage[] },
+        payload: { input: string },
       ) => Promise<unknown>;
     };
 
-    await coordinatorWithContext.request(requestContext, { input: 'analyze this page', history: [] });
+    await coordinatorWithContext.request(requestContext, { input: 'analyze this page' });
 
     expect(orchestrator.complete.mock.calls[0]?.[0]).toBe(requestContext);
     expect(orchestrator.complete).toHaveBeenCalledWith(
@@ -81,7 +81,7 @@ describe('ChatSessionCoordinator', () => {
       const orchestrator = createOrchestrator();
       const coordinator = new ChatSessionCoordinator(orchestrator);
       let requestResolved = false;
-      const requestPromise = coordinator.request(undefined, { input: 'hello', history: [] }).then((response) => {
+      const requestPromise = coordinator.request(undefined, { input: 'hello' }).then((response) => {
         requestResolved = true;
         return response;
       });
@@ -113,7 +113,7 @@ describe('ChatSessionCoordinator', () => {
     };
     const coordinator = new ChatSessionCoordinator(orchestrator);
 
-    await expect(coordinator.request(undefined, { input: 'hello', history: [] })).rejects.toThrow('provider failed');
+    await expect(coordinator.request(undefined, { input: 'hello' })).rejects.toThrow('provider failed');
 
     await expect(coordinator.getState()).resolves.toMatchObject({
       messages: [
@@ -129,12 +129,17 @@ describe('ChatSessionCoordinator', () => {
   });
 
   it('builds request history from completed turns only', async () => {
+    const completedUserContent = [
+      { type: 'text' as const, text: 'completed user' },
+      { type: 'image_url' as const, image_url: { url: 'data:image/png;base64,history' } },
+    ];
+
     await chrome.storage.local.set({
       'chatbrowserx.history': [
         {
           id: 'user-completed',
           role: 'user',
-          content: 'completed user',
+          content: completedUserContent,
         },
         {
           id: 'assistant-completed',
@@ -158,10 +163,10 @@ describe('ChatSessionCoordinator', () => {
     const orchestrator = createOrchestrator();
     const coordinator = new ChatSessionCoordinator(orchestrator);
 
-    await coordinator.request(undefined, { input: 'next user', history: [] });
+    await coordinator.request(undefined, { input: 'next user' });
 
     expect(orchestrator.complete.mock.calls[0]?.[2].history).toEqual([
-      expect.objectContaining({ role: 'user', content: 'completed user' }),
+      expect.objectContaining({ role: 'user', content: completedUserContent }),
       expect.objectContaining({ role: 'assistant', content: 'completed assistant' }),
     ]);
     expect(orchestrator.complete.mock.calls[0]?.[2].history).not.toEqual(expect.arrayContaining([
@@ -219,12 +224,12 @@ describe('ChatSessionCoordinator', () => {
     };
     const coordinator = new ChatSessionCoordinator(orchestrator);
 
-    void coordinator.request(undefined, { input: 'first', history: [] });
+    void coordinator.request(undefined, { input: 'first' });
     await vi.waitFor(async () => {
       await expect(coordinator.getState()).resolves.toMatchObject({ isRunning: true });
     });
 
-    await expect(coordinator.request(undefined, { input: 'second', history: [] })).rejects.toThrow('CHAT_SESSION_BUSY');
+    await expect(coordinator.request(undefined, { input: 'second' })).rejects.toThrow('CHAT_SESSION_BUSY');
     expect(orchestrator.cancel).not.toHaveBeenCalled();
   });
 
@@ -235,7 +240,7 @@ describe('ChatSessionCoordinator', () => {
     };
     const coordinator = new ChatSessionCoordinator(orchestrator);
 
-    void coordinator.request(undefined, { input: 'first', history: [] });
+    void coordinator.request(undefined, { input: 'first' });
 
     await vi.waitFor(async () => {
       await expect(coordinator.getState()).resolves.toMatchObject({

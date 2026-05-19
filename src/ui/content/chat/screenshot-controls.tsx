@@ -6,16 +6,14 @@ interface ScreenshotControlsProps {
   controlsRef: RefObject<HTMLDivElement>;
   controlsStyle: CSSProperties;
   isCapturing: boolean;
-  isLongMode: boolean;
   onFullscreenCapture: () => void;
-  onLongModeToggle: () => void;
   onDone: () => void;
 }
 
 const controlsHeight = 36;
 const controlsTopOffset = 10;
 const controlsViewportMargin = 8;
-const estimatedControlsWidth = 260;
+const estimatedControlsWidth = 190;
 
 /**
  * Clamps a number between a minimum and maximum boundary.
@@ -80,20 +78,7 @@ export function buildScreenshotControlsStyle(selection: ScreenshotRect, viewport
 }
 
 /**
- * Returns the center point of a screenshot selection.
- *
- * @param selection - The active screenshot selection.
- * @returns The viewport point at the center of the selection.
- */
-export function getScreenshotSelectionCenter(selection: ScreenshotRect): { x: number; y: number } {
-  return {
-    x: selection.left + selection.width / 2,
-    y: selection.top + selection.height / 2,
-  };
-}
-
-/**
- * Renders screenshot action controls for fullscreen, long mode, and completion.
+ * Renders screenshot action controls for fullscreen and selection capture.
  *
  * @param props - Control state and command handlers.
  * @returns The floating screenshot control bar.
@@ -102,9 +87,7 @@ export function ScreenshotControls({
   controlsRef,
   controlsStyle,
   isCapturing,
-  isLongMode,
   onFullscreenCapture,
-  onLongModeToggle,
   onDone,
 }: ScreenshotControlsProps) {
   return (
@@ -121,15 +104,6 @@ export function ScreenshotControls({
         onClick={onFullscreenCapture}
       >
         {translateMessage('chat.screenshot.fullscreen')}
-      </button>
-      <button
-        type="button"
-        className={`screenshot-control-button ${isLongMode ? 'screenshot-control-button-active' : ''}`}
-        aria-pressed={isLongMode}
-        disabled={isCapturing}
-        onClick={onLongModeToggle}
-      >
-        {isLongMode ? translateMessage('chat.screenshot.cancelLong') : translateMessage('chat.screenshot.long')}
       </button>
       <button
         type="button"

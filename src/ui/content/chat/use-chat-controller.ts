@@ -123,7 +123,6 @@ export function useChatController() {
         type: chatRequestType,
         payload: {
           input,
-          history: [],
         } satisfies ChatRequestPayload,
       })) as ChatRuntimeResponse;
 

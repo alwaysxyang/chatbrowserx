@@ -46,7 +46,7 @@ export class ChatCompletionService {
 
     trimmedHistory.forEach((message) => {
       if (message.role === 'user') {
-        messages.push({ role: 'user', content: getChatMessageTextContent(message.content) });
+        messages.push({ role: 'user', content: message.content });
         return;
       }
 

@@ -40,7 +40,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。当
 - 基础聊天能力与流式展示。
 - 最小设置能力：`model`、`general`、`voice`。
 - provider 抽象与当前 `openai`、`codex` 聊天 provider。
-- 聊天输入图片能力：当前可视区域截图、选区截图、选区长截图、剪贴板图片、图片预览。
+- 聊天输入图片能力：当前可视区域截图、选区截图、剪贴板图片、图片预览。
 - 页面选中文本气泡能力：Translate、Ask AI、结果面板、Markdown 展示。
 - LLM 工具能力：
   - `get_current_page_elements`
@@ -208,9 +208,9 @@ src/
 ## 7. 关键运行链路
 
 - Content script 挂载：manifest 注入 `src/ui/tools/page-automation/rich-editor-bridge-main.ts` 到 `MAIN` world，再注入 `src/ui/content/index.tsx` 到 isolated world；后者挂载 Shadow Root、建立供页面级功能使用的 `chatSessionPortName` 生命周期端口，并注册 content 侧工具 listener。
-- 聊天：`ui/content/chat` 启动时通过 `chatbrowserx.chat.state.query` 同步 background 全局会话；用户请求经 `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*`；`background/chat` 在 `chrome.runtime.onMessage` 入口使用请求来源 `sender.tab.id` 创建本轮 chat agent loop 的页面工具 tab 上下文，并将同一个 context 对象继续传入 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装或派生等价 context；用户在响应过程中手动切换 active tab 不改变该上下文；流式 chunk 与完整状态由 `background/chat` 广播回所有 content UI。页面刷新、同 tab 导航或 content script 重挂载不取消 chat agent loop，只有用户显式停止或后台生命周期结束才结束。
+- 聊天：`ui/content/chat` 启动时通过 `chatbrowserx.chat.state.query` 同步 background 全局会话；用户请求通过 `chatbrowserx.chat.request` 只发送当前 `input`，历史 transcript 由 `ChatSessionCoordinator` 读取、过滤并注入 LLM 请求；请求经 `background/chat` -> `llm/services`（合成内部浏览器工具约束与用户 `systemPrompt`）-> `llm/providers/*`；`background/chat` 在 `chrome.runtime.onMessage` 入口使用请求来源 `sender.tab.id` 创建本轮 chat agent loop 的页面工具 tab 上下文，并将同一个 context 对象继续传入 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装或派生等价 context；用户在响应过程中手动切换 active tab 不改变该上下文；流式 chunk 与完整状态由 `background/chat` 广播回所有 content UI。页面刷新、同 tab 导航或 content script 重挂载不取消 chat agent loop，只有用户显式停止或后台生命周期结束才结束。
 - 图片输入：截图或剪贴板图片在 `ui/content/chat` 内构造为 Data URL，并作为聊天输入发送。
-- 页面工具：`llm/tools` 定义稳定的工具集合；`llm/services` 在每次 tool invocation 时传入请求级 `InvokeContext`，页面工具优先使用其中的 `pageToolTabId`，没有上下文时才 fallback 到 active tab。background 到 LLM/tool 链路中携带请求上下文的函数统一使用 context-first 参数顺序，例如 `ChatSessionCoordinator.request(context, payload)`、`LlmOrchestrator.complete(context, scope, payload, onChunk)`、`ChatCompletionService.complete(context, history, input, onChunk, signal)`、`runToolCallOrchestrator(context, input, options)` 与 `tool.invoke(context, argumentsObject)`；`context` 不放入生命周期更长的 service config 或 options。chat agent loop 使用请求发起 tab 作为页面工具目标，避免用户手动切 tab 影响后台进行中的页面分析。`ui/tools` 在 content script 中执行当前视口元素快照或动作。LLM 页面工具不做自动滚动阅读，模型需要更多内容时应显式调用 `page_scroll` 后重新获取元素；对整页、文档级或“分析当前页面 / 总结当前页面”类请求，模型在最新 `page_scroll` 结果仍为 `canScrollMore=true` 时不得输出最终答案，必须继续滚动并刷新快照，直到拿到 `canScrollMore=false` 或 `scrolled=false` 的底部证明，除非用户明确只询问当前视口或某个已可见的特定答案；只读页面分析不得为了发现内容而点击导航、目录、工具栏或 AI 摘要控件。
+- 页面工具：`llm/tools` 定义稳定的工具集合；`llm/services` 在每次 tool invocation 时传入请求级 `InvokeContext`，页面工具优先使用其中的 `pageToolTabId`，没有上下文时才 fallback 到 active tab。background 到 LLM/tool 链路中携带请求上下文的函数统一使用 context-first 参数顺序，例如 `ChatSessionCoordinator.request(context, payload)`、`LlmOrchestrator.complete(context, scope, payload, onChunk)`、`ChatCompletionService.complete(context, history, input, onChunk, signal)`、`runToolCallOrchestrator(context, input, options)` 与 `tool.invoke(context, argumentsObject)`；`context` 不放入生命周期更长的 service config 或 options。chat agent loop 使用请求发起 tab 作为页面工具目标，避免用户手动切 tab 影响后台进行中的页面分析。同一轮 assistant message 中的多个 tool call 按模型给出的顺序串行执行，避免页面滚动、点击、输入与快照状态竞态。`ui/tools` 在 content script 中执行当前视口元素快照或动作。LLM 页面工具不做自动滚动阅读，模型需要更多内容时应显式调用 `page_scroll` 后重新获取元素；对整页、文档级或“分析当前页面 / 总结当前页面”类请求，模型在最新 `page_scroll` 结果仍为 `canScrollMore=true` 时不得输出最终答案，必须继续滚动并刷新快照，直到拿到 `canScrollMore=false` 或 `scrolled=false` 的底部证明，除非用户明确只询问当前视口或某个已可见的特定答案；只读页面分析不得为了发现内容而点击导航、目录、工具栏或 AI 摘要控件。
 - Selection 气泡：`ui/page/selection` 构造 prompt -> `background/selection` -> `background/llm` -> 流式回推结果面板。
 - Speech：`ui/content/speech` 发起启停 -> `background/speech` -> `AudioCapture` + `SpeechRecognitionService` -> `speech/providers/volcengine` -> 结果回推 UI。
 - 打印/保存为 PDF：`ui/content/pdf` 使用 `scanPage` 滚动扫描，通过 `content-screenshot-bridge` 请求截图，在新窗口预览并由用户调用浏览器打印。
@@ -218,7 +218,7 @@ src/
 ## 8. 关键消息与存储协议
 
 - UI panel：`chatbrowserx.panel.command`，用于 background action 点击或其他入口控制 content panel。
-- Chat：`chatbrowserx.chat.request`、`chatbrowserx.chat.stream.chunk`、`chatbrowserx.chat.state.query`、`chatbrowserx.chat.state.sync`、`chatbrowserx.chat.cancel`、`chatbrowserx.chat.clear`、`chatbrowserx.chat.session`、`chatbrowserx.chat.screenshot.capture`。
+- Chat：`chatbrowserx.chat.request`、`chatbrowserx.chat.stream.chunk`、`chatbrowserx.chat.state.query`、`chatbrowserx.chat.state.sync`、`chatbrowserx.chat.cancel`、`chatbrowserx.chat.clear`、`chatbrowserx.chat.session`、`chatbrowserx.chat.screenshot.capture`。其中 `chatbrowserx.chat.request` 的 payload 只包含当前 `input`，不携带历史消息。
 - Selection：`chatbrowserx.selection.request`、`chatbrowserx.selection.stream.chunk`、`chatbrowserx.selection.cancel`。
 - Speech：`chatbrowserx.speech.start`、`chatbrowserx.speech.stop`、`chatbrowserx.speech.result`、`chatbrowserx.speech.error`、`chatbrowserx.speech.state.query`。
 - Page tools：`chatbrowserx.tool.get-page-elements.request`、`chatbrowserx.tool.page-action.request`。

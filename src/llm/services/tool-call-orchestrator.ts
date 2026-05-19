@@ -1,4 +1,4 @@
-import type { ChatCompletionInput, ChatCompletionProvider, LlmToolCall } from '../model/chat';
+import type { ChatCompletionInput, ChatCompletionProvider, LlmToolCall, LlmToolMessage } from '../model/chat';
 import {
   createToolRegistry,
   type InvokeContext,
@@ -54,6 +54,41 @@ function serializeToolResult(result: ToolInvokeResult): string {
 }
 
 /**
+ * Invoke one tool call and convert the result into a model-visible tool message.
+ */
+async function invokeToolCall(
+  context: InvokeContext | undefined,
+  toolRegistry: ToolRegistry,
+  toolCall: LlmToolCall,
+): Promise<LlmToolMessage> {
+  const tool = toolRegistry.getTool(toolCall.function.name);
+
+  if (!tool) {
+    throw new Error(`TOOL_NOT_REGISTERED: ${toolCall.function.name}`);
+  }
+
+  try {
+    const toolArguments = parseToolArguments(toolCall);
+    const result = await tool.invoke(context, toolArguments);
+    const content = serializeToolResult(result);
+
+    return {
+      role: 'tool',
+      toolCallId: toolCall.id,
+      name: toolCall.function.name,
+      content,
+    };
+  } catch (error) {
+    return {
+      role: 'tool',
+      toolCallId: toolCall.id,
+      name: toolCall.function.name,
+      content: buildToolErrorContent(error),
+    };
+  }
+}
+
+/**
  * Run the tool loop until the model returns a final assistant message or the loop limit is exceeded.
  *
  * @param context - Request-scoped context passed to every tool invocation.
@@ -92,35 +127,10 @@ export async function runToolCallOrchestrator(
       return assistantMessage.content.trim() || '';
     }
 
-    const toolMessages = await Promise.all(
-      assistantMessage.toolCalls.map(async (toolCall) => {
-        const tool = toolRegistry.getTool(toolCall.function.name);
-
-        if (!tool) {
-          throw new Error(`TOOL_NOT_REGISTERED: ${toolCall.function.name}`);
-        }
-
-        try {
-          const toolArguments = parseToolArguments(toolCall);
-          const result = await tool.invoke(context, toolArguments);
-          const content = serializeToolResult(result);
-
-          return {
-            role: 'tool' as const,
-            toolCallId: toolCall.id,
-            name: toolCall.function.name,
-            content,
-          };
-        } catch (error) {
-          return {
-            role: 'tool' as const,
-            toolCallId: toolCall.id,
-            name: toolCall.function.name,
-            content: buildToolErrorContent(error),
-          };
-        }
-      }),
-    );
+    const toolMessages: LlmToolMessage[] = [];
+    for (const toolCall of assistantMessage.toolCalls) {
+      toolMessages.push(await invokeToolCall(context, toolRegistry, toolCall));
+    }
 
     messages.push(...toolMessages);
   }

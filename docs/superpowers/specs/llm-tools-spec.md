@@ -84,7 +84,8 @@
 3. `ChatCompletionService.complete(context, history, input, onChunk, signal)` 与 `runToolCallOrchestrator(context, input, options)` 接收独立的请求级 `context` 首参；`context` 不放入生命周期更长的 service config，也不放入 options。模型返回 tool call 后，tool module 的 `invoke(context, argumentsObject)` 执行工具；chat 请求中的 `context` 由 `background/chat` 的 `chrome.runtime.onMessage` 入口创建，并以同一个对象实例传过 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装、派生或通过重新创建 tool registry 绑定 context；所有携带 `context` 的函数均固定放在第一个参数。
 4. 页面工具通过 `tab-message-tool.ts` 优先向 `InvokeContext.pageToolTabId` 发送消息；没有请求级 tab 上下文时才向当前 active tab 发送消息。工具链内携带 `InvokeContext` 的函数均保持 context-first 参数顺序。
 5. content script 中的 `src/ui/tools` listener 执行当前视口元素快照或动作。
-6. tool result 返回给 tool loop，由 tool loop 统一序列化后写回模型。
+6. 同一轮 assistant message 中的多个 tool call 必须按模型给出的顺序串行执行，避免页面滚动、点击、输入与快照状态竞态。
+7. tool result 返回给 tool loop，由 tool loop 统一序列化后写回模型。
 
 工具 `invoke()` 允许返回任意可序列化内容；工具模块本身不重复手动 `JSON.stringify`。
 

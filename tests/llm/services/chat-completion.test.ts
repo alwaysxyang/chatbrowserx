@@ -302,7 +302,13 @@ describe('ChatCompletionService', () => {
     );
 
     const firstCallInput = provider.completeChat.mock.calls[0]?.[0] as ChatCompletionInput;
-    expect(firstCallInput.messages).toContainEqual({ role: 'user', content: '历史图片说明' });
+    expect(firstCallInput.messages).toContainEqual({
+      role: 'user',
+      content: [
+        { type: 'text', text: '历史图片说明' },
+        { type: 'image_url', image_url: { url: 'https://example.com/history.png' } },
+      ],
+    });
     expect(firstCallInput.messages).toContainEqual({
       role: 'user',
       content: [

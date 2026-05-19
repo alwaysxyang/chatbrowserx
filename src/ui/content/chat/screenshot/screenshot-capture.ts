@@ -1,9 +1,6 @@
 import { clamp, getViewportSize } from './screenshot-selection-geometry';
 
-import {
-  type LongScreenshotCaptureArea,
-} from './screenshot-scroll-target';
-import type { CapturedLongScreenshotChunk, ScreenshotDocumentRange, ScreenshotRect } from './screenshot-types';
+import type { ScreenshotRect } from './screenshot-types';
 
 /**
  * Load a screenshot image from a data URL.
@@ -87,35 +84,6 @@ export async function cropScreenshotDataUrl(dataUrl: string, rect: ScreenshotRec
 }
 
 /**
- * Stitch multiple screenshot data URLs into a single vertical image.
- *
- * @param dataUrls - The ordered screenshot chunks to stitch
- * @returns The stitched image as a data URL
- */
-export async function stitchScreenshotDataUrls(dataUrls: string[]): Promise<string> {
-  const images = await Promise.all(dataUrls.map(loadImage));
-  const width = Math.max(...images.map((image) => image.naturalWidth), 1);
-  const height = images.reduce((sum, image) => sum + image.naturalHeight, 0) || 1;
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-
-  if (!context) {
-    throw new Error('Canvas is not available for screenshot stitching.');
-  }
-
-  canvas.width = width;
-  canvas.height = height;
-
-  let offsetY = 0;
-  images.forEach((image) => {
-    context.drawImage(image, 0, offsetY);
-    offsetY += image.naturalHeight;
-  });
-
-  return canvas.toDataURL('image/png');
-}
-
-/**
  * Capture and crop the current visible viewport selection.
  *
  * @param captureVisibleTab - The bridge used to capture the current tab viewport
@@ -128,100 +96,6 @@ export async function captureSelectedViewport(
 ): Promise<string> {
   const dataUrl = await captureVisibleTab();
   return cropScreenshotDataUrl(dataUrl, selection);
-}
-
-/**
- * Find the still-missing logical content ranges for the current long screenshot session.
- *
- * @param range - The currently visible content range
- * @param chunks - The chunks that have already been captured
- * @returns The uncovered content ranges that still need screenshots
- */
-export function getUncapturedLongScreenshotSegments(
-  range: ScreenshotDocumentRange,
-  chunks: CapturedLongScreenshotChunk[],
-): ScreenshotDocumentRange[] {
-  const sortedChunks = [...chunks].sort((left, right) => left.startY - right.startY);
-  let segments: ScreenshotDocumentRange[] = [
-    {
-      startY: Math.min(range.startY, range.endY),
-      endY: Math.max(range.startY, range.endY),
-    },
-  ];
-
-  sortedChunks.forEach((chunk) => {
-    segments = segments.flatMap((segment) => {
-      if (chunk.endY <= segment.startY || chunk.startY >= segment.endY) {
-        return [segment];
-      }
-
-      const nextSegments: ScreenshotDocumentRange[] = [];
-
-      if (chunk.startY > segment.startY) {
-        nextSegments.push({ startY: segment.startY, endY: Math.min(chunk.startY, segment.endY) });
-      }
-
-      if (chunk.endY < segment.endY) {
-        nextSegments.push({ startY: Math.max(chunk.endY, segment.startY), endY: segment.endY });
-      }
-
-      return nextSegments.filter((nextSegment) => nextSegment.endY > nextSegment.startY);
-    });
-  });
-
-  return segments.filter((segment) => segment.endY > segment.startY);
-}
-
-/**
- * Capture the currently visible long-screenshot area and crop the requested segments from it.
- *
- * @param captureVisibleTab - The bridge used to capture the current tab viewport
- * @param captureArea - The current viewport crop rectangle and logical content range
- * @param segments - The logical content ranges that still need capturing
- * @returns The captured long-screenshot chunks for the missing ranges
- */
-export async function captureLongScreenshotSegments(
-  captureVisibleTab: () => Promise<string>,
-  captureArea: LongScreenshotCaptureArea,
-  segments: ScreenshotDocumentRange[],
-): Promise<CapturedLongScreenshotChunk[]> {
-  if (!segments.length) {
-    return [];
-  }
-
-  const dataUrl = await captureVisibleTab();
-
-  return Promise.all(
-    segments.map(async (segment) => {
-      const startY = Math.min(segment.startY, segment.endY);
-      const endY = Math.max(segment.startY, segment.endY);
-      const chunkHeight = endY - startY;
-      const viewportTop = captureArea.captureRect.top + (startY - captureArea.range.startY);
-
-      return {
-        startY,
-        endY,
-        dataUrl: await cropScreenshotDataUrl(dataUrl, {
-          left: captureArea.captureRect.left,
-          top: viewportTop,
-          width: captureArea.captureRect.width,
-          height: chunkHeight,
-        }),
-      };
-    }),
-  );
-}
-
-/**
- * Stitch ordered long-screenshot chunks into a single output image.
- *
- * @param chunks - The captured long-screenshot chunks
- * @returns The stitched image as a data URL
- */
-export async function stitchLongScreenshotChunks(chunks: CapturedLongScreenshotChunk[]): Promise<string> {
-  return stitchScreenshotDataUrls(
-    [...chunks].sort((left, right) => left.startY - right.startY).map((chunk) => chunk.dataUrl),
-  );
 }
 
 /**

@@ -1,9 +1,19 @@
 import { ChatCompletionService } from '../../llm/services/chat-completion';
 import type { InvokeContext } from '../../llm/tools/tool-registry';
 import { loadSettings } from '../../shared/storage/settings-repository';
-import type { ChatRequestPayload, ChatResponsePayload } from '../../shared/types/chat';
+import type { ChatMessage, ChatMessageContent, ChatResponsePayload } from '../../shared/types/chat';
 
 export type LlmSessionScope = number | string;
+
+/**
+ * Background-internal payload for a scoped LLM completion request.
+ */
+export interface LlmCompletionPayload {
+  /** Prior conversation messages included in the model request. */
+  history: ChatMessage[];
+  /** Current model input. */
+  input: ChatMessageContent;
+}
 
 interface LlmSession {
   requestId: number;
@@ -27,14 +37,14 @@ export class LlmOrchestrator {
    *
    * @param context - Optional browser-agent context for request-scoped tools.
    * @param scope - The session scope making the request.
-   * @param payload - Chat payload including history and input.
+   * @param payload - LLM completion payload including background-owned history and input.
    * @param onChunk - Optional streaming callback for incremental output.
    * @returns The final reply text.
    */
   async complete(
     context: InvokeContext | undefined,
     scope: LlmSessionScope,
-    payload: ChatRequestPayload,
+    payload: LlmCompletionPayload,
     onChunk?: (chunk: string) => void,
   ): Promise<ChatResponsePayload> {
     this.cancel(scope);

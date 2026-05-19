@@ -191,10 +191,7 @@ export class ChatSessionCoordinator {
         continue;
       }
 
-      result.push({
-        ...message,
-        content: getChatMessageTextContent(message.content),
-      });
+      result.push(message);
     }
 
     return result;

@@ -124,7 +124,6 @@ describe('useChatController', () => {
       type: 'chatbrowserx.chat.request',
       payload: {
         input: 'hello',
-        history: [],
       },
     });
   });

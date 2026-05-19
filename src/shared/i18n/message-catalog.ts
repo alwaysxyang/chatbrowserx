@@ -55,8 +55,6 @@ export type MessageKey =
   | 'chat.screenshot.previewAlt'
   | 'chat.screenshot.remove'
   | 'chat.screenshot.fullscreen'
-  | 'chat.screenshot.long'
-  | 'chat.screenshot.cancelLong'
   | 'chat.screenshot.done'
   | 'chat.imagePreview.label'
   | 'chat.imagePreview.close'
@@ -157,8 +155,6 @@ export const messages: Record<MessageKey, Record<Locale, string>> = {
   'chat.screenshot.previewAlt': { zh: '截图预览', en: 'Screenshot preview', ja: 'スクリーンショットのプレビュー' },
   'chat.screenshot.remove': { zh: '删除截图', en: 'Remove screenshot', ja: 'スクリーンショットを削除' },
   'chat.screenshot.fullscreen': { zh: '全屏截图', en: 'Fullscreen screenshot', ja: '全画面スクリーンショット' },
-  'chat.screenshot.long': { zh: '长截图', en: 'Long screenshot', ja: 'ロングスクリーンショット' },
-  'chat.screenshot.cancelLong': { zh: '取消长截图', en: 'Cancel long screenshot', ja: 'ロングスクリーンショットをキャンセル' },
   'chat.screenshot.done': { zh: '截图完成', en: 'Complete screenshot', ja: 'スクリーンショット完了' },
   'chat.imagePreview.label': { zh: '图片预览', en: 'Image preview', ja: '画像プレビュー' },
   'chat.imagePreview.close': { zh: '关闭图片预览', en: 'Close image preview', ja: '画像プレビューを閉じる' },
