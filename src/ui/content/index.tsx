@@ -1,4 +1,4 @@
-import { createRoot } from 'react-dom/client';
+import { createRoot, type Root } from 'react-dom/client';
 import { ContentApp } from './ContentApp';
 import styles from './styles.css?inline';
 import { registerTools } from '../tools';
@@ -7,12 +7,18 @@ import { installContentKeyboardEventIsolation } from './keyboard-event-isolation
 
 const hostId = 'chatbrowserx-root';
 const sessionPort = chrome.runtime.connect({ name: chatSessionPortName });
+let appRootElement: HTMLElement | null = null;
+let reactRoot: Root | null = null;
+let hostObserver: MutationObserver | null = null;
 
-window.addEventListener('pagehide', () => {
-  sessionPort.disconnect();
-}, { once: true });
+/**
+ * Ensures the extension host exists in the current document body.
+ */
+function ensureContentHost(): HTMLElement | null {
+  if (!document.body) {
+    return null;
+  }
 
-function mountContentApp() {
   let host = document.getElementById(hostId);
 
   if (!host) {
@@ -21,6 +27,13 @@ function mountContentApp() {
     document.body.appendChild(host);
   }
 
+  return host;
+}
+
+/**
+ * Ensures the Shadow DOM app container and style element exist under the host.
+ */
+function ensureAppRoot(host: HTMLElement): HTMLElement {
   const shadowRoot = host.shadowRoot ?? host.attachShadow({ mode: 'open' });
   installContentKeyboardEventIsolation(shadowRoot);
 
@@ -31,15 +44,65 @@ function mountContentApp() {
     shadowRoot.appendChild(styleElement);
   }
 
-  let appRoot = shadowRoot.getElementById('chatbrowserx-app');
-  if (!appRoot) {
-    appRoot = document.createElement('div');
-    appRoot.id = 'chatbrowserx-app';
-    shadowRoot.appendChild(appRoot);
+  let nextAppRoot = shadowRoot.getElementById('chatbrowserx-app');
+  if (!nextAppRoot) {
+    nextAppRoot = document.createElement('div');
+    nextAppRoot.id = 'chatbrowserx-app';
+    shadowRoot.appendChild(nextAppRoot);
   }
 
-  createRoot(appRoot).render(<ContentApp />);
+  return nextAppRoot;
 }
 
+/**
+ * Mounts the content app into the current document host.
+ */
+function mountContentApp(): void {
+  const host = ensureContentHost();
+
+  if (!host) {
+    return;
+  }
+
+  const nextAppRoot = ensureAppRoot(host);
+
+  if (appRootElement !== nextAppRoot) {
+    reactRoot?.unmount();
+    appRootElement = nextAppRoot;
+    reactRoot = createRoot(appRootElement);
+  }
+
+  reactRoot?.render(<ContentApp />);
+}
+
+/**
+ * Watches the host document for page-driven removal of the extension host.
+ */
+function watchContentHost(): void {
+  if (hostObserver) {
+    return;
+  }
+
+  hostObserver = new MutationObserver(() => {
+    if (document.getElementById(hostId)) {
+      return;
+    }
+
+    mountContentApp();
+  });
+
+  hostObserver.observe(document.documentElement, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+window.addEventListener('pagehide', () => {
+  hostObserver?.disconnect();
+  reactRoot?.unmount();
+  sessionPort.disconnect();
+}, { once: true });
+
 mountContentApp();
+watchContentHost();
 registerTools();
