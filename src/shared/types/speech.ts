@@ -1,5 +1,5 @@
 import type { RuntimeMessage, RuntimeResponse } from './runtime-messages';
-import { createRuntimeMessageGuard } from './runtime-messages';
+import { hasRuntimeMessageType } from './runtime-messages';
 
 /**
  * Recognition result from speech recognition service.
@@ -89,12 +89,6 @@ export type SpeechRuntimeResponse = RuntimeResponse<null>;
  */
 export type SpeechStateQueryResponse = RuntimeResponse<SpeechStateQueryResponsePayload>;
 
-const isSpeechStartRequestMessageGuard = createRuntimeMessageGuard<SpeechStartRequestMessage>(speechStartRequestType);
-const isSpeechStopRequestMessageGuard = createRuntimeMessageGuard<SpeechStopRequestMessage>(speechStopRequestType);
-const isSpeechResultMessageGuard = createRuntimeMessageGuard<SpeechResultMessage>(speechResultType);
-const isSpeechErrorMessageGuard = createRuntimeMessageGuard<SpeechErrorMessage>(speechErrorType);
-const isSpeechStateQueryMessageGuard = createRuntimeMessageGuard<SpeechStateQueryMessage>(speechStateQueryType);
-
 /**
  * Type guard that checks if an unknown value is a SpeechStartRequestMessage.
  *
@@ -102,7 +96,7 @@ const isSpeechStateQueryMessageGuard = createRuntimeMessageGuard<SpeechStateQuer
  * @returns True if the message is a SpeechStartRequestMessage
  */
 export function isSpeechStartRequestMessage(message: unknown): message is SpeechStartRequestMessage {
-  return isSpeechStartRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, speechStartRequestType);
 }
 
 /**
@@ -112,7 +106,7 @@ export function isSpeechStartRequestMessage(message: unknown): message is Speech
  * @returns True if the message is a SpeechStopRequestMessage
  */
 export function isSpeechStopRequestMessage(message: unknown): message is SpeechStopRequestMessage {
-  return isSpeechStopRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, speechStopRequestType);
 }
 
 /**
@@ -122,7 +116,7 @@ export function isSpeechStopRequestMessage(message: unknown): message is SpeechS
  * @returns True if the message is a SpeechResultMessage
  */
 export function isSpeechResultMessage(message: unknown): message is SpeechResultMessage {
-  return isSpeechResultMessageGuard(message);
+  return hasRuntimeMessageType(message, speechResultType);
 }
 
 /**
@@ -132,7 +126,7 @@ export function isSpeechResultMessage(message: unknown): message is SpeechResult
  * @returns True if the message is a SpeechErrorMessage
  */
 export function isSpeechErrorMessage(message: unknown): message is SpeechErrorMessage {
-  return isSpeechErrorMessageGuard(message);
+  return hasRuntimeMessageType(message, speechErrorType);
 }
 
 /**
@@ -142,5 +136,5 @@ export function isSpeechErrorMessage(message: unknown): message is SpeechErrorMe
  * @returns True if the message is a SpeechStateQueryMessage
  */
 export function isSpeechStateQueryMessage(message: unknown): message is SpeechStateQueryMessage {
-  return isSpeechStateQueryMessageGuard(message);
+  return hasRuntimeMessageType(message, speechStateQueryType);
 }

@@ -41,13 +41,6 @@ function collectTextLines(text: string, capturedLines: Set<string>, orderedLines
 }
 
 /**
- * Checks whether page-level scrolling can reveal more content.
- *
- * @param documentObject - Document to inspect.
- * @param windowObject - Window used for viewport metrics.
- * @returns True when the page has meaningful vertical scrolling.
- */
-/**
  * Reads the host page text with the old simple scroll-and-dedupe strategy.
  *
  * @param documentObject - Document to read from.

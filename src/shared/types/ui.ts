@@ -1,5 +1,5 @@
 import type { RuntimeMessage } from './runtime-messages';
-import { createRuntimeMessageGuard } from './runtime-messages';
+import { hasRuntimeMessageType } from './runtime-messages';
 
 /**
  * Message type identifier for panel control commands.
@@ -15,8 +15,6 @@ export interface PanelCommandMessage extends RuntimeMessage<typeof panelCommandT
   };
 }
 
-const isPanelCommandMessageGuard = createRuntimeMessageGuard<PanelCommandMessage>(panelCommandType);
-
 /**
  * Type guard that checks if an unknown value is a PanelCommandMessage.
  *
@@ -24,5 +22,5 @@ const isPanelCommandMessageGuard = createRuntimeMessageGuard<PanelCommandMessage
  * @returns True if the message is a PanelCommandMessage
  */
 export function isPanelCommandMessage(message: unknown): message is PanelCommandMessage {
-  return isPanelCommandMessageGuard(message);
+  return hasRuntimeMessageType(message, panelCommandType);
 }

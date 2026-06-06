@@ -1,5 +1,5 @@
 import type { RuntimeMessage } from '../runtime-messages';
-import { createRuntimeMessageGuard } from '../runtime-messages';
+import { hasRuntimeMessageType } from '../runtime-messages';
 
 export type PageActionName = 'mouse_move' | 'click' | 'type' | 'scroll' | 'drag';
 
@@ -86,10 +86,6 @@ export const pageActionToolRequestType = 'chatbrowserx.tool.page-action.request'
 export interface PageActionToolRequestMessage
   extends RuntimeMessage<typeof pageActionToolRequestType>, PageActionToolRequestPayload {}
 
-const isPageActionToolRequestMessageGuard = createRuntimeMessageGuard<PageActionToolRequestMessage>(
-  pageActionToolRequestType,
-);
-
 /**
  * Type guard that checks if an unknown value is a PageActionToolRequestMessage.
  *
@@ -97,5 +93,5 @@ const isPageActionToolRequestMessageGuard = createRuntimeMessageGuard<PageAction
  * @returns True if the message is a PageActionToolRequestMessage.
  */
 export function isPageActionToolRequestMessage(message: unknown): message is PageActionToolRequestMessage {
-  return isPageActionToolRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, pageActionToolRequestType);
 }

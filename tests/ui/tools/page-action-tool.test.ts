@@ -1,63 +1,17 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { executePageAction } from '../../../src/ui/tools/page-automation/action-executor';
 import { readCurrentPageElements } from '../../../src/ui/tools/page-automation/page-element-scanner';
 import { registerPageActionToolListener } from '../../../src/ui/tools/page-automation/runtime-listeners';
-
-function makeRect(x: number, y: number, width: number, height: number): DOMRect {
-  return {
-    x,
-    y,
-    width,
-    height,
-    top: y,
-    left: x,
-    right: x + width,
-    bottom: y + height,
-    toJSON: () => ({}),
-  } as DOMRect;
-}
-
-function setRect(element: Element, rect: DOMRect): void {
-  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect);
-}
-
-function spyElementFromPoint(documentObject: Document, element: Element): void {
-  Object.defineProperty(documentObject, 'elementFromPoint', {
-    configurable: true,
-    value: vi.fn(() => element),
-  });
-}
-
-/**
- * Sets viewport dimensions for geometry-sensitive action tests.
- */
-function setViewportSize(width: number, height: number): void {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
-}
-
-/**
- * Replaces window.scrollBy with a mock and returns it for assertions.
- */
-function mockWindowScrollBy(): ReturnType<typeof vi.fn> {
-  const scrollByMock = vi.fn();
-  Object.defineProperty(window, 'scrollBy', { configurable: true, value: scrollByMock });
-  return scrollByMock;
-}
-
-/**
- * Gives an element deterministic scroll metrics in jsdom.
- */
-function setScrollableMetrics(element: HTMLElement): void {
-  Object.defineProperty(element, 'clientHeight', { configurable: true, value: 400 });
-  Object.defineProperty(element, 'scrollHeight', { configurable: true, value: 1200 });
-  Object.defineProperty(element, 'scrollTop', { configurable: true, writable: true, value: 0 });
-}
+import {
+  makeRect,
+  mockWindowScrollBy,
+  setRect,
+  setScrollableMetrics,
+  setViewportSize,
+  spyElementFromPoint,
+} from './page-tool-test-helpers';
 
 describe('page action content tool', () => {
-  beforeEach(() => {
-  });
-
   it('clicks an element by the latest page element ref', async () => {
     document.body.innerHTML = '<button id="submit">Submit</button>';
     const button = document.getElementById('submit')!;

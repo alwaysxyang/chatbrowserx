@@ -1,5 +1,5 @@
 import type { RuntimeMessage } from '../runtime-messages';
-import { createRuntimeMessageGuard } from '../runtime-messages';
+import { hasRuntimeMessageType } from '../runtime-messages';
 
 /**
  * Compact payload containing visible page elements in the current viewport.
@@ -60,10 +60,6 @@ export const getPageElementsToolRequestType = 'chatbrowserx.tool.get-page-elemen
  */
 export interface GetPageElementsToolRequestMessage extends RuntimeMessage<typeof getPageElementsToolRequestType> {}
 
-const isGetPageElementsToolRequestMessageGuard = createRuntimeMessageGuard<GetPageElementsToolRequestMessage>(
-  getPageElementsToolRequestType,
-);
-
 /**
  * Type guard that checks if an unknown value is a GetPageElementsToolRequestMessage.
  *
@@ -71,5 +67,5 @@ const isGetPageElementsToolRequestMessageGuard = createRuntimeMessageGuard<GetPa
  * @returns True if the message is a GetPageElementsToolRequestMessage.
  */
 export function isGetPageElementsToolRequestMessage(message: unknown): message is GetPageElementsToolRequestMessage {
-  return isGetPageElementsToolRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, getPageElementsToolRequestType);
 }

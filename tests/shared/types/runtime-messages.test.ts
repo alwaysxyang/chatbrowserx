@@ -1,6 +1,5 @@
 import { describe, expect, expectTypeOf, it } from 'vitest';
 import {
-  createRuntimeMessageGuard,
   getRuntimeResponseData,
   hasRuntimeMessageType,
   type RuntimeResponse,
@@ -13,14 +12,10 @@ import { chatRequestType } from '../../../src/shared/types/chat';
 
 describe('runtime message helpers', () => {
   it('matches runtime messages by type through shared helpers', () => {
-    const isChatRequestMessage = createRuntimeMessageGuard<{ type: typeof chatRequestType; payload: { input: string } }>(
-      chatRequestType,
-    );
-
     expect(hasRuntimeMessageType({ type: chatRequestType }, chatRequestType)).toBe(true);
-    expect(isChatRequestMessage({ type: chatRequestType, payload: { input: 'hello' } })).toBe(true);
-    expect(isChatRequestMessage({ type: 'other' })).toBe(false);
-    expect(isChatRequestMessage(null)).toBe(false);
+    expect(hasRuntimeMessageType({ type: chatRequestType, payload: { input: 'hello' } }, chatRequestType)).toBe(true);
+    expect(hasRuntimeMessageType({ type: 'other' }, chatRequestType)).toBe(false);
+    expect(hasRuntimeMessageType(null, chatRequestType)).toBe(false);
   });
 
   it('unwraps ok responses and throws fallback errors for failed responses', () => {

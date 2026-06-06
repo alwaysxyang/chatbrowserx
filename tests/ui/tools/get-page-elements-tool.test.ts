@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   readCurrentPageElements,
 } from '../../../src/ui/tools/page-automation/page-element-scanner';
@@ -6,41 +6,12 @@ import { candidateSelector } from '../../../src/ui/tools/page-automation/interac
 import {
   registerGetPageElementsToolListener,
 } from '../../../src/ui/tools/page-automation/runtime-listeners';
-
-function makeRect(x: number, y: number, width: number, height: number): DOMRect {
-  return {
-    x,
-    y,
-    width,
-    height,
-    top: y,
-    left: x,
-    right: x + width,
-    bottom: y + height,
-    toJSON: () => ({}),
-  } as DOMRect;
-}
-
-function setRect(element: Element, rect: DOMRect): void {
-  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue(rect);
-}
-
-function spyElementFromPoint(documentObject: Document) {
-  Object.defineProperty(documentObject, 'elementFromPoint', {
-    configurable: true,
-    value: vi.fn(),
-  });
-
-  return vi.spyOn(documentObject, 'elementFromPoint');
-}
-
-/**
- * Sets viewport dimensions for interactable geometry tests.
- */
-function setViewportSize(width: number, height: number): void {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: width });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: height });
-}
+import {
+  makeRect,
+  setRect,
+  setViewportSize,
+  spyElementFromPoint,
+} from './page-tool-test-helpers';
 
 type PageElementItem = ReturnType<typeof readCurrentPageElements>['items'][number];
 type PageElementMeta = NonNullable<PageElementItem[4]>;
@@ -85,9 +56,6 @@ function writableItem(
 }
 
 describe('ui get page elements tool', () => {
-  beforeEach(() => {
-  });
-
   it('uses accessible names and returns a compact viewport snapshot', () => {
     document.body.innerHTML = `
       <span id="save-label">Save changes</span>

@@ -1,5 +1,5 @@
 import type { RuntimeMessage, RuntimeResponse } from './runtime-messages';
-import { createRuntimeMessageGuard } from './runtime-messages';
+import { hasRuntimeMessageType } from './runtime-messages';
 
 /**
  * Supported selection actions initiated from the content script.
@@ -75,10 +75,6 @@ function isSelectionMode(value: unknown): value is SelectionMode {
   return value === 'translate' || value === 'ask_ai';
 }
 
-const isSelectionRequestMessageGuard = createRuntimeMessageGuard<SelectionRequestMessage>(selectionRequestType);
-const isSelectionStreamChunkMessageGuard = createRuntimeMessageGuard<SelectionStreamChunkMessage>(selectionStreamChunkType);
-const isSelectionCancelMessageGuard = createRuntimeMessageGuard<SelectionCancelMessage>(selectionCancelType);
-
 /**
  * Type guard that checks if an unknown value is a SelectionRequestMessage.
  *
@@ -86,8 +82,8 @@ const isSelectionCancelMessageGuard = createRuntimeMessageGuard<SelectionCancelM
  * @returns True if the message is a SelectionRequestMessage.
  */
 export function isSelectionRequestMessage(message: unknown): message is SelectionRequestMessage {
-  if (!isSelectionRequestMessageGuard(message)) return false;
-  const payload = message.payload;
+  if (!hasRuntimeMessageType(message, selectionRequestType)) return false;
+  const payload = 'payload' in message ? message.payload : undefined;
 
   return Boolean(
     payload &&
@@ -105,12 +101,14 @@ export function isSelectionRequestMessage(message: unknown): message is Selectio
  * @returns True if the message is a SelectionStreamChunkMessage.
  */
 export function isSelectionStreamChunkMessage(message: unknown): message is SelectionStreamChunkMessage {
-  if (!isSelectionStreamChunkMessageGuard(message)) return false;
+  if (!hasRuntimeMessageType(message, selectionStreamChunkType)) return false;
+  const payload = 'payload' in message ? message.payload : undefined;
+
   return Boolean(
-    message.payload &&
-      typeof message.payload === 'object' &&
-      typeof (message.payload as SelectionStreamChunkMessage['payload']).requestId === 'string' &&
-      typeof (message.payload as SelectionStreamChunkMessage['payload']).content === 'string',
+    payload &&
+      typeof payload === 'object' &&
+      typeof (payload as SelectionStreamChunkMessage['payload']).requestId === 'string' &&
+      typeof (payload as SelectionStreamChunkMessage['payload']).content === 'string',
   );
 }
 
@@ -121,5 +119,5 @@ export function isSelectionStreamChunkMessage(message: unknown): message is Sele
  * @returns True if the message is a SelectionCancelMessage.
  */
 export function isSelectionCancelMessage(message: unknown): message is SelectionCancelMessage {
-  return isSelectionCancelMessageGuard(message);
+  return hasRuntimeMessageType(message, selectionCancelType);
 }

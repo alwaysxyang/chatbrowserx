@@ -83,18 +83,6 @@ export function hasRuntimeMessageType<TType extends string>(message: unknown, ty
 }
 
 /**
- * Creates a type guard function for a specific runtime message type.
- * This factory function enables reusable type guards for different message types.
- *
- * @template TMessage - The specific RuntimeMessage subtype to guard for
- * @param type - The message type identifier to check against
- * @returns A type guard function that checks if a value is the specified message type
- */
-export function createRuntimeMessageGuard<TMessage extends RuntimeMessage<string>>(type: TMessage['type']) {
-  return (message: unknown): message is TMessage => hasRuntimeMessageType(message, type);
-}
-
-/**
  * Extracts data from a RuntimeResponse or throws an error if the response failed.
  * Provides a convenient way to unwrap response data with automatic error handling.
  *

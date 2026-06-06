@@ -1,5 +1,5 @@
 import type { RuntimeMessage, RuntimeResponse } from './runtime-messages';
-import { createRuntimeMessageGuard } from './runtime-messages';
+import { hasRuntimeMessageType } from './runtime-messages';
 
 /**
  * Role identifier for chat participants.
@@ -234,16 +234,6 @@ export interface ScreenshotCaptureRequestMessage extends RuntimeMessage<typeof s
  */
 export type ScreenshotCaptureRuntimeResponse = RuntimeResponse<ScreenshotCaptureResponsePayload>;
 
-const isChatRequestMessageGuard = createRuntimeMessageGuard<ChatRequestMessage>(chatRequestType);
-const isChatStreamChunkMessageGuard = createRuntimeMessageGuard<ChatStreamChunkMessage>(chatStreamChunkType);
-const isChatStateQueryMessageGuard = createRuntimeMessageGuard<ChatStateQueryMessage>(chatStateQueryType);
-const isChatStateSyncMessageGuard = createRuntimeMessageGuard<ChatStateSyncMessage>(chatStateSyncType);
-const isChatCancelMessageGuard = createRuntimeMessageGuard<ChatCancelMessage>(chatCancelType);
-const isChatClearMessageGuard = createRuntimeMessageGuard<ChatClearMessage>(chatClearType);
-const isScreenshotCaptureRequestMessageGuard = createRuntimeMessageGuard<ScreenshotCaptureRequestMessage>(
-  screenshotCaptureRequestType,
-);
-
 /**
  * Type guard that checks if an unknown value is a ChatRequestMessage.
  *
@@ -251,7 +241,7 @@ const isScreenshotCaptureRequestMessageGuard = createRuntimeMessageGuard<Screens
  * @returns True if the message is a ChatRequestMessage
  */
 export function isChatRequestMessage(message: unknown): message is ChatRequestMessage {
-  return isChatRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, chatRequestType);
 }
 
 /**
@@ -261,7 +251,7 @@ export function isChatRequestMessage(message: unknown): message is ChatRequestMe
  * @returns True if the message is a ChatStreamChunkMessage
  */
 export function isChatStreamChunkMessage(message: unknown): message is ChatStreamChunkMessage {
-  return isChatStreamChunkMessageGuard(message);
+  return hasRuntimeMessageType(message, chatStreamChunkType);
 }
 
 /**
@@ -271,7 +261,7 @@ export function isChatStreamChunkMessage(message: unknown): message is ChatStrea
  * @returns True if the message is a ChatStateQueryMessage
  */
 export function isChatStateQueryMessage(message: unknown): message is ChatStateQueryMessage {
-  return isChatStateQueryMessageGuard(message);
+  return hasRuntimeMessageType(message, chatStateQueryType);
 }
 
 /**
@@ -281,7 +271,7 @@ export function isChatStateQueryMessage(message: unknown): message is ChatStateQ
  * @returns True if the message is a ChatStateSyncMessage
  */
 export function isChatStateSyncMessage(message: unknown): message is ChatStateSyncMessage {
-  return isChatStateSyncMessageGuard(message);
+  return hasRuntimeMessageType(message, chatStateSyncType);
 }
 
 /**
@@ -291,7 +281,7 @@ export function isChatStateSyncMessage(message: unknown): message is ChatStateSy
  * @returns True if the message is a ChatCancelMessage
  */
 export function isChatCancelMessage(message: unknown): message is ChatCancelMessage {
-  return isChatCancelMessageGuard(message);
+  return hasRuntimeMessageType(message, chatCancelType);
 }
 
 /**
@@ -301,7 +291,7 @@ export function isChatCancelMessage(message: unknown): message is ChatCancelMess
  * @returns True if the message is a ChatClearMessage
  */
 export function isChatClearMessage(message: unknown): message is ChatClearMessage {
-  return isChatClearMessageGuard(message);
+  return hasRuntimeMessageType(message, chatClearType);
 }
 
 /**
@@ -311,5 +301,5 @@ export function isChatClearMessage(message: unknown): message is ChatClearMessag
  * @returns True if the message is a ScreenshotCaptureRequestMessage
  */
 export function isScreenshotCaptureRequestMessage(message: unknown): message is ScreenshotCaptureRequestMessage {
-  return isScreenshotCaptureRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, screenshotCaptureRequestType);
 }

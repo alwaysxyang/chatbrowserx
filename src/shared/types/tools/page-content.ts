@@ -1,5 +1,5 @@
 import type { RuntimeMessage } from '../runtime-messages';
-import { createRuntimeMessageGuard } from '../runtime-messages';
+import { hasRuntimeMessageType } from '../runtime-messages';
 
 /**
  * Payload containing current page text content for read-only LLM analysis.
@@ -20,10 +20,6 @@ export const getPageContentToolRequestType = 'chatbrowserx.tool.get-page-content
  */
 export interface GetPageContentToolRequestMessage extends RuntimeMessage<typeof getPageContentToolRequestType> {}
 
-const isGetPageContentToolRequestMessageGuard = createRuntimeMessageGuard<GetPageContentToolRequestMessage>(
-  getPageContentToolRequestType,
-);
-
 /**
  * Checks whether a runtime message is a current page content tool request.
  *
@@ -31,5 +27,5 @@ const isGetPageContentToolRequestMessageGuard = createRuntimeMessageGuard<GetPag
  * @returns True when the message requests current page content.
  */
 export function isGetPageContentToolRequestMessage(message: unknown): message is GetPageContentToolRequestMessage {
-  return isGetPageContentToolRequestMessageGuard(message);
+  return hasRuntimeMessageType(message, getPageContentToolRequestType);
 }
