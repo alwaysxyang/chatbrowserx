@@ -4,16 +4,16 @@ import {
   pageActionDirections,
   type PageActionToolRequestPayload,
   type PageActionToolResult,
-} from '../../shared/types/tools';
+} from '../../../shared/types/tools';
 import {
   readOptionalBoolean,
   readOptionalPositiveNumber,
   readOptionalRawString,
   readRequiredRawString,
-} from './shared/tool-arguments';
-import { sendToolMessage } from './shared/tab-message-tool';
-import { createObjectToolDefinition } from './shared/tool-definition';
-import { registerTool, type InvokeContext, type LlmToolModule } from './tool-registry';
+} from '../shared/tool-arguments';
+import { sendToolMessage } from '../shared/tab-message-tool';
+import { createObjectToolDefinition } from '../shared/tool-definition';
+import { registerTool, type InvokeContext, type LlmToolModule } from '../tool-registry';
 
 type ToolArgumentReader = (args: Record<string, unknown>) => PageActionToolRequestPayload;
 

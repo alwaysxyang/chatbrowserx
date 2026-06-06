@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGetPageElementsTool } from '../../../src/llm/tools/get-page-elements-tool';
+import { createGetPageElementsTool } from '../../../src/llm/tools/get-page-elements';
 
 describe('get page elements tool', () => {
   it('is a compact current-viewport element snapshot tool', async () => {

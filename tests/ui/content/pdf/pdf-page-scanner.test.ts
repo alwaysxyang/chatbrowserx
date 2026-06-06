@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { setCurrentUiLanguage } from '../../../../src/shared/i18n/current-language';
-import { findMainScrollContainer, scanPage } from '../../../../src/ui/content/pdf/pdf-page-scanner';
+import { findMainScrollContainer, hasScrollableContent, scanPage } from '../../../../src/ui/tools/shared/page-scanner';
 
 function mockWindowScroll(initialY = 0) {
   const originalScrollY = Object.getOwnPropertyDescriptor(window, 'scrollY');
@@ -138,6 +138,32 @@ describe('pdf page scanner', () => {
     const result = findMainScrollContainer(documentObject);
 
     expect(result.element).toBe(window);
+  });
+
+  it('reports whether the main scan target has more scrollable content', () => {
+    const documentObject = document.implementation.createHTMLDocument('scrollable-state');
+    const windowObject = {
+      getComputedStyle: window.getComputedStyle.bind(window),
+      innerHeight: 900,
+    } as Window;
+
+    Object.defineProperty(documentObject.documentElement, 'scrollHeight', {
+      configurable: true,
+      get: () => 900,
+    });
+    Object.defineProperty(documentObject.documentElement, 'clientHeight', {
+      configurable: true,
+      get: () => 900,
+    });
+
+    expect(hasScrollableContent(documentObject, windowObject)).toBe(false);
+
+    Object.defineProperty(documentObject.documentElement, 'scrollHeight', {
+      configurable: true,
+      get: () => 1200,
+    });
+
+    expect(hasScrollableContent(documentObject, windowObject)).toBe(true);
   });
 
   it('prefers the widest large scrollable area instead of the tallest narrow one', () => {

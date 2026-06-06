@@ -14,6 +14,7 @@
 当前允许暴露给模型的工具只有：
 
 - 页面只读工具：
+  - `get_current_page_content`
   - `get_current_page_elements`
 - 基于快照 `sid` + `ref` 的页面动作工具：
   - `page_mouse_move`
@@ -26,7 +27,7 @@
   - `tavily_extract`
   - `tavily_crawl`
 
-当前工具集不扩展为通用浏览器自动化框架，不暴露任意坐标点击，不发送整页 HTML，不提供独立页面内容读取工具、自动滚动阅读、网络录制、PDF 解析或图片分析能力。
+当前工具集不扩展为通用浏览器自动化框架，不暴露任意坐标点击，不发送整页 HTML，不提供 Markdown 转换、图片分析、网络录制、PDF 解析或通用滚动捕获框架。`get_current_page_content` 是当前阶段保留的老版文本读取工具，只返回标题、URL 与正文文本。
 
 ## 3. 目录与职责
 
@@ -34,8 +35,10 @@
 
 - 负责工具定义、工具注册、工具参数 schema、tool invocation context / active tab 解析与向 content script 发送 runtime message。
 - `tool-registry.ts` 负责工具注册与 definition 聚合。
-- `get-page-elements-tool.ts` 定义 `get_current_page_elements`。
-- `page-action-tools.ts` 定义页面动作工具。
+- 具体工具按目录组织；工具间复用能力放在 `shared/`。
+- `get-page-content/index.ts` 定义 `get_current_page_content`。
+- `get-page-elements/index.ts` 定义 `get_current_page_elements`。
+- `page-actions/index.ts` 定义页面动作工具。
 - `shared/active-tab.ts`、`shared/tab-message-tool.ts`、`shared/tool-arguments.ts`、`shared/tool-definition.ts` 放置多个工具共用的 tab、参数与 tool definition 辅助；`tab-message-tool.ts` 通过 `InvokeContext.pageToolTabId` 选择请求级 tab，未配置时才使用 active tab fallback。
 - `tavily/` 放置 Tavily 工具 definition、参数读取与 HTTP 请求。
 
@@ -44,6 +47,9 @@
 ### 3.2 `src/ui/tools`
 
 - 负责 content script 中需要 DOM 的工具执行逻辑。
+- 具体工具按目录组织；工具间复用能力放在 `shared/`。
+- `shared/page-scanner.ts` 承载当前页文本内容读取与 PDF 截图链路共用的页面滚动扫描、主滚动容器选择与初始滚动位置恢复逻辑。
+- `get-page-content/index.ts` 注册当前页文本内容读取 listener，并在扫描步骤中基于 `innerText` 做正文行去重与拼接。
 - `page-automation/runtime-listeners.ts` 注册当前视口元素快照与页面动作 listener。
 - `page-automation/page-element-scanner.ts` 编排当前视窗页面元素扫描与快照序列化。
 - `page-automation/interactable-candidate.ts` 承载候选数据模型、快照元数据与候选上限常量。
@@ -73,6 +79,7 @@
 
 - 只放工具跨层消息协议、payload 类型与类型守卫。
 - 当前包括：
+  - `page-content.ts`：`chatbrowserx.tool.get-page-content.request` 与 `GetPageContentToolPayload`。
   - `page-elements.ts`：`chatbrowserx.tool.get-page-elements.request` 与 `GetPageElementsToolPayload`。
   - `page-action.ts`：`chatbrowserx.tool.page-action.request`、`PageActionToolRequestPayload`、`PageActionDirection`、`pageActionDirections`、`isPageActionDirection` 与 `PageActionToolResult`。
 - 不放工具实现、DOM 逻辑、Chrome 调度或 provider 编排。
@@ -83,7 +90,7 @@
 2. `ToolRegistry.getDefinitions()` 汇总当前可见工具 definition。
 3. `ChatCompletionService.complete(context, history, input, onChunk, signal)` 与 `runToolCallOrchestrator(context, input, options)` 接收独立的请求级 `context` 首参；`context` 不放入生命周期更长的 service config，也不放入 options。模型返回 tool call 后，tool module 的 `invoke(context, argumentsObject)` 执行工具；chat 请求中的 `context` 由 `background/chat` 的 `chrome.runtime.onMessage` 入口创建，并以同一个对象实例传过 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装、派生或通过重新创建 tool registry 绑定 context；所有携带 `context` 的函数均固定放在第一个参数。
 4. 页面工具通过 `tab-message-tool.ts` 优先向 `InvokeContext.pageToolTabId` 发送消息；没有请求级 tab 上下文时才向当前 active tab 发送消息。工具链内携带 `InvokeContext` 的函数均保持 context-first 参数顺序。
-5. content script 中的 `src/ui/tools` listener 执行当前视口元素快照或动作。
+5. content script 中的 `src/ui/tools` listener 执行当前页文本读取、当前视口元素快照或动作。
 6. 同一轮 assistant message 中的多个 tool call 必须按模型给出的顺序串行执行，避免页面滚动、点击、输入与快照状态竞态。
 7. tool result 返回给 tool loop，由 tool loop 统一序列化后写回模型。
 
@@ -93,18 +100,46 @@
 
 ### 5.1 当前实现
 
-- LLM 工具不暴露自动滚动页面阅读能力，不提供独立页面内容读取工具。
+- `get_current_page_content` 保留老版当前页文本读取逻辑：content script 从页面顶部向下滚动扫描 `document.body.innerText`，按首次出现顺序收集去重后的非空文本行，结束后恢复初始 `scrollTop`，并返回 `title`、`url`、`content`。
+- `get_current_page_content` 仅用于只读页面内容分析，不输出 DOM/HTML/Markdown/截图/图片像素，不作为点击、输入、导航或表单提交的依据。
+- 当用户请求涉及点击、输入、选择、拖拽、滚动、提交表单、导航或动作规划等页面操作时，模型不得调用 `get_current_page_content`；应使用 `get_current_page_elements` 与页面动作工具。
+- 除 `get_current_page_content` 外，LLM 页面工具不暴露自动滚动页面阅读能力。
 - `get_current_page_elements` 会在当前视口快照内返回只读 `heading` / `text` 文本块，用于网页内容分析；这些文本块不携带 `op` / `w` 能力标记，不作为动作目标使用。
 - Selection Ask AI 已在 UI 侧把当前页面 `innerText` 拼入 prompt，并在 prompt 中要求模型不要调用页面工具重复读取页面。
-- 用户主动触发的打印/保存为 PDF 仍需要滚动扫描，但该能力位于 `src/ui/content/pdf/pdf-page-scanner.ts`，只服务 PDF 截图链路，不作为 LLM tool 暴露。
+- 用户主动触发的打印/保存为 PDF 仍需要滚动扫描，该能力复用 `src/ui/tools/shared/page-scanner.ts`，但 PDF 截图入口本身不作为 LLM tool 暴露。
 
 ### 5.2 未来设计
 
-- 如需重新引入大模型页面阅读工具，必须先更新主 spec 与本 spec，明确输出上限、是否滚动、与 `get_current_page_elements` 的关系。
+- 如需将当前页文本读取升级为 Markdown 转换、图片信息抽取、虚拟滚动完整性策略或通用滚动捕获框架，必须先更新主 spec 与本 spec，明确输出上限、滚动策略、与 `get_current_page_elements` 的关系。
 
-## 6. 页面元素快照工具
+## 6. 页面文本内容工具
 
-### 6.1 `get_current_page_elements`
+### 6.1 `get_current_page_content`
+
+该工具读取当前请求绑定 tab 的页面标题、URL 与正文文本，目标是用老版简单路径支持“分析当前页面 / 总结当前页面”一类请求，避免模型必须逐屏调用 `page_scroll` 读取普通长页面。
+
+LLM 侧工具通过 `chatbrowserx.tool.get-page-content.request` 请求 content script。工具输出结构：
+
+```ts
+interface GetPageContentToolPayload {
+  title: string;
+  url: string;
+  content: string;
+}
+```
+
+约束：
+
+- 只读，不点击、不输入、不提交、不导航。
+- 涉及页面操作或动作规划的请求不得调用该工具；应使用 `get_current_page_elements` 与页面动作工具。
+- content script 可滚动页面读取文本，但必须在结束后恢复初始滚动位置。
+- 文本来源为页面当前 DOM 的 `innerText`，按行 trim、过滤空行并去重；不解析 HTML，不做 Markdown 转换。
+- 不单独提取图片、截图、canvas 或视觉信息；图片仅在页面文本中已有可见替代文本时可能间接进入 `innerText`。
+- 不承诺覆盖虚拟滚动页面的未挂载内容；虚拟滚动页面后续如需完整策略，必须另行设计。
+
+## 7. 页面元素快照工具
+
+### 7.1 `get_current_page_elements`
 
 该工具返回当前视窗内页面元素的结构化快照，目标是在不发送整页 HTML、不自动滚动的前提下，让模型以较低 token 成本理解当前页面正文、可操作、可输入与可滚动目标。
 
@@ -168,7 +203,7 @@ interface PageElementsSnapshot {
 - `h` / `t` / `checked` / `expanded` / `pressed` 是辅助模型理解与验证动作的紧凑语义。
 - `heading` / `text` 只用于阅读分析，不应携带 `op` / `w`，模型不得把它们作为点击或输入目标。
 
-### 6.2 候选与命名规则
+### 7.2 候选与命名规则
 
 - 结构化候选包括原生交互元素、`role`、非负 `tabindex`、`contenteditable`、常见可点击容器、复合选择器外壳、弹层菜单项、弹层内可滚动 menu / list 列、富代码编辑器 surface、紧凑输入包装行、可滚动容器；结构化候选 selector 不全量枚举普通 `div` / `span` / `section` / `p` 等布局节点，只保留显式语义、内联样式、常见 class token 或表单包装器信号；包含输入框的全页壳、宽问题区或宽表单容器不得仅因存在后代输入框而暴露为 `textbox`。
 - 正文文本通过 text node 扫描补充：常见标题、段落、列表、表格单元格等按最近可见文本块输出；未知可见容器中的剩余文本兜底输出为 `text`，以覆盖当前视口可见 `innerText`。
@@ -186,7 +221,7 @@ interface PageElementsSnapshot {
 - 父子候选语义重复时优先保留覆盖语义更完整的候选。
 - 复合编辑器内部展示层、辅助可访问性文本框、装饰性图标节点不应暴露为独立控件。
 
-## 7. 页面动作工具
+## 8. 页面动作工具
 
 除 `page_scroll` 外，页面动作必须携带同一次 `get_current_page_elements` 返回的 `sid` 与目标 `ref`。content script 只接受当前最新快照的 `sid`，避免复用滚动或重渲染前的过期目标。
 
@@ -222,7 +257,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 动作返回结构应包含 `ok`、`action`、`changed`、错误码、动作前后状态或滚动前后位置，供模型判断动作是否生效。
 页面动作必须尽量保持人类操作节奏：虚拟鼠标或提示动画应先移动/展示到位，再触发真实 DOM 事件、文本写入、滚动或拖拽遥测。
 
-## 8. 页面动作约束
+## 9. 页面动作约束
 
 - 页面动作不得接受任意 raw 坐标。
 - 页面动作不得导航、提交未知后台任务或突破当前页面 DOM 边界。
@@ -230,9 +265,9 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 - 执行动作时可以展示不拦截事件的虚拟鼠标 overlay，展示结束后必须自动隐藏。
 - 富代码编辑器桥接只允许处理编辑器模型写入，不承载通用页面脚本注入能力。
 
-## 9. Tavily 工具
+## 10. Tavily 工具
 
-### 9.1 目录职责
+### 10.1 目录职责
 
 `src/llm/tools/tavily` 负责 Tavily 工具 definition、参数装配、请求执行与 Tavily 专属边界。
 
@@ -242,7 +277,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 - `tavily-crawl-tool.ts` 定义 `tavily_crawl`。
 - `tavily-request.ts` 负责 API key 读取、definition 可见性判断、HTTP 请求与错误处理。
 
-### 9.2 设置与可见性
+### 10.2 设置与可见性
 
 - Tavily 凭证存放在 `settings.model.tavilyApiKey`。
 - `src/ui/content/settings/ChatSettingsForm.tsx` 只负责展示和编辑 `Tavily Key`，不做连通性校验。
@@ -250,7 +285,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 - `definition()` 每次生成工具列表时读取最新设置；如果 `tavilyApiKey` 为空，返回 `null`，不暴露给模型。
 - `invoke()` 执行时再次读取最新设置，并使用 `Bearer` 方式请求 Tavily。
 
-### 9.3 当前不做
+### 10.3 当前不做
 
 - Tavily base URL 设置项。
 - Tavily 请求结果持久化。
@@ -258,7 +293,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 - Tavily 之外的新网页搜索 provider。
 - 将 Tavily 逻辑下沉到 `shared` 或上提到 `ui`。
 
-## 10. 错误边界
+## 11. 错误边界
 
 - 未配置请求级 tab 且 active tab 不可用时返回 `TOOL_TAB_UNAVAILABLE`。
 - 页面动作缺少快照或目标时返回对应 `PAGE_ACTION_*` 错误。
@@ -267,7 +302,7 @@ LLM 侧页面动作工具统一通过 `chatbrowserx.tool.page-action.request` �
 - content script 不可达时沿用 `chrome.tabs.sendMessage` 的 runtime 错误。
 - Tavily 请求失败时在 Tavily 工具内收敛错误信息，不泄露敏感凭证。
 
-## 11. 变更要求
+## 12. 变更要求
 
 以下变化必须同步更新本文件：
 

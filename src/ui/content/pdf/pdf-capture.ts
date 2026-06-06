@@ -1,5 +1,5 @@
 import { requestVisibleTabScreenshot } from '../content-screenshot-bridge';
-import { scanPage } from './pdf-page-scanner';
+import { scanPage } from '../../tools/shared/page-scanner';
 
 const MAX_SCREENSHOTS = 50;
 

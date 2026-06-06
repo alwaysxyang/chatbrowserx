@@ -5,7 +5,7 @@ import {
   createPageMouseMoveTool,
   createPageScrollTool,
   createPageTypeTool,
-} from '../../../src/llm/tools/page-action-tools';
+} from '../../../src/llm/tools/page-actions';
 
 /**
  * Configures the Chrome tab mocks for a resolved active tab.

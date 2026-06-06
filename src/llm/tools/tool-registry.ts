@@ -93,6 +93,7 @@ export function createDefaultToolRegistry(): ToolRegistry {
   return getDefaultToolRegistry();
 }
 
-import './get-page-elements-tool';
-import './page-action-tools';
+import './get-page-elements';
+import './get-page-content';
+import './page-actions';
 import './tavily';

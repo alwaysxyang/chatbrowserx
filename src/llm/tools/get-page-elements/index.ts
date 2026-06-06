@@ -1,10 +1,10 @@
 import {
   getPageElementsToolRequestType,
   type GetPageElementsToolPayload,
-} from '../../shared/types/tools';
-import { sendToolMessage } from './shared/tab-message-tool';
-import { createObjectToolDefinition } from './shared/tool-definition';
-import { registerTool, type LlmToolModule } from './tool-registry';
+} from '../../../shared/types/tools';
+import { sendToolMessage } from '../shared/tab-message-tool';
+import { createObjectToolDefinition } from '../shared/tool-definition';
+import { registerTool, type LlmToolModule } from '../tool-registry';
 
 /**
  * Creates the current-page element snapshot LLM tool.
