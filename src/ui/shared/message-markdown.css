@@ -29,6 +29,12 @@
   font-size: 12px;
 }
 
+.message-markdown-list.message-markdown-list {
+  margin: 4px 0;
+  padding-left: 4ch;
+  padding-inline-start: 4ch;
+}
+
 .message-markdown-pre {
   margin: 0;
 }

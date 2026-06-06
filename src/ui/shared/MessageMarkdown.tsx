@@ -3,7 +3,9 @@ import type { ComponentPropsWithoutRef } from 'react';
 
 type MarkdownAnchorProps = ComponentPropsWithoutRef<'a'>;
 type MarkdownCodeProps = ComponentPropsWithoutRef<'code'>;
+type MarkdownOrderedListProps = ComponentPropsWithoutRef<'ol'>;
 type MarkdownPreProps = ComponentPropsWithoutRef<'pre'>;
+type MarkdownUnorderedListProps = ComponentPropsWithoutRef<'ul'>;
 
 const markdownOptions: MarkdownToJSX.Options = {
   overrides: {
@@ -35,11 +37,25 @@ const markdownOptions: MarkdownToJSX.Options = {
         );
       },
     },
+    ol: {
+      component: ({ children, className, ...props }: MarkdownOrderedListProps) => (
+        <ol {...props} className={`message-markdown-list ${className ?? ''}`.trim()}>
+          {children}
+        </ol>
+      ),
+    },
     pre: {
       component: ({ children, ...props }: MarkdownPreProps) => (
         <pre {...props} className="message-markdown-pre">
           {children}
         </pre>
+      ),
+    },
+    ul: {
+      component: ({ children, className, ...props }: MarkdownUnorderedListProps) => (
+        <ul {...props} className={`message-markdown-list ${className ?? ''}`.trim()}>
+          {children}
+        </ul>
       ),
     },
   },
