@@ -22,12 +22,20 @@
   - `page_type`
   - `page_scroll`
   - `page_drag`
+- 浏览器标签页工具：
+  - `browser_list_tabs`
+  - `browser_get_tab`
+  - `browser_open_tab`
+  - `browser_switch_tab`
+  - `browser_close_tab`
+  - `browser_reload_tab`
+  - `browser_navigate_tab`
 - Tavily 网页检索工具：
   - `tavily_search`
   - `tavily_extract`
   - `tavily_crawl`
 
-当前工具集不扩展为通用浏览器自动化框架，不暴露任意坐标点击，不发送整页 HTML，不提供 Markdown 转换、图片分析、网络录制、PDF 解析或通用滚动捕获框架。`get_current_page_content` 是当前阶段保留的老版文本读取工具，只返回标题、URL 与正文文本。
+当前工具集不扩展为通用浏览器自动化框架；浏览器标签页工具仅覆盖列出、读取、打开、切换、关闭、刷新与导航 tab，不管理窗口、不读取页面 DOM。当前工具集不暴露任意坐标点击，不发送整页 HTML，不提供 Markdown 转换、图片分析、网络录制、PDF 解析或通用滚动捕获框架。`get_current_page_content` 是当前阶段保留的老版文本读取工具，只返回标题、URL 与正文文本。
 
 ## 3. 目录与职责
 
@@ -36,6 +44,7 @@
 - 负责工具定义、工具注册、工具参数 schema、tool invocation context / active tab 解析与向 content script 发送 runtime message。
 - `tool-registry.ts` 负责工具注册与 definition 聚合。
 - 具体工具按目录组织；工具间复用能力放在 `shared/`。
+- `browser-tabs/index.ts` 定义浏览器标签页工具。
 - `get-page-content/index.ts` 定义 `get_current_page_content`。
 - `get-page-elements/index.ts` 定义 `get_current_page_elements`。
 - `page-actions/index.ts` 定义页面动作工具。
@@ -90,11 +99,40 @@
 2. `ToolRegistry.getDefinitions()` 汇总当前可见工具 definition。
 3. `ChatCompletionService.complete(context, history, input, onChunk, signal)` 与 `runToolCallOrchestrator(context, input, options)` 接收独立的请求级 `context` 首参；`context` 不放入生命周期更长的 service config，也不放入 options。模型返回 tool call 后，tool module 的 `invoke(context, argumentsObject)` 执行工具；chat 请求中的 `context` 由 `background/chat` 的 `chrome.runtime.onMessage` 入口创建，并以同一个对象实例传过 `ChatSessionCoordinator`、`LlmOrchestrator`、`ChatCompletionService.complete` 与 tool loop，中间层不得重新包装、派生或通过重新创建 tool registry 绑定 context；所有携带 `context` 的函数均固定放在第一个参数。
 4. 页面工具通过 `tab-message-tool.ts` 优先向 `InvokeContext.pageToolTabId` 发送消息；没有请求级 tab 上下文时才向当前 active tab 发送消息。工具链内携带 `InvokeContext` 的函数均保持 context-first 参数顺序。
-5. content script 中的 `src/ui/tools` listener 执行当前页文本读取、当前视口元素快照或动作。
-6. 同一轮 assistant message 中的多个 tool call 必须按模型给出的顺序串行执行，避免页面滚动、点击、输入与快照状态竞态。
-7. tool result 返回给 tool loop，由 tool loop 统一序列化后写回模型。
+5. 浏览器标签页工具直接通过 Chrome Tabs API 执行；当参数未提供 `tabId` 时，同样优先使用 `InvokeContext.pageToolTabId`，再回退到 active tab。
+6. content script 中的 `src/ui/tools` listener 执行当前页文本读取、当前视口元素快照或动作。
+7. 同一轮 assistant message 中的多个 tool call 必须按模型给出的顺序串行执行，避免页面滚动、点击、输入与快照状态竞态。
+8. tool result 返回给 tool loop，由 tool loop 统一序列化后写回模型。
 
 工具 `invoke()` 允许返回任意可序列化内容；工具模块本身不重复手动 `JSON.stringify`。
+
+### 4.1 浏览器标签页工具
+
+浏览器标签页工具位于 `src/llm/tools/browser-tabs/index.ts`，只使用 Chrome Tabs API，不向 content script 发送消息，不访问 DOM，也不读取页面正文。
+
+- `browser_list_tabs`
+  - 参数：`{}`
+  - 行为：调用 `chrome.tabs.query({})`，返回所有可见 tab 的紧凑元数据。
+- `browser_get_tab`
+  - 参数：`{ tabId?: number }`
+  - 行为：读取指定 tab；未传 `tabId` 时使用请求级 tab，再回退到 active tab。
+- `browser_open_tab`
+  - 参数：`{ url: string, active?: boolean }`
+  - 行为：打开新 tab；`active` 默认 `true`。
+- `browser_switch_tab`
+  - 参数：`{ tabId?: number }`
+  - 行为：将目标 tab 设为 active；未传 `tabId` 时使用请求级 tab，再回退到 active tab。
+- `browser_close_tab`
+  - 参数：`{ tabId: number }`
+  - 行为：关闭显式指定的 tab；该工具不使用请求级 tab 或 active tab fallback，避免误关当前页面。
+- `browser_reload_tab`
+  - 参数：`{ tabId?: number, bypassCache?: boolean }`
+  - 行为：刷新目标 tab；未传 `tabId` 时使用请求级 tab，再回退到 active tab。
+- `browser_navigate_tab`
+  - 参数：`{ tabId?: number, url: string }`
+  - 行为：把目标 tab 导航到指定 URL；未传 `tabId` 时使用请求级 tab，再回退到 active tab。
+
+输出中的 tab 元数据只包含 Chrome 已返回的紧凑字段，例如 `id`、`windowId`、`index`、`active`、`title`、`url`、`pendingUrl`、`status`、`pinned`、`highlighted`、`discarded`、`audible`、`muted` 与 `incognito`。当前阶段不提供窗口管理、标签分组、历史读取或页面内容读取能力。
 
 ## 5. 页面阅读边界
 

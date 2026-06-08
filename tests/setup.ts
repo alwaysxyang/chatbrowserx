@@ -26,8 +26,13 @@ declare global {
     getRuntimeSendMessageMock: () => ReturnType<typeof vi.fn>;
     getRuntimeConnectMock: () => ReturnType<typeof vi.fn>;
     getTabsQueryMock: () => ReturnType<typeof vi.fn>;
+    getTabsGetMock: () => ReturnType<typeof vi.fn>;
+    getTabsCreateMock: () => ReturnType<typeof vi.fn>;
+    getTabsUpdateMock: () => ReturnType<typeof vi.fn>;
+    getTabsRemoveMock: () => ReturnType<typeof vi.fn>;
     getTabsSendMessageMock: () => ReturnType<typeof vi.fn>;
     getTabsCaptureVisibleTabMock: () => ReturnType<typeof vi.fn>;
+    getTabsReloadMock: () => ReturnType<typeof vi.fn>;
     getRuntimeOnMessageAddListenerMock: () => ReturnType<typeof vi.fn>;
   };
 }
@@ -114,6 +119,10 @@ const chromeMock = {
   },
   tabs: {
     query: vi.fn(),
+    get: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    remove: vi.fn(),
     sendMessage: vi.fn(),
     captureVisibleTab: vi.fn(),
     reload: vi.fn(),
@@ -157,6 +166,10 @@ beforeEach(() => {
   chromeMock.runtime.sendMessage.mockReset();
   chromeMock.runtime.connect.mockReset();
   chromeMock.tabs.query.mockReset();
+  chromeMock.tabs.get.mockReset();
+  chromeMock.tabs.create.mockReset();
+  chromeMock.tabs.update.mockReset();
+  chromeMock.tabs.remove.mockReset();
   chromeMock.tabs.sendMessage.mockReset();
   chromeMock.tabs.captureVisibleTab.mockReset();
   chromeMock.tabs.reload.mockReset();
@@ -198,6 +211,30 @@ Object.defineProperty(globalThis, '__chromeTestUtils', {
       return chromeMock.tabs.query;
     },
     /**
+     * Returns the mocked tabs get function.
+     */
+    getTabsGetMock() {
+      return chromeMock.tabs.get;
+    },
+    /**
+     * Returns the mocked tabs create function.
+     */
+    getTabsCreateMock() {
+      return chromeMock.tabs.create;
+    },
+    /**
+     * Returns the mocked tabs update function.
+     */
+    getTabsUpdateMock() {
+      return chromeMock.tabs.update;
+    },
+    /**
+     * Returns the mocked tabs remove function.
+     */
+    getTabsRemoveMock() {
+      return chromeMock.tabs.remove;
+    },
+    /**
      * Returns the mocked tabs sendMessage function.
      */
     getTabsSendMessageMock() {
@@ -208,6 +245,12 @@ Object.defineProperty(globalThis, '__chromeTestUtils', {
      */
     getTabsCaptureVisibleTabMock() {
       return chromeMock.tabs.captureVisibleTab;
+    },
+    /**
+     * Returns the mocked tabs reload function.
+     */
+    getTabsReloadMock() {
+      return chromeMock.tabs.reload;
     },
     /**
      * Returns the mocked runtime message listener registration function.

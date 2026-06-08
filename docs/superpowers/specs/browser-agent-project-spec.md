@@ -50,6 +50,13 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。当
   - `page_type`
   - `page_scroll`
   - `page_drag`
+  - `browser_list_tabs`
+  - `browser_get_tab`
+  - `browser_open_tab`
+  - `browser_switch_tab`
+  - `browser_close_tab`
+  - `browser_reload_tab`
+  - `browser_navigate_tab`
   - `tavily_search`
   - `tavily_extract`
   - `tavily_crawl`
@@ -64,7 +71,7 @@ ChatBrowserX 是一个面向大模型能力的浏览器增强 Agent 项目。当
 - PDF 解析、阅读、编辑能力。
 - 通用滚动捕获框架。
 - 网络录制 / 页面流量分析。
-- 除当前列出的页面工具与 Tavily 工具之外的新具体工具。
+- 除当前列出的页面工具、浏览器标签页工具与 Tavily 工具之外的新具体工具。
 
 如需新增上述能力，必须先更新主 spec 与对应 feature spec。
 
@@ -87,6 +94,7 @@ src/
       shared/
     services/
     tools/
+      browser-tabs/
       get-page-content/
       get-page-elements/
       page-actions/
@@ -190,6 +198,7 @@ src/
 - `src/llm/tools` 放置工具定义、工具注册、active tab 路由与工具级接口。
   - chat agent loop 内的页面工具优先使用请求发起时绑定的 tab id，不因用户手动切换 active tab 而漂移；未提供请求级 tab 上下文的工具调用才回退到 active tab 路由。
   - `src/llm/tools` 可使用 Chrome API 获取 tab 能力。
+  - `src/llm/tools/browser-tabs` 负责最小浏览器标签页工具：列出、读取、打开、切换、刷新与导航 tab；这些工具只使用 Chrome Tabs API，不读取 DOM 或页面内容。
   - `src/llm/tools` 不依赖 DOM；DOM 读取、滚动、点击、输入必须留在 `src/ui/tools`。
   - 细化约束见 `docs/superpowers/specs/llm-tools-spec.md`。
 

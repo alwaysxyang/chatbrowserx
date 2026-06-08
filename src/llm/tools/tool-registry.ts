@@ -96,4 +96,5 @@ export function createDefaultToolRegistry(): ToolRegistry {
 import './get-page-elements';
 import './get-page-content';
 import './page-actions';
+import './browser-tabs';
 import './tavily';

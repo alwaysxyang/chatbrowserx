@@ -65,12 +65,19 @@ describe('tool registry', () => {
     expect(registry.getTool('page_click')).toBeDefined();
     expect(registry.getTool('page_type')).toBeDefined();
     expect(registry.getTool('page_scroll')).toBeDefined();
+    expect(registry.getTool('browser_list_tabs')).toBeDefined();
+    expect(registry.getTool('browser_get_tab')).toBeDefined();
+    expect(registry.getTool('browser_close_tab')).toBeDefined();
+    expect(registry.getTool('browser_navigate_tab')).toBeDefined();
     expect(registry.getTool('tavily_search')).toBeDefined();
 
     const definitions = await registry.getDefinitions();
     expect(definitions.map((definition) => definition.function.name)).toContain('get_current_page_content');
     expect(definitions.map((definition) => definition.function.name)).not.toContain('get_current_page_interactables');
     expect(definitions.map((definition) => definition.function.name)).toContain('get_current_page_elements');
+    expect(definitions.map((definition) => definition.function.name)).toContain('browser_list_tabs');
+    expect(definitions.map((definition) => definition.function.name)).toContain('browser_close_tab');
+    expect(definitions.map((definition) => definition.function.name)).toContain('browser_navigate_tab');
     expect(definitions.map((definition) => definition.function.name)).not.toContain('tavily_search');
   });
 
