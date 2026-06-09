@@ -7,7 +7,7 @@ import type { ScreenshotRect } from './screenshot/screenshot-types';
 import {
   buildScreenshotControlsStyle,
   ScreenshotControls,
-} from './screenshot-controls';
+} from './ScreenshotControls';
 import { useScreenshotCaptureRunner } from './use-screenshot-capture-runner';
 import { useScreenshotInteraction } from './use-screenshot-interaction';
 

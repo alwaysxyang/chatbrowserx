@@ -45,8 +45,8 @@
 - `tool-registry.ts` 负责工具注册与 definition 聚合。
 - 具体工具按目录组织；工具间复用能力放在 `shared/`。
 - `browser-tabs/index.ts` 定义浏览器标签页工具。
-- `get-page-content/index.ts` 定义 `get_current_page_content`。
-- `get-page-elements/index.ts` 定义 `get_current_page_elements`。
+- `page-content/index.ts` 定义 `get_current_page_content`。
+- `page-elements/index.ts` 定义 `get_current_page_elements`。
 - `page-actions/index.ts` 定义页面动作工具。
 - `shared/active-tab.ts`、`shared/tab-message-tool.ts`、`shared/tool-arguments.ts`、`shared/tool-definition.ts` 放置多个工具共用的 tab、参数与 tool definition 辅助；`tab-message-tool.ts` 通过 `InvokeContext.pageToolTabId` 选择请求级 tab，未配置时才使用 active tab fallback。
 - `tavily/` 放置 Tavily 工具 definition、参数读取与 HTTP 请求。
@@ -58,7 +58,7 @@
 - 负责 content script 中需要 DOM 的工具执行逻辑。
 - 具体工具按目录组织；工具间复用能力放在 `shared/`。
 - `shared/page-scanner.ts` 承载当前页文本内容读取与 PDF 截图链路共用的页面滚动扫描、主滚动容器选择与初始滚动位置恢复逻辑。
-- `get-page-content/index.ts` 注册当前页文本内容读取 listener，并在扫描步骤中基于 `innerText` 做正文行去重与拼接。
+- `page-content/index.ts` 注册当前页文本内容读取 listener，并在扫描步骤中基于 `innerText` 做正文行去重与拼接。
 - `page-automation/runtime-listeners.ts` 注册当前视口元素快照与页面动作 listener。
 - `page-automation/page-element-scanner.ts` 编排当前视窗页面元素扫描与快照序列化。
 - `page-automation/interactable-candidate.ts` 承载候选数据模型、快照元数据与候选上限常量。
@@ -90,7 +90,7 @@
 - 当前包括：
   - `page-content.ts`：`chatbrowserx.tool.get-page-content.request` 与 `GetPageContentToolPayload`。
   - `page-elements.ts`：`chatbrowserx.tool.get-page-elements.request` 与 `GetPageElementsToolPayload`。
-  - `page-action.ts`：`chatbrowserx.tool.page-action.request`、`PageActionToolRequestPayload`、`PageActionDirection`、`pageActionDirections`、`isPageActionDirection` 与 `PageActionToolResult`。
+  - `page-actions.ts`：`chatbrowserx.tool.page-action.request`、`PageActionToolRequestPayload`、`PageActionDirection`、`pageActionDirections`、`isPageActionDirection` 与 `PageActionToolResult`。
 - 不放工具实现、DOM 逻辑、Chrome 调度或 provider 编排。
 
 ## 4. 工具注册与执行链路

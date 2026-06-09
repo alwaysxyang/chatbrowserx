@@ -95,8 +95,8 @@ src/
     services/
     tools/
       browser-tabs/
-      get-page-content/
-      get-page-elements/
+      page-content/
+      page-elements/
       page-actions/
       shared/
       tavily/
@@ -120,7 +120,7 @@ src/
       selection/
     shared/
     tools/
-      get-page-content/
+      page-content/
       page-automation/
       shared/
 ```
@@ -167,7 +167,7 @@ src/
   - 负责需要 content script / DOM 能力的工具执行逻辑。
   - 具体工具按目录组织；工具间复用能力放在 `shared/`。
   - `shared/page-scanner.ts` 负责当前页内容读取与 PDF 截图链路共用的 DOM 滚动扫描、主滚动容器选择与初始滚动位置恢复。
-  - `get-page-content/index.ts` 负责当前页文本内容读取，仅输出标题、URL 与去重后的正文文本。
+  - `page-content/index.ts` 负责当前页文本内容读取，仅输出标题、URL 与去重后的正文文本。
   - `page-automation` 负责当前视口元素快照、快照存储、页面动作执行、富代码编辑器窄桥接与虚拟鼠标。
 
 ### 6.3 `src/background`

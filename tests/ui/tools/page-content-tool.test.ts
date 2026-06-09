@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readCurrentPageContent, readPageContent, registerGetPageContentToolListener } from '../../../src/ui/tools/get-page-content';
+import { readCurrentPageContent, readPageContent, registerGetPageContentToolListener } from '../../../src/ui/tools/page-content';
 
 /**
  * Makes jsdom body text behave like browser innerText.

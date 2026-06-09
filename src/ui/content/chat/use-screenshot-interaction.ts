@@ -10,7 +10,7 @@ import {
   type ResizeEdge,
 } from './screenshot/screenshot-selection-geometry';
 import type { ScreenshotRect } from './screenshot/screenshot-types';
-import { isScreenshotControlsTarget } from './screenshot-controls';
+import { isScreenshotControlsTarget } from './ScreenshotControls';
 
 interface DragState {
   type: 'draw';

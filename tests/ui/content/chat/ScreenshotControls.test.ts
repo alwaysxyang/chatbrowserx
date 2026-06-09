@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildScreenshotControlsStyle } from '../../../../src/ui/content/chat/screenshot-controls';
+import { buildScreenshotControlsStyle } from '../../../../src/ui/content/chat/ScreenshotControls';
 import type { ScreenshotRect } from '../../../../src/ui/content/chat/screenshot/screenshot-types';
 
 const originalInnerWidth = window.innerWidth;

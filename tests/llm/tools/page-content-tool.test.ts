@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGetPageContentTool } from '../../../src/llm/tools/get-page-content';
+import { createGetPageContentTool } from '../../../src/llm/tools/page-content';
 
 describe('get current page content LLM tool', () => {
   it('defines a request-bound current page content reader', async () => {

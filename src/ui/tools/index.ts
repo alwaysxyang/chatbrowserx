@@ -1,4 +1,4 @@
-import { registerGetPageContentToolListener } from './get-page-content';
+import { registerGetPageContentToolListener } from './page-content';
 import { registerPageAutomationToolListeners } from './page-automation/runtime-listeners';
 
 /**
