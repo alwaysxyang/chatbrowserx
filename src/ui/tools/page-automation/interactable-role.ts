@@ -1,4 +1,7 @@
-import { isCodeEditorElement } from './dom-targets';
+import {
+  isCodeEditorElement,
+  isContentEditableElement,
+} from './dom-targets';
 import { hasDirectSemanticControlToken } from './interactable-naming';
 import { isNestedWritableTextboxWrapper } from './interactable-textbox-wrapper';
 
@@ -381,7 +384,7 @@ export function inferRole(element: Element, windowObject: Window): string | null
     return 'textbox';
   }
 
-  if ((element as HTMLElement).isContentEditable) return 'textbox';
+  if (isContentEditableElement(element)) return 'textbox';
   if (isBroadTemporalPickerContainer(element)) return null;
   if (isCompositeChoiceSurface(element, windowObject)) return 'combobox';
   if (isCompositePopupOption(element)) return 'option';

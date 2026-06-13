@@ -1,4 +1,14 @@
 /**
+ * Removes invisible formatting characters that should not count as readable text.
+ *
+ * @param value - The raw text.
+ * @returns Text without zero-width formatting markers.
+ */
+function removeInvisibleFormatCharacters(value: string): string {
+  return value.replace(/[\u200B-\u200D\u2060\uFEFF]/g, '');
+}
+
+/**
  * Truncates text to a token-bounded single-line value.
  *
  * @param value - The raw text.
@@ -6,7 +16,7 @@
  * @returns A normalized, truncated string.
  */
 export function truncateText(value: string, maxChars: number): string {
-  const normalized = value.replace(/\s+/g, ' ').trim();
+  const normalized = removeInvisibleFormatCharacters(value).replace(/\s+/g, ' ').trim();
   if (normalized.length <= maxChars) return normalized;
   return normalized.slice(0, maxChars).trim();
 }

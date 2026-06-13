@@ -200,17 +200,17 @@ function buildUnlabeledControlName(role: string, element: Element): string {
 }
 
 /**
- * Reads placeholder text from native text controls.
+ * Reads placeholder text from native and rich text controls.
  *
  * @param element - The candidate element.
  * @returns Placeholder text when the element is a text-entry control.
  */
-function readNativeTextControlPlaceholder(element: Element): string | undefined {
+function readTextControlPlaceholder(element: Element): string | undefined {
   if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) {
     return truncateText(element.placeholder, maxNameChars) || undefined;
   }
 
-  return undefined;
+  return truncateText(element.getAttribute('data-placeholder') ?? '', maxNameChars) || undefined;
 }
 
 /**
@@ -298,7 +298,7 @@ export function readControlName(element: Element, role: string, windowObject: Wi
   if (role === 'scrollarea') return title || 'scrollable area';
   if (role === 'option' && visibleText) return visibleText;
   if ((role === 'textbox' || role === 'searchbox') && !visibleText) {
-    const placeholder = readNativeTextControlPlaceholder(element);
+    const placeholder = readTextControlPlaceholder(element);
     if (placeholder) return placeholder;
   }
   if (fieldLabel) return fieldLabel;

@@ -1015,6 +1015,60 @@ describe('ui get page elements tool', () => {
     ]);
   });
 
+  it('exposes nested document title and body editors instead of the broad editor shell', () => {
+    document.body.innerHTML = `
+      <main id="doc-shell" contenteditable="true">
+        <div id="toolbar">添加图标添加封面</div>
+        <h1 id="title-block">
+          <div
+            id="title-editor"
+            class="zone-container text-editor"
+            data-slate-editor="true"
+            contenteditable="true"
+            data-placeholder="请输入标题"
+          >
+            <div class="ace-line">\u200b</div>
+          </div>
+        </h1>
+        <div id="metadata">曹阳今天修改</div>
+        <div
+          id="body-editor"
+          class="zone-container text-editor"
+          data-slate-editor="true"
+          contenteditable="true"
+          data-placeholder="输入“/”快速插入内容"
+        >
+          <div class="ace-line">\u200b</div>
+        </div>
+      </main>
+    `;
+    setViewportSize(1728, 861);
+    const shell = document.getElementById('doc-shell')!;
+    const toolbar = document.getElementById('toolbar')!;
+    const titleBlock = document.getElementById('title-block')!;
+    const titleEditor = document.getElementById('title-editor')!;
+    const metadata = document.getElementById('metadata')!;
+    const bodyEditor = document.getElementById('body-editor')!;
+    setRect(shell, makeRect(454, 64, 820, 240));
+    setRect(toolbar, makeRect(454, 64, 820, 28));
+    setRect(titleBlock, makeRect(454, 88, 820, 82));
+    setRect(titleEditor, makeRect(454, 88, 820, 82));
+    setRect(metadata, makeRect(454, 181, 820, 22));
+    setRect(bodyEditor, makeRect(454, 235, 820, 26));
+    spyElementFromPoint(document).mockImplementation((_x, y) => {
+      if (y < 170) return titleEditor;
+      if (y < 220) return metadata;
+      return bodyEditor;
+    });
+
+    const snapshot = readCurrentPageElements(document, window);
+
+    expect(snapshot.items).toEqual([
+      writableItem('e1', 'textbox', '请输入标题', [454, 88, 820, 82]),
+      writableItem('e2', 'textbox', '输入“/”快速插入内容', [454, 235, 820, 26]),
+    ]);
+  });
+
   it('ignores non-interactive explicit roles', () => {
     document.body.innerHTML = `
       <div id="status" role="status">Saved</div>

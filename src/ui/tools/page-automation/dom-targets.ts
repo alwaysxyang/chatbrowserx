@@ -145,6 +145,17 @@ export function isCodeEditorElement(element: Element): boolean {
 }
 
 /**
+ * Checks whether an element exposes contenteditable editing semantics.
+ *
+ * @param element - The element to inspect.
+ * @returns True when the element is a contenteditable text surface.
+ */
+export function isContentEditableElement(element: Element): element is HTMLElement {
+  return element instanceof HTMLElement &&
+    (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === '');
+}
+
+/**
  * Checks whether an element is a text-like writable target.
  *
  * @param element - The element to inspect.
@@ -160,7 +171,7 @@ export function isWritableTextElement(element: Element): boolean {
 
   return tagName === 'textarea' && !isReadonlyTextControl(element) ||
     tagName === 'select' ||
-    (element instanceof HTMLElement && (element.isContentEditable || element.getAttribute('contenteditable') === 'true' || element.getAttribute('contenteditable') === ''));
+    isContentEditableElement(element);
 }
 
 /**

@@ -1,4 +1,5 @@
 import type { CandidateItem } from './interactable-candidate';
+import { isContentEditableElement } from './dom-targets';
 import { rectOverlapRatio } from './geometry';
 import {
   isUnlabeledFallbackName,
@@ -80,6 +81,35 @@ function removeNestedDuplicateCandidates(items: CandidateItem[]): CandidateItem[
 }
 
 /**
+ * Checks whether a textbox candidate is a broad editable document shell around real editor surfaces.
+ *
+ * @param item - The candidate item to inspect.
+ * @param items - All candidate items in DOM order.
+ * @returns True when nested contenteditable textboxes should represent the editable fields instead.
+ */
+function isBroadEditableTextboxShell(item: CandidateItem, items: CandidateItem[]): boolean {
+  if (item.role !== 'textbox' || !isContentEditableElement(item.element)) return false;
+  if (item.element.getAttribute('data-placeholder')) return false;
+
+  return items.some((child) => (
+    child !== item &&
+    child.role === 'textbox' &&
+    isContentEditableElement(child.element) &&
+    item.element.contains(child.element)
+  ));
+}
+
+/**
+ * Removes broad contenteditable shells that contain more specific editable textboxes.
+ *
+ * @param items - Candidate items in DOM order.
+ * @returns Candidate items without broad document editor shells.
+ */
+function removeBroadEditableTextboxShells(items: CandidateItem[]): CandidateItem[] {
+  return items.filter((item) => !isBroadEditableTextboxShell(item, items));
+}
+
+/**
  * Removes accessibility textboxes that duplicate an overlapping code editor surface.
  *
  * @param items - Candidate items after nested duplicate removal.
@@ -105,5 +135,7 @@ function removeOverlappingCodeEditorTextboxDuplicates(items: CandidateItem[]): C
  * @returns Deduplicated candidate items.
  */
 export function deduplicateNestedCandidates(items: CandidateItem[]): CandidateItem[] {
-  return removeOverlappingCodeEditorTextboxDuplicates(removeNestedDuplicateCandidates(items));
+  return removeOverlappingCodeEditorTextboxDuplicates(
+    removeNestedDuplicateCandidates(removeBroadEditableTextboxShells(items)),
+  );
 }
